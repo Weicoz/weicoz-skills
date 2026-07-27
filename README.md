@@ -15,4 +15,4 @@
 ./scripts/validate-skills.sh
 ```
 
-运行环境仍使用 `/Users/weicoz/.agents/skills` 作为安装根；本仓库作为源码真源，由 Skills Manager 按 `skills/<skill-name>` 子路径管理。
+运行环境使用 `$WEICOZ_SKILLS_ROOT` 作为安装根；本仓库作为源码真源，由 Skills Manager 按 `skills/<skill-name>` 子路径管理。

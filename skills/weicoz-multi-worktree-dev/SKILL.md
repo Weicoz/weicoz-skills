@@ -18,7 +18,7 @@ description: >
 
 分支模型：feature 分支 → **develop（集成分支，所有回归在这里跑）** → main（生产发布分支，**受保护**：仅手工发起 PR + 人工审核通过后从 develop 合入）。
 
-底稿：`/Users/weicoz/File/git/knowledge/knowledge/notes/多worktree并行开发测试流程-实践指南.md`（详情以该文档为准）。
+底稿：`$WEICOZ_KNOWLEDGE_ROOT/notes/多worktree并行开发测试流程-实践指南.md`（详情以该文档为准）。
 
 ## 一、核心原理：三层隔离
 

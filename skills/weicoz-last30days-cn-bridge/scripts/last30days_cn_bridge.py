@@ -19,8 +19,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-OFFICIAL = Path("/Users/weicoz/.agents/skills/last30days-cn/scripts/last30days.py")
-BROWSER_STATE_DIR = Path.home() / ".codex" / "browser-states"
+OFFICIAL = Path(os.environ["WEICOZ_OFFICIAL_LAST30DAYS_SKILL"]) / "scripts" / "last30days.py"
+BROWSER_STATE_DIR = Path(os.environ.get("WEICOZ_CODEX_ROOT", Path.home() / ".codex")) / "browser-states"
 
 SOURCE_SITE_QUERIES = {
     "weibo": "site:weibo.com OR site:m.weibo.cn",

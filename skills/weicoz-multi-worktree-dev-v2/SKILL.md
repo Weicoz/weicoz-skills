@@ -7,7 +7,7 @@ description: "多 AI 会话 + git worktree 并行开发多个需求的完整测�
 
 > 场景：一个项目开多个 AI 会话，每个会话在独立 git worktree 开发一个需求，要求互不干扰、各自可测、合并到 develop 后功能正常。
 > 分支模型：feature → **develop（集成分支，所有回归在这里跑）** → main（生产发布，**受保护**）。
-> 底稿：`/Users/weicoz/File/git/knowledge/knowledge/notes/多worktree并行开发测试流程-实践指南.md`（细则以该文档为准；调研过程见 `notes/多worktree并行开发-测试流程调研-2026-07-21.md`）。
+> 底稿：`$WEICOZ_KNOWLEDGE_ROOT/notes/多worktree并行开发测试流程-实践指南.md`（细则以该文档为准；调研过程见 `notes/多worktree并行开发-测试流程调研-2026-07-21.md`）。
 
 ---
 

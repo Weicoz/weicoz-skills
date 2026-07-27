@@ -232,7 +232,7 @@ description: 微信公众号运营专家 skill。用户要做公众号账号定�
 如果修改本 skill，运行：
 
 ```bash
-python /Users/weicoz/.agents/skills/weicoz-wechat-official-account-operator/scripts/harness.py
+python "$WEICOZ_SKILLS_ROOT/weicoz-wechat-official-account-operator/scripts/harness.py"
 ```
 
 这个 harness 只做结构、覆盖面和关键禁令检查，不评价文案质量。文案质量需要人工看样例输出。

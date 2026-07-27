@@ -31,17 +31,17 @@ description: |
 使用真实脚本路径：
 
 ```bash
-python /Users/weicoz/.skills-manager/skills/last30days-cn/scripts/last30days.py "<topic>" --emit compact
+python "$WEICOZ_OFFICIAL_LAST30DAYS_SKILL/scripts/last30days.py" "<topic>" --emit compact
 ```
 
 常用变体：
 
 ```bash
-python /Users/weicoz/.skills-manager/skills/last30days-cn/scripts/last30days.py "<topic>" --quick --emit compact
-python /Users/weicoz/.skills-manager/skills/last30days-cn/scripts/last30days.py "<topic>" --deep --emit md
-python /Users/weicoz/.skills-manager/skills/last30days-cn/scripts/last30days.py "<topic>" --search xiaohongshu,zhihu,bilibili,weibo,douyin,wechat --emit compact
-python /Users/weicoz/.skills-manager/skills/last30days-cn/scripts/last30days.py "<topic>" --as-of 2026-05-01 --emit compact
-python /Users/weicoz/.skills-manager/skills/last30days-cn/scripts/last30days.py --diagnose
+python "$WEICOZ_OFFICIAL_LAST30DAYS_SKILL/scripts/last30days.py" "<topic>" --quick --emit compact
+python "$WEICOZ_OFFICIAL_LAST30DAYS_SKILL/scripts/last30days.py" "<topic>" --deep --emit md
+python "$WEICOZ_OFFICIAL_LAST30DAYS_SKILL/scripts/last30days.py" "<topic>" --search xiaohongshu,zhihu,bilibili,weibo,douyin,wechat --emit compact
+python "$WEICOZ_OFFICIAL_LAST30DAYS_SKILL/scripts/last30days.py" "<topic>" --as-of 2026-05-01 --emit compact
+python "$WEICOZ_OFFICIAL_LAST30DAYS_SKILL/scripts/last30days.py" --diagnose
 ```
 
 要求：

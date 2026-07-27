@@ -359,7 +359,7 @@ Example:
 - Do not present unclear business rules as confirmed.
 - If creating file in knowledge repo, prefer `outputs/[项目名]-PM需求与商业模式说明-[date].md`.
 - If the user explicitly wants the artifact saved into `jy-design`, or the current workflow is already routed into `jy-design`, then:
-  - put the file inside the target project directory under `/Users/weicoz/File/git/jy-design`
+  - put the file inside the target project directory under `$WEICOZ_JY_DESIGN_ROOT`
   - prefer dated filenames such as `需求文档-YYYYMMDD.md`
   - if the project directory is newly created, prefer a dated directory name such as `项目名-YYYYMMDD`
   - do not leave the PM document in another repo's `outputs/` and then duplicate it later

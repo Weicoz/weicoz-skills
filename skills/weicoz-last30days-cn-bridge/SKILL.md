@@ -5,11 +5,11 @@ description: Wrapper skill for Chinese last-30-days research that must not modif
 
 # weicoz-last30days-cn-bridge
 
-Use this skill as an outer layer. Never edit `/Users/weicoz/.agents/skills/last30days-cn`.
+Use this skill as an outer layer. Never edit `$WEICOZ_OFFICIAL_LAST30DAYS_SKILL`.
 
 ## Default Paths
 
-- Official skill: `/Users/weicoz/.agents/skills/last30days-cn`
+- Official skill: `$WEICOZ_OFFICIAL_LAST30DAYS_SKILL`
 - Bridge script: `scripts/last30days_cn_bridge.py`
 - Browser states: `~/.codex/browser-states/last30days-cn-<platform>.json`
 

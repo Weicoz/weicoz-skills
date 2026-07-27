@@ -30,7 +30,7 @@ description: "基于现有 .docx 合同模板、客户信息、金额规则和�
 先写配置 JSON，再运行：
 
 ```bash
-$PYTHON /Users/weicoz/.agents/skills/weicoz-custom-contract-docx/scripts/generate_contract.py \
+$PYTHON "$WEICOZ_SKILLS_ROOT/weicoz-custom-contract-docx/scripts/generate_contract.py" \
   --template /abs/path/template.docx \
   --config /abs/path/contract.json \
   --output /abs/path/output.docx
@@ -43,7 +43,7 @@ $PYTHON /Users/weicoz/.agents/skills/weicoz-custom-contract-docx/scripts/generat
 生成完成后，必须执行渲染验收：
 
 ```bash
-$PYTHON /Users/weicoz/.codex/plugins/cache/openai-primary-runtime/documents/26.423.10653/skills/documents/render_docx.py \
+$PYTHON "$WEICOZ_DOCUMENTS_RENDERER" \
   /abs/path/output.docx \
   --output_dir /abs/path/rendered \
   --renderer artifact-tool

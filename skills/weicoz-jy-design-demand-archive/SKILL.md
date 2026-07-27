@@ -1,7 +1,7 @@
 ---
 name: weicoz-jy-design-demand-archive
 description: >
-  把会议纪要、沟通记录、聊天内容或客户原话，整理并落盘到 `/Users/weicoz/File/git/jy-design` 对应项目目录，再按内容产出导图、需求文档或报价文档。
+  把会议纪要、沟通记录、聊天内容或客户原话，整理并落盘到 `$WEICOZ_JY_DESIGN_ROOT` 对应项目目录，再按内容产出导图、需求文档或报价文档。
   当用户提到“保存到 jy-design”“把这段沟通记录存起来”“根据内容出导图”“会议纪要转 jy-design 文档”“把客户沟通整理到 jy-design 并输出需求材料”时必须使用；用户还要求报价、预算、服务器、第三方服务/API/SDK 价格或完整项目评估时，必须调用 `weicoz-project-quote-estimator` 输出逐项报价文档。
 allowed-tools: Read, Write, Edit, Bash
 ---
@@ -32,7 +32,7 @@ allowed-tools: Read, Write, Edit, Bash
 ## 目录与命名规则
 
 ### 项目目录
-- 默认根目录：`/Users/weicoz/File/git/jy-design`
+- 默认根目录：`$WEICOZ_JY_DESIGN_ROOT`
 - 若用户已给项目名，直接落到对应目录。
 - 若目录已存在，优先复用。
 - 若是新建项目目录，默认目录名也带日期后缀：`项目名-YYYYMMDD`
@@ -166,7 +166,7 @@ test -s "$RAW" && ! rg -n '摘要|摘取|抽取|节选|省略|详见会话|原�
 当用户要求报价、预算、周期、服务器、云服务、第三方服务/API/SDK 价格、App Store/Google Play 上架费用或完整项目评估时：
 
 1. 先完成沟通记录、原始会议转写和需求范围收口。
-2. 读取 `/Users/weicoz/.agents/skills/weicoz-project-quote-estimator/SKILL.md` 并按其流程执行。
+2. 读取 `$WEICOZ_SKILLS_ROOT/weicoz-project-quote-estimator/SKILL.md` 并按其流程执行。
 3. 在同一个 `jy-design/<项目目录>/` 生成或更新 `项目报价与第三方服务费用-YYYYMMDD.md`。
 4. 报价文档必须分开：功能模块逐项报价、第三方服务逐项单价/用量/公式、服务器配置/扩容费用、年度/月度/一次性费用、上架费用和责任边界。
 5. 厂商价格无法查到或仅销售报价时，标注“待厂商书面报价”和所需参数；可以给预算区间，不得伪造固定合同价。

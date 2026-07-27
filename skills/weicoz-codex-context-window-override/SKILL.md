@@ -26,7 +26,7 @@ This workflow changes only local Codex client configuration. It does not prove t
 Run:
 
 ```bash
-bash "${CLAUDE_SKILL_DIR:-/Users/weicoz/.agents/skills/weicoz-codex-context-window-override}/scripts/apply.sh"
+bash "${CLAUDE_SKILL_DIR:-$WEICOZ_SKILLS_ROOT/weicoz-codex-context-window-override}/scripts/apply.sh"
 ```
 
 This defaults to:
@@ -41,7 +41,7 @@ This defaults to:
 Run:
 
 ```bash
-bash "${CLAUDE_SKILL_DIR:-/Users/weicoz/.agents/skills/weicoz-codex-context-window-override}/scripts/apply.sh" gpt-5.4-mini 400000
+bash "${CLAUDE_SKILL_DIR:-$WEICOZ_SKILLS_ROOT/weicoz-codex-context-window-override}/scripts/apply.sh" gpt-5.4-mini 400000
 ```
 
 Arguments:
@@ -56,7 +56,7 @@ The script layers new changes on top of the currently configured `model_catalog_
 Run:
 
 ```bash
-bash "${CLAUDE_SKILL_DIR:-/Users/weicoz/.agents/skills/weicoz-codex-context-window-override}/scripts/rollback.sh"
+bash "${CLAUDE_SKILL_DIR:-$WEICOZ_SKILLS_ROOT/weicoz-codex-context-window-override}/scripts/rollback.sh"
 ```
 
 This restores the latest config backup created by `scripts/apply.sh`. It does not delete patched catalog files; leaving them is safer and keeps the history auditable.
@@ -91,7 +91,7 @@ jq '(.models[] | select(.slug=="gpt-5.5") | .context_window)=1000000 | (.models[
 4. Add or replace `model_catalog_json` in `~/.codex/config.toml`:
 
 ```toml
-model_catalog_json = "/Users/weicoz/.codex/model-catalog-overrides/gpt-5.5-1m-YYYYMMDD-HHMMSS.json"
+model_catalog_json = "$WEICOZ_CODEX_ROOT/model-catalog-overrides/gpt-5.5-1m-YYYYMMDD-HHMMSS.json"
 ```
 
 5. Verify:
@@ -131,7 +131,7 @@ jq '.models[] | select(.slug=="gpt-5.5") | {slug,context_window,max_context_wind
 Use the script first:
 
 ```bash
-bash "${CLAUDE_SKILL_DIR:-/Users/weicoz/.agents/skills/weicoz-codex-context-window-override}/scripts/rollback.sh"
+bash "${CLAUDE_SKILL_DIR:-$WEICOZ_SKILLS_ROOT/weicoz-codex-context-window-override}/scripts/rollback.sh"
 ```
 
 Manual rollback:
