@@ -197,9 +197,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=jy
-WorkingDirectory=/home/jy/frp
-ExecStart=/opt/frp/frpc -c /home/jy/frp/frpc.toml
+User=<WEICOZ_FRP_REMOTE_USER>
+WorkingDirectory=<WEICOZ_FRP_REMOTE_DIR>
+ExecStart=/opt/frp/frpc -c <WEICOZ_FRP_REMOTE_DIR>/frpc.toml
 Restart=always
 RestartSec=3
 LimitNOFILE=1048576
