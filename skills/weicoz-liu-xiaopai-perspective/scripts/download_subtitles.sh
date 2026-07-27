@@ -7,7 +7,7 @@
 set -e
 
 URL="$1"
-OUTPUT_DIR="${2:-.}"
+OUTPUT_DIR="${2:-${WEICOZ_OUTPUT_ROOT:-$PWD}}"
 
 if [ -z "$URL" ]; then
     echo "用法: ./download_subtitles.sh <YouTube_URL> [输出目录]"

@@ -49,7 +49,7 @@ python "$WEICOZ_OFFICIAL_LAST30DAYS_SKILL/scripts/last30days.py" --diagnose
 - 写明日期范围、启用平台、失败平台。
 - 输出区分 confirmed findings、weak signals、failed sources。
 - 如果平台返回少或失败，不要补编；改换关键词或缩小平台后再试。
-- 如果用户要求报告落盘，默认保存到 `outputs/YYYY-MM-DD-cn-demand-liu-xiaopai.md`。
+- 如果用户要求报告落盘，默认保存到 `${WEICOZ_OUTPUT_ROOT:-$PWD}/outputs/YYYY-MM-DD-cn-demand-liu-xiaopai.md`。
 
 ### Step 2: 用中文痛点词扩搜
 

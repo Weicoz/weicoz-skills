@@ -287,7 +287,7 @@ smallbusiness,ecommerce,shopify,excel,bookkeeping,Accounting,resumes,jobs,recrui
 默认落盘：
 
 ```text
-outputs/YYYY-MM-DD-reddit-pain-liu-xiaopai.md
+${WEICOZ_OUTPUT_ROOT:-$PWD}/outputs/YYYY-MM-DD-reddit-pain-liu-xiaopai.md
 ```
 
 报告结构：
@@ -377,7 +377,7 @@ Completion Audit：
 - 是否只看标题：否
 - 是否把 broad platform 当第一刀：否
 - 是否把“用户喜欢”误判为“用户会付费”：否
-- 输出文件：outputs/YYYY-MM-DD-reddit-pain-liu-xiaopai.md
+- 输出文件：`${WEICOZ_OUTPUT_ROOT:-$PWD}/outputs/YYYY-MM-DD-reddit-pain-liu-xiaopai.md`
 ```
 
 ## 质量红线

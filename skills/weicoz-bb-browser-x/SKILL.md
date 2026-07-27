@@ -29,7 +29,7 @@ allowed-tools: Bash(bb-browser:*), Bash(mkdir:*), Bash(date:*), Bash(cat:*), Bas
 4. 每次任务都要有两份输出：
    - 对话内简明结果
    - 文件落盘结果
-5. 优先复用已有目录：默认写到 `projects/x-research/runs/<timestamp>/`。
+5. 优先复用已有目录：默认写到 `${WEICOZ_OUTPUT_ROOT:-$PWD}/projects/x-research/runs/<timestamp>/`。
 6. 不覆盖旧结果。每次新建时间戳目录。
 7. 如果任务里打开了额外 tab，结束后关闭自己打开的 tab。
 

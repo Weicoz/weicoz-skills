@@ -357,7 +357,7 @@ Example:
 - Do not overdesign architecture.
 - Do not hide contradictions.
 - Do not present unclear business rules as confirmed.
-- If creating file in knowledge repo, prefer `outputs/[项目名]-PM需求与商业模式说明-[date].md`.
+- If creating file in knowledge repo, prefer `${WEICOZ_OUTPUT_ROOT:-$PWD}/outputs/[项目名]-PM需求与商业模式说明-[date].md`.
 - If the user explicitly wants the artifact saved into `jy-design`, or the current workflow is already routed into `jy-design`, then:
   - put the file inside the target project directory under `$WEICOZ_JY_DESIGN_ROOT`
   - prefer dated filenames such as `需求文档-YYYYMMDD.md`

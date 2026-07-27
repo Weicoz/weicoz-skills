@@ -12,7 +12,7 @@ description: "基于现有 .docx 合同模板、客户信息、金额规则和�
 1. 读取合同模板，识别待填字段、金额位、联系人位、工期位、需求清单图片占位。
 2. 汇总用户已提供的信息，先输出一版“预想内容”给用户核对。只问最少的缺失信息。
 3. 缺失的甲方信息保持留空，不要脑补。
-4. 用户确认后，在当前工作区写一份 JSON 配置文件。字段规则和示例见 `references/field-rules.md`。
+4. 用户确认后，在 `${WEICOZ_OUTPUT_ROOT:-$PWD}` 写一份 JSON 配置文件。字段规则和示例见 `references/field-rules.md`。
 5. 先调用 `load_workspace_dependencies`，再用返回的 Python 运行 `scripts/generate_contract.py`。
 6. 用 documents skill 的 `render_docx.py --renderer artifact-tool` 渲染输出的 `.docx`，逐页检查后再交付。
 

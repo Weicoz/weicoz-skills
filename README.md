@@ -8,6 +8,7 @@
 - 每个 skill 必须包含 `SKILL.md`，frontmatter 的 `name` 必须与目录名一致。
 - 凭据只从环境变量读取，不提交真实值。
 - 本机私有变量放在 `~/.zshrc`；变量名示例见 `.env.example`。
+- 严格固定路径使用对应环境变量；普通输出路径优先使用 `$WEICOZ_OUTPUT_ROOT`，未配置时使用当前目录。
 
 ## 校验
 

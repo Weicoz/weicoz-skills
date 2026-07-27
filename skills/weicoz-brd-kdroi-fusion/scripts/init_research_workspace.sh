@@ -24,7 +24,7 @@ if [[ ! "$slug" =~ ^[a-z0-9-]+$ ]]; then
 fi
 
 ts="$(date +%Y%m%d-%H%M%S)"
-default_out="$PWD/${slug}-fusion-${ts}"
+default_out="${WEICOZ_OUTPUT_ROOT:-$PWD}/${slug}-fusion-${ts}"
 out_dir="${2:-$default_out}"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

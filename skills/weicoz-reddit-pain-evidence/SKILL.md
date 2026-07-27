@@ -220,10 +220,10 @@ bb-browser tab new https://www.reddit.com
 
 ## Step 6: Report Format
 
-默认把报告落盘到当前工作区：
+默认把报告落盘到 `${WEICOZ_OUTPUT_ROOT:-$PWD}`：
 
 ```text
-outputs/reddit-pain-evidence-YYYY-MM-DD.md
+${WEICOZ_OUTPUT_ROOT:-$PWD}/outputs/reddit-pain-evidence-YYYY-MM-DD.md
 ```
 
 报告结构：

@@ -226,10 +226,10 @@ keyword: Volume / KD / CPC
 
 ## Step 7: Write Final Report
 
-报告必须落盘为 Markdown。默认保存到当前工作区：
+报告必须落盘为 Markdown。默认保存到 `${WEICOZ_OUTPUT_ROOT:-$PWD}`：
 
 ```text
-outputs/weicoz-reddit-opportunity-semrush-YYYY-MM-DD.md
+${WEICOZ_OUTPUT_ROOT:-$PWD}/outputs/weicoz-reddit-opportunity-semrush-YYYY-MM-DD.md
 ```
 
 如果用户给了项目目录，保存在该项目的 `outputs/` 下。

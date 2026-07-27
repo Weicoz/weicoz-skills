@@ -40,7 +40,7 @@ const unique = [...new Map(mappings.map(([, spanish]) => [spanish, spanish])).va
 const resumePath = option('resume');
 const results = resumePath ? JSON.parse(readFileSync(resumePath, 'utf8')).results : [];
 const completed = new Set(results.filter((item) => item.success).map((item) => `${item.db}:${item.query}`));
-const outputDir = resolve(process.cwd(), 'outputs');
+const outputDir = resolve(process.env.WEICOZ_OUTPUT_ROOT || process.cwd(), 'outputs');
 mkdirSync(outputDir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const jsonPath = resolve(outputDir, `${stamp}-semrush-es-mx-spanish-tool-roots.json`);

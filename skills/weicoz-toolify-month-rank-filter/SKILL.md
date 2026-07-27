@@ -106,7 +106,7 @@ After the table, ask one short follow-up: whether the user wants the same result
 
 ## Markdown export
 
-If the user answers yes, save one Markdown file per month under `playground/outputs/toolify-month-rank/`.
+If the user answers yes, save one Markdown file per month under `${WEICOZ_OUTPUT_ROOT:-$PWD}/playground/outputs/toolify-month-rank/`.
 
 Use this filename pattern:
 
