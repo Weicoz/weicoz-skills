@@ -1,0 +1,4 @@
+interface:
+  display_name: "GPT-5.6 提示词编译器"
+  short_description: "把原始需求压缩成可直接发送给 GPT 的安全提示词。"
+  default_prompt: "使用 $weicoz-gpt-5-6-prompt-compiler 将以下内容编译成可直接发送给 GPT 的提示词："

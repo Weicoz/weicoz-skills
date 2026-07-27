@@ -1,0 +1,4 @@
+interface:
+  display_name: "项目报价核算"
+  short_description: "为客户项目逐项核算功能开发服务器及第三方服务费用"
+  default_prompt: "使用 $weicoz-project-quote-estimator 为当前客户项目生成逐项报价与服务费用文档。"

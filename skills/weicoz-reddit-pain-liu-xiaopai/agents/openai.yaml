@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reddit痛点小排评估"
+  short_description: "Reddit pain evidence plus trade viability lens"
+  default_prompt: "Use $weicoz-reddit-pain-liu-xiaopai to research Reddit pain evidence and judge MVP, leverage, execution, and sustainable transaction viability."

@@ -1,0 +1,5 @@
+interface:
+  display_name: "AI Product Opportunity"
+  short_description: "Evaluate AI product ideas and MVP opportunities"
+  brand_color: "#0F766E"
+  default_prompt: "Use $weicoz-ai-product-opportunity to evaluate this AI product idea and give a GO/HOLD/NO-GO decision."

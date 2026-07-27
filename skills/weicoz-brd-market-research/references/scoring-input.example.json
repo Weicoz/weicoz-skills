@@ -1,0 +1,17 @@
+{
+  "go_checks": {
+    "validated_pain_points": true,
+    "clear_differentiation": true,
+    "growing_demand": true,
+    "startup_cost_under_500": true,
+    "payback_within_6_months": false
+  },
+  "no_go_signals": {
+    "cannot_find_real_pain": false,
+    "competitors_are_free_and_sufficient": false,
+    "demand_declining": false,
+    "startup_cost_too_high": false,
+    "no_distribution_channel": false
+  },
+  "notes": "example payload"
+}

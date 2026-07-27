@@ -1,0 +1,4 @@
+step,platform,query_or_page,user_segment,signal_type,pain_point_or_insight,frequency_bucket,source_url,quote_or_note,confidence,owner,timestamp
+1,Google Trends,ai note taker,global,trend,demand up and stable,high,https://trends.google.com/,3y and 5y trend both upward,high,,
+2,Chrome Web Store,AI summarizer extension reviews,knowledge worker,pain,free tier limits too strict,medium,https://chromewebstore.google.com/,1-3 star reviews mention daily cap and unstable parsing,medium,,
+3,Reddit,best alternative to <competitor>,indie hacker,pain,pricing not matched to usage,medium,https://www.reddit.com/,multiple users switched because seat pricing is too high for solo users,medium,,

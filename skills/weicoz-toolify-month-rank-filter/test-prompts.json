@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "prompt": "Toolify 2026-04 视频与动画类，筛出月访问量 50万到200万、月增长 20万以上，给我官网和 Toolify 详情页。",
+    "expected": "The agent fetches one month, filters locally, resolves the matching category, and returns a compact table with both Toolify and official URLs."
+  },
+  {
+    "id": 2,
+    "prompt": "Toolify 2026-03 和 2026-04 都想看，别合并，分别给我结果。",
+    "expected": "The agent splits multiple months into separate sections or files instead of silently merging them."
+  },
+  {
+    "id": 3,
+    "prompt": "官方链接解析不出来时，请明确告诉我并退回到 Toolify 详情页，不要假装成功。",
+    "expected": "The agent explicitly falls back to the Toolify detail URL and states that the official site could not be resolved."
+  }
+]

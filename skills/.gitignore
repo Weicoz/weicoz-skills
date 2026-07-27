@@ -1,0 +1,12 @@
+.DS_Store
+Thumbs.db
+*.tmp
+.skills-manager.lock
+
+# skills-manager: oversized skills excluded from backup (auto-managed)
+/gstack/
+/.skills-manager/skills/47add539-52dc-43df-938e-6d01d6c42a39.json
+/wewrite/
+/.skills-manager/skills/42e47ed9-a18b-4c10-abce-620d6c851e72.json
+/ppt-master/
+# skills-manager: end oversized skills

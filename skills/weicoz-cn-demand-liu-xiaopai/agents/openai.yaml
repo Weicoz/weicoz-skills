@@ -1,0 +1,4 @@
+interface:
+  display_name: "国内需求挖掘小排版"
+  short_description: "中文平台痛点挖掘与交易判断"
+  default_prompt: "使用 $weicoz-cn-demand-liu-xiaopai 挖掘一个中文平台近 30 天用户痛点，并判断是否值得做成可持续交易。"

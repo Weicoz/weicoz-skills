@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "prompt": "我想做一个出海 AI 工具站，方向是 AI resume tailoring，帮我用 BRD + KDRoi 判断值不值得做。",
+    "expected": "The agent runs Step 0 keyword gate first, requests or obtains KD/Volume/CPC via weicoz-semrush-bb-browser or existing CSV, then proceeds to BRD only for candidates that pass or hold with explicit evidence gaps."
+  },
+  {
+    "id": 2,
+    "prompt": "拿不到 Semrush 数据，只有免费工具里的 volume、cpc、ads competition，可以先判断吗？",
+    "expected": "The agent marks the result as Ads-KDRoi proxy/pre-gate, refuses to treat it as SEO KD, requires SERP homepage structure validation, and avoids a strong GO without real KD or hard evidence."
+  },
+  {
+    "id": 3,
+    "prompt": "这里有几个旧报告方向，不要和这些类似。请重新找一个 AI SaaS 机会并输出 GO/NO-GO/HOLD。",
+    "expected": "The agent treats the old directions as hard exclusions, runs keyword gate and evidence gate, avoids renaming excluded ideas, and outputs GO/NO-GO/HOLD with ICP, WTP, competitor pain, and next validation action."
+  }
+]

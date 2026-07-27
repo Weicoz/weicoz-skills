@@ -1,0 +1,23 @@
+{
+  "skill_name": "weicoz-reddit-pain-evidence",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "去 Reddit 找 5 个小企业后台自动化的真实痛点，必须看评论区，至少 3 个不同用户交叉验证才算真需求。",
+      "expected_output": "A Markdown report that uses Reddit thread URLs, summarizes OP pain, lists at least 3 unique commenters per accepted pain point, separates weak evidence into a pending/rejected section, and includes a completion audit.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "帮我验证 bank CSV cleaner 这个方向 Reddit 上是不是真痛点。不要做 Semrush，也不要直接给 GO/NO-GO，只要证据标准和评论区证据。",
+      "expected_output": "A Reddit evidence report focused on bank CSV cleaning, with actual threads read, comment-level cross-validation, repeated vocabulary, and no product-opportunity conclusion unless requested.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "我想做 AI 客服工具，先去 Reddit 看真实抱怨。注意区分 OP 自己说痛和评论区多人也说痛。",
+      "expected_output": "A report that distinguishes OP pain from comment validation, excludes bot/deleted/promotional comments, and writes narrow wedges rather than a generic AI customer service platform idea.",
+      "files": []
+    }
+  ]
+}

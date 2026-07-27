@@ -1,0 +1,6 @@
+interface:
+  display_name: "GPT-Image-2 Style Edit"
+  short_description: "风格参考图编辑一致性提示词生成"
+  default_prompt: "Use $weicoz-gptimage2-style-reference-edit to write a GPT-Image-2 prompt for this reference-image edit."
+policy:
+  allow_implicit_invocation: true

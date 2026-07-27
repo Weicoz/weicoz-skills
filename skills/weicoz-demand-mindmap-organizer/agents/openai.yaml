@@ -1,0 +1,4 @@
+interface:
+  display_name: "需求思维导图整理"
+  short_description: "将客户沟通内容整理成结构清晰并可直接打开的真实 XMind 文件"
+  default_prompt: "使用 $weicoz-demand-mindmap-organizer 整理客户需求，并直接生成可打开的 .xmind 文件。"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "飞书收款入账"
+  short_description: "解析银行转账短信并写入飞书收款与流水表"
+  default_prompt: "Use $weicoz-feishu-receipt-base to parse this bank transfer SMS and prepare Feishu Base entries."

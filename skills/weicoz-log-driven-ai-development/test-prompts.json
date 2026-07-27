@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "prompt": "这个订单奖励计算不对，你帮我修一下，先不要乱猜，看看应该怎么排查。",
+    "expected": "The agent defines the order reward business path, checks existing observability, requests or adds targeted logs around inputs, branch selection, intermediate reward values, state changes, and verification before changing code."
+  },
+  {
+    "id": 2,
+    "prompt": "我这个接口联调偶尔返回空数据，代码看起来没问题，你帮我定位。",
+    "expected": "The agent treats the intermittent empty result as an evidence-chain problem, adds or requests logs for sanitized request parameters, query filters, matched row counts, external response summaries, and reruns before proposing a fix."
+  },
+  {
+    "id": 3,
+    "prompt": "新增一个结算状态流转功能，要求每一步 AI 后面都能自己看日志验证。",
+    "expected": "The agent designs feature logs before implementation: entry, validated inputs, branch decisions, state transition summaries, controlled failures, final success, and cleanup guidance for keep/downgrade/remove."
+  }
+]

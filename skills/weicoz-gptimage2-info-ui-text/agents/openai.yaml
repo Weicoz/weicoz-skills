@@ -1,0 +1,6 @@
+interface:
+  display_name: "GPT-Image-2 Info UI Text"
+  short_description: "信息图界面截图文字提示词生成"
+  default_prompt: "Use $weicoz-gptimage2-info-ui-text to create a GPT-Image-2 prompt for this infographic or UI screenshot."
+policy:
+  allow_implicit_invocation: true

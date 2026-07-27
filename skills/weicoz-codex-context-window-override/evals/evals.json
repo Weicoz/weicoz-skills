@@ -1,0 +1,17 @@
+{
+  "skill_name": "weicoz-codex-context-window-override",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我把 Codex 里的 gpt-5.5 上下文窗口改成 1M，做好备份，并告诉我怎么回滚。",
+      "expected_output": "Uses the apply script or equivalent safe workflow, creates a config backup, creates a patched catalog file, verifies with codex debug models, and reports rollback commands.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "撤销上次 gpt-5.5 1M context 的本地 catalog override。",
+      "expected_output": "Uses rollback.sh or restores the latest backup, then verifies config markers and gpt-5.5 catalog state.",
+      "files": []
+    }
+  ]
+}

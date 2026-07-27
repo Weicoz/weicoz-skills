@@ -1,0 +1,5 @@
+step,route,platform,query_or_page,user_segment,signal_type,pain_point_or_insight,frequency_bucket,platform_count,recency_window,source_url,quote_or_note,confidence,owner,timestamp
+1,trend,Google Trends,ai note taker,global,trend,demand up and stable,high,1,5y,https://trends.google.com/,3y and 5y trend both upward,high,,
+2,B-吐槽,Chrome Web Store,AI summarizer extension reviews,knowledge worker,pain,free tier limits too strict,medium,1,3-6m,https://chromewebstore.google.com/,1-3 star reviews mention daily cap and unstable parsing,medium,,
+3,C-替代,Reddit,switched from <competitor> to,indie hacker,pain,pricing not matched to usage,medium,2,3-6m,https://www.reddit.com/,multiple users switched because seat pricing is too high for solo users,medium,,
+4,D-交易,Competitor pricing page,competitor pricing tier comparison,<primary ICP>,wtp,users compare monthly tier price and usage quota,medium,1,3-6m,https://example.com/pricing,users discuss if "$9/mo credits pack is acceptable",medium,,

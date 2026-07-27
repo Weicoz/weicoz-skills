@@ -1,0 +1,4 @@
+interface:
+  display_name: "Weicoz Last30days CN Bridge"
+  short_description: "包装 last30days-cn，补 python3、playwright-cli 和外部兜底源。"
+  default_prompt: "用 weicoz-last30days-cn-bridge 做中文近30天调研，并保留官方 last30days-cn 不变。"

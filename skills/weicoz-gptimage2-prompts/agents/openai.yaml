@@ -1,0 +1,6 @@
+interface:
+  display_name: "GPT-Image-2 Prompt Router"
+  short_description: "自动选择场景与风格生成图像提示词"
+  default_prompt: "Use $weicoz-gptimage2-prompts to turn this image idea into a GPT-Image-2 prompt."
+policy:
+  allow_implicit_invocation: true

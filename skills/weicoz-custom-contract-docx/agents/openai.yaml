@@ -1,0 +1,4 @@
+interface:
+  display_name: "定制合同生成"
+  short_description: "根据合同模板、金额规则和功能清单生成可验收的定制合同"
+  default_prompt: "Use $weicoz-custom-contract-docx to draft the contract contents first, then generate and QA the final .docx."

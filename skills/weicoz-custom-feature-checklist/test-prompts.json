@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "prompt": "根据这段会议纪要整理一份功能清单初稿，只保留定制部分，优先按用户端/平台后台拆分。",
+    "expected": "The agent first locks scope, keeps only custom items, and outputs a customer-readable Markdown checklist with a clear待确认项 section."
+  },
+  {
+    "id": 2,
+    "prompt": "材料里既有标准商城能力，也有这次要做的特殊规则，请先帮我区分哪些进主表，哪些进待确认项。",
+    "expected": "The agent separates custom deltas from standard capabilities, avoids writing the base platform as custom scope, and preserves ambiguous items in待确认项."
+  },
+  {
+    "id": 3,
+    "prompt": "先出一版功能清单初稿，确认后我再决定要不要导出 xlsx 和截图。",
+    "expected": "The agent defaults to a Markdown draft first, then asks whether to continue with xlsx or screenshots instead of exporting blindly."
+  }
+]
