@@ -11,7 +11,7 @@ Use this skill as an outer layer. Never edit `$WEICOZ_OFFICIAL_LAST30DAYS_SKILL`
 
 - Official skill: `$WEICOZ_OFFICIAL_LAST30DAYS_SKILL`
 - Bridge script: `scripts/last30days_cn_bridge.py`
-- Browser states: `~/.codex/browser-states/last30days-cn-<platform>.json`
+- Browser states: `$WEICOZ_BROWSER_STATE_ROOT/last30days-cn-<platform>.json`
 
 ## Workflow
 
@@ -31,7 +31,7 @@ python3 {{SKILL_DIR}}/scripts/last30days_cn_bridge.py run "客服 售后 太麻�
 
 ```bash
 playwright-cli open --headed "https://www.xiaohongshu.com/search_result?keyword=客服%20售后"
-playwright-cli state-save ~/.codex/browser-states/last30days-cn-xiaohongshu.json
+playwright-cli state-save "$WEICOZ_BROWSER_STATE_ROOT/last30days-cn-xiaohongshu.json"
 ```
 
 Then rerun bridge. Report browser-confirmed evidence separately from API/search fallback evidence.

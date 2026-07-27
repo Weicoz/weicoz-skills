@@ -8,7 +8,7 @@ Usage:
 
 Examples:
   init_research_workspace.sh product-photo-bg
-  init_research_workspace.sh product-photo-bg /tmp/research/product-photo-bg
+  init_research_workspace.sh product-photo-bg ./research/product-photo-bg
 USAGE
 }
 

@@ -8,7 +8,7 @@ Usage:
 
 Examples:
   init_research_workspace.sh ai-headshot-tool
-  init_research_workspace.sh ai-headshot-tool /tmp/research/ai-headshot-tool
+  init_research_workspace.sh ai-headshot-tool ./research/ai-headshot-tool
 USAGE
 }
 

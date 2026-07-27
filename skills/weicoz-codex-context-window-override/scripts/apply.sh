@@ -3,7 +3,7 @@ set -euo pipefail
 
 MODEL_SLUG="${1:-gpt-5.5}"
 WINDOW_SIZE="${2:-1000000}"
-CODEX_DIR="${CODEX_DIR:-$HOME/.codex}"
+CODEX_DIR="${CODEX_DIR:-${WEICOZ_CODEX_ROOT:?WEICOZ_CODEX_ROOT is required}}"
 CONFIG_FILE="${CODEX_CONFIG_FILE:-$CODEX_DIR/config.toml}"
 SOURCE_CATALOG="${CODEX_MODELS_CACHE:-$CODEX_DIR/models_cache.json}"
 BACKUP_DIR="$CODEX_DIR/backups/codex-context-window-override"
@@ -78,7 +78,7 @@ echo "override=$OVERRIDE_FILE"
 echo "source_catalog=$CURRENT_CATALOG"
 echo
 echo "Verification:"
-if [ "$CONFIG_FILE" = "$HOME/.codex/config.toml" ]; then
+if [ "$CONFIG_FILE" = "$WEICOZ_CODEX_ROOT/config.toml" ]; then
   codex debug models | jq --arg slug "$MODEL_SLUG" '.models[] | select(.slug == $slug) | {slug,context_window,max_context_window,effective_context_window_percent}'
 else
   codex debug models -c "model_catalog_json=\"$OVERRIDE_FILE\"" | jq --arg slug "$MODEL_SLUG" '.models[] | select(.slug == $slug) | {slug,context_window,max_context_window,effective_context_window_percent}'

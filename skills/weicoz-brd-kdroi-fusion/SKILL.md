@@ -75,7 +75,7 @@ python3 scripts/rank_kdroi.py \
 ```bash
 curl -L -s -A 'Mozilla/5.0' \
   "https://kwresearch.io/api/search.php?keyword=<keyword>" \
-  > /tmp/kw.html
+  > ./kw.html
 ```
 
 从返回 HTML 里提取：

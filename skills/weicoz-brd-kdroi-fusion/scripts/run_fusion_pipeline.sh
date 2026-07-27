@@ -7,8 +7,8 @@ Usage:
   run_fusion_pipeline.sh <workspace-dir> [--strict]
 
 Examples:
-  run_fusion_pipeline.sh /tmp/ai-headshot-fusion-20260423-120000
-  run_fusion_pipeline.sh /tmp/ai-headshot-fusion-20260423-120000 --strict
+  run_fusion_pipeline.sh ./ai-headshot-fusion-20260423-120000
+  run_fusion_pipeline.sh ./ai-headshot-fusion-20260423-120000 --strict
 USAGE
 }
 

@@ -171,7 +171,7 @@ E2E 不求全覆盖，只保关键业务链路：登录 → 核心业务操作 �
 | 更新基准配置 | 改 develop 开发库 → `mysqldump ... > scripts/baseline.sql` → commit |
 | 本分支测试 | `npm run test:all`（worktree 内） |
 | 界面自查 | `playwright-cli open --headed http://localhost:3001` |
-| 登录态复用 | `playwright-cli state-save/state-load ~/.codex/browser-states/<site>.json` |
+| 登录态复用 | `playwright-cli state-save/state-load "$WEICOZ_BROWSER_STATE_ROOT/<site>.json"` |
 | 合并前审查 | `git diff develop...feat-x` |
 | 合并后回归 | develop 上 `npm run test:all`，每合一个跑一遍 |
 | 发版 | UAT 通过后**手工发起** develop → main 的 PR，**人工审核通过**才合入（禁止直接 push/merge 到 main） |

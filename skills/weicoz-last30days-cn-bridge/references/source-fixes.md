@@ -36,13 +36,13 @@ XIAOHONGSHU_API_BASE=
 Use these paths:
 
 ```text
-~/.codex/browser-states/last30days-cn-weibo.json
-~/.codex/browser-states/last30days-cn-xiaohongshu.json
-~/.codex/browser-states/last30days-cn-bilibili.json
-~/.codex/browser-states/last30days-cn-zhihu.json
-~/.codex/browser-states/last30days-cn-douyin.json
-~/.codex/browser-states/last30days-cn-wechat.json
-~/.codex/browser-states/last30days-cn-toutiao.json
+${WEICOZ_BROWSER_STATE_ROOT}/last30days-cn-weibo.json
+${WEICOZ_BROWSER_STATE_ROOT}/last30days-cn-xiaohongshu.json
+${WEICOZ_BROWSER_STATE_ROOT}/last30days-cn-bilibili.json
+${WEICOZ_BROWSER_STATE_ROOT}/last30days-cn-zhihu.json
+${WEICOZ_BROWSER_STATE_ROOT}/last30days-cn-douyin.json
+${WEICOZ_BROWSER_STATE_ROOT}/last30days-cn-wechat.json
+${WEICOZ_BROWSER_STATE_ROOT}/last30days-cn-toutiao.json
 ```
 
 ## Platform notes

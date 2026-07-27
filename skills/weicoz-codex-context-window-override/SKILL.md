@@ -12,10 +12,10 @@ This workflow changes only local Codex client configuration. It does not prove t
 ## Safety Rules
 
 1. Always tell the user this is a client-side catalog override, not a guaranteed server-side capability.
-2. Always back up `~/.codex/config.toml` before editing it.
-3. Never edit `~/.codex/models_cache.json` in place.
-4. Store patched catalogs under `~/.codex/model-catalog-overrides/`.
-5. Store backups under `~/.codex/backups/codex-context-window-override/`.
+2. Always back up `$WEICOZ_CODEX_ROOT/config.toml` before editing it.
+3. Never edit `$WEICOZ_CODEX_ROOT/models_cache.json` in place.
+4. Store patched catalogs under `$WEICOZ_CODEX_ROOT/model-catalog-overrides/`.
+5. Store backups under `$WEICOZ_CODEX_ROOT/backups/codex-context-window-override/`.
 6. Verify with `codex debug models`; do not start a long production session just to test the patch.
 7. Provide the exact rollback command after applying the patch.
 
@@ -33,8 +33,8 @@ This defaults to:
 
 - model slug: `gpt-5.5`
 - context window: `1000000`
-- Codex config: `~/.codex/config.toml`
-- source catalog: the current `model_catalog_json` override when one exists, otherwise `~/.codex/models_cache.json`
+- Codex config: `$WEICOZ_CODEX_ROOT/config.toml`
+- source catalog: the current `model_catalog_json` override when one exists, otherwise `$WEICOZ_CODEX_ROOT/models_cache.json`
 
 ### Apply a custom model/window override
 
@@ -68,7 +68,7 @@ Use the scripts by default. If you need to do it manually, follow this exact seq
 1. Inspect current state:
 
 ```bash
-rg -n "model_catalog_json|model_context_window|model_auto_compact_token_limit|^model =" ~/.codex/config.toml
+rg -n "model_catalog_json|model_context_window|model_auto_compact_token_limit|^model =" "$WEICOZ_CODEX_ROOT/config.toml"
 codex debug models | jq '.models[] | select(.slug=="gpt-5.5") | {slug,context_window,max_context_window,effective_context_window_percent}'
 ```
 
@@ -76,19 +76,19 @@ codex debug models | jq '.models[] | select(.slug=="gpt-5.5") | {slug,context_wi
 
 ```bash
 ts=$(date +%Y%m%d-%H%M%S)
-mkdir -p ~/.codex/backups/codex-context-window-override ~/.codex/model-catalog-overrides
-cp ~/.codex/config.toml ~/.codex/backups/codex-context-window-override/config.toml."$ts".bak
+mkdir -p "$WEICOZ_CODEX_ROOT/backups/codex-context-window-override" "$WEICOZ_CODEX_ROOT/model-catalog-overrides"
+cp "$WEICOZ_CODEX_ROOT/config.toml" "$WEICOZ_CODEX_ROOT/backups/codex-context-window-override/config.toml.$ts.bak"
 ```
 
 3. Create a patched catalog:
 
 ```bash
 jq '(.models[] | select(.slug=="gpt-5.5") | .context_window)=1000000 | (.models[] | select(.slug=="gpt-5.5") | .max_context_window)=1000000' \
-  "${existing_override:-$HOME/.codex/models_cache.json}" \
-  > ~/.codex/model-catalog-overrides/gpt-5.5-1m-"$ts".json
+  "${existing_override:-$WEICOZ_CODEX_ROOT/models_cache.json}" \
+  > "$WEICOZ_CODEX_ROOT/model-catalog-overrides/gpt-5.5-1m-$ts.json"
 ```
 
-4. Add or replace `model_catalog_json` in `~/.codex/config.toml`:
+4. Add or replace `model_catalog_json` in `$WEICOZ_CODEX_ROOT/config.toml`:
 
 ```toml
 model_catalog_json = "$WEICOZ_CODEX_ROOT/model-catalog-overrides/gpt-5.5-1m-YYYYMMDD-HHMMSS.json"
@@ -115,13 +115,13 @@ If `codex debug models` still shows `272000`:
 2. Confirm the patched catalog is valid JSON:
 
 ```bash
-jq empty ~/.codex/model-catalog-overrides/<file>.json
+jq empty "$WEICOZ_CODEX_ROOT/model-catalog-overrides/<file>.json"
 ```
 
 3. Confirm the slug exists:
 
 ```bash
-jq '.models[] | select(.slug=="gpt-5.5") | {slug,context_window,max_context_window}' ~/.codex/model-catalog-overrides/<file>.json
+jq '.models[] | select(.slug=="gpt-5.5") | {slug,context_window,max_context_window}' "$WEICOZ_CODEX_ROOT/model-catalog-overrides/<file>.json"
 ```
 
 4. Re-run `scripts/apply.sh`.
@@ -137,13 +137,13 @@ bash "${CLAUDE_SKILL_DIR:-$WEICOZ_SKILLS_ROOT/weicoz-codex-context-window-overri
 Manual rollback:
 
 ```bash
-cp ~/.codex/backups/codex-context-window-override/config.toml.<timestamp>.bak ~/.codex/config.toml
+cp "$WEICOZ_CODEX_ROOT/backups/codex-context-window-override/config.toml.<timestamp>.bak" "$WEICOZ_CODEX_ROOT/config.toml"
 ```
 
 Then verify:
 
 ```bash
-rg -n "model_catalog_json|model_context_window|model_auto_compact_token_limit|^model =" ~/.codex/config.toml
+rg -n "model_catalog_json|model_context_window|model_auto_compact_token_limit|^model =" "$WEICOZ_CODEX_ROOT/config.toml"
 codex debug models | jq '.models[] | select(.slug=="gpt-5.5") | {slug,context_window,max_context_window,effective_context_window_percent}'
 ```
 

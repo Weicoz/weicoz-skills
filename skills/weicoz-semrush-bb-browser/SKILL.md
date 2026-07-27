@@ -10,7 +10,7 @@ description: >
 
 # Semrush Proxy via bb-browser
 
-Use the existing private `bb-browser site` adapters under `~/.bb-browser/sites/sem3ue/`.
+Use the existing private `bb-browser site` adapters under `$WEICOZ_BB_BROWSER_ROOT/sites/sem3ue/`.
 Do not rebuild ad-hoc browser scripts if the adapter already covers the task.
 
 ## Coverage
@@ -23,9 +23,9 @@ This skill currently covers:
 
 The adapter source files live here:
 
-- `~/.bb-browser/sites/sem3ue/keywordmagic.js`
-- `~/.bb-browser/sites/sem3ue/keywordoverview.js`
-- `~/.bb-browser/sites/sem3ue/keywordmanager.js`
+- `$WEICOZ_BB_BROWSER_ROOT/sites/sem3ue/keywordmagic.js`
+- `$WEICOZ_BB_BROWSER_ROOT/sites/sem3ue/keywordoverview.js`
+- `$WEICOZ_BB_BROWSER_ROOT/sites/sem3ue/keywordmanager.js`
 
 ## Core rule
 
@@ -159,7 +159,7 @@ bb-browser site sem3ue/keywordmagic assessment us "${WEICOZ_SEMRUSH_FID}" --minV
 When Semrush's page-level filter controls need to be preserved without modifying the `bb-browser` runtime, use the outer runner. It copies the native Semrush `filter` state from a verified seed tab, waits until the target page visibly shows the requested filter labels, then delegates extraction to this adapter.
 
 ```bash
-node ~/.agents/skills/weicoz-semrush-bb-browser/scripts/keywordmagic-filter-runner.mjs \
+node "$WEICOZ_SKILLS_ROOT/weicoz-semrush-bb-browser/scripts/keywordmagic-filter-runner.mjs" \
   --query generador --db mx --fid "${WEICOZ_SEMRUSH_FID}" \
   --tab <temporary-target-tab-id> --seedTab <verified-filter-tab-id> \
   --maxKd 40 --minCpc 0.1 --limit 20

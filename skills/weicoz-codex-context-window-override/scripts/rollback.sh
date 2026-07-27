@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CODEX_DIR="${CODEX_DIR:-$HOME/.codex}"
+CODEX_DIR="${CODEX_DIR:-${WEICOZ_CODEX_ROOT:?WEICOZ_CODEX_ROOT is required}}"
 CONFIG_FILE="${CODEX_CONFIG_FILE:-$CODEX_DIR/config.toml}"
 BACKUP_DIR="$CODEX_DIR/backups/codex-context-window-override"
 BACKUP_FILE="${1:-}"
@@ -43,7 +43,7 @@ else
 fi
 echo
 echo "Current gpt-5.5 catalog:"
-if [ "$CONFIG_FILE" = "$HOME/.codex/config.toml" ]; then
+if [ "$CONFIG_FILE" = "$WEICOZ_CODEX_ROOT/config.toml" ]; then
   codex debug models | jq '.models[] | select(.slug == "gpt-5.5") | {slug,context_window,max_context_window,effective_context_window_percent}'
 else
   catalog_path="$(awk -F' = ' '/^model_catalog_json/ {gsub(/"/, "", $2); print $2; exit}' "$CONFIG_FILE")"
