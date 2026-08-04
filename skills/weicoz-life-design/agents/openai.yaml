@@ -1,0 +1,6 @@
+interface:
+  display_name: "人生设计师"
+  short_description: "用设计思维探索人生方向并生成可试错蓝图"
+  default_prompt: "使用 $weicoz-life-design，陪我通过逐题对话设计人生原型。"
+policy:
+  allow_implicit_invocation: true
