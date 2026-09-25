@@ -9,7 +9,7 @@
 ## Verify
 
 - 数据筛选条件：
-- KD 数据来源（默认 `weicoz-semrush-bb-browser`，含导出路径）：
+- KD 数据来源（默认 `weicoz-semrush-ego-browser`，含导出路径）：
 - Top 候选（关键词、Volume、CPC、KD、KDRoi）：
 - 趋势验证（Google Trends）：
 - 四路搜索摘要（A/B/C/D）：

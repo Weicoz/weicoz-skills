@@ -1,6 +1,6 @@
 ---
 name: weicoz-page-design-harness
-description: Build, review, or validate any project page or app screen with a repeatable design harness. Use when the user wants page layout work for any product and wants the agent to first collect required product, audience, constraints, references, and acceptance info before generating layouts, copy, or implementation.
+description: 设计、审查或实现项目页面与应用界面，从现有产品、用户任务、设计系统和约束确定布局与验收。适用于页面设计与优化；只有关键业务信息无法查证时才澄清，不要求先填写完整问卷。
 ---
 
 # weicoz-page-design-harness
@@ -17,13 +17,11 @@ This skill is stack-agnostic. Do not assume React, Vue, Flutter, HTML, or any ot
 
 ## Core rule
 
-Do not start design work until required information is present.
-
-If required information is missing, ask for it in one short batch and stop. Do not guess, do not fill gaps silently, and do not move into layout decisions before intake is complete.
+先从用户请求、当前页面和项目约定提取目标与约束。只有目标页面、核心业务行为或授权范围无法确定且影响交付时才集中澄清；仅暂停依赖答案的工作。参考图、次要任务、品牌素材等非关键缺项采用现有约定或说明假设，不把整张问卷作为开工门槛。用户明确要求先访谈时遵循其节奏。
 
 ## Required intake
 
-Collect these fields before execution:
+以下字段用于检查已有证据，按任务相关性选取，不要求用户逐项填写：
 
 | Field | Why it matters |
 |---|---|
@@ -50,7 +48,7 @@ Nice to have, but not mandatory:
 
 ## Intake question format
 
-When inputs are missing, ask for them in this order:
+只询问从上下文和页面证据无法确定、且实质影响本次结果的问题。以下是候选问题，不是必问清单：
 
 1. What page or screen are we designing?
 2. What is the product goal for this page?
@@ -59,7 +57,7 @@ When inputs are missing, ask for them in this order:
 5. What constraints or existing system must we follow?
 6. What are the acceptance criteria?
 
-If the user gives only a vague request like "make the page better", respond with a compact intake checklist and wait.
+用户只说“优化页面”时，已有明确页面就先审查并完成已授权的改进；目标页面无法定位时才询问位置。
 
 ## Execution workflow
 
@@ -72,7 +70,7 @@ Summarize the page in one compact brief:
 - constraints
 - success criteria
 
-If any item is still unknown, list it as a blocking question.
+未知项按影响分为关键待决和可说明假设；只有关键待决阻塞依赖它的部分。
 
 ### 2. Build information hierarchy
 
@@ -137,7 +135,7 @@ If the user wants implementation, produce the smallest code or structure that ma
 
 ## Output contract
 
-Default response structure:
+按用户交付要求选择相关内容，不要求每次输出以下全部章节：
 
 1. `Brief`
 2. `Missing info` or `Assumptions`
@@ -163,7 +161,7 @@ If a request is really about broader product strategy, stop at the page level an
 
 ## When to ask the user instead of deciding alone
 
-Ask the user whenever the choice changes behavior, not just appearance:
+以下选择仅在改变已约定业务含义、外部契约或任务范围且证据无法确定时询问；常规文案、布局和响应式实现自行决定：
 - primary CTA wording
 - onboarding vs direct action
 - dense dashboard vs guided flow
@@ -185,4 +183,4 @@ If the user only says:
 - "做得好看点"
 - "优化一下 UI"
 
-Do not proceed. Ask for the required intake fields first.
+先检查当前上下文是否已有页面和目标；能定位就继续，无法定位时只补问关键缺项。

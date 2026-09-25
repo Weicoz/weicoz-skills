@@ -86,13 +86,13 @@ JSON
 cat > "$out_dir/README.md" <<README
 # BRD + KDRoi Fusion Workspace: ${slug}
 
-## 1) Get Semrush KD data first via weicoz-semrush-bb-browser
-\`\`\`bash
-bb-browser open "https://${WEICOZ_SEMRUSH_PROXY_HOST}/analytics/keywordmagic/?db=us&q=ai&filter=...&__gmitm=..." --tab
-bb-browser site sem3ue/keywordmagic "<seed>" us <fid> --json --tab <tab-id>
+## 1) Get Semrush KD data first via weicoz-semrush-ego-browser
+\`\`\`text
+Use ego-browser nodejs to open the Keyword Magic live result page, reuse one task space,
+verify title/URL/rendered filters/table rows, then save CSV/JSON.
 \`\`\`
 
-Only change the Semrush URL \`q\` parameter. Keep \`db=us\`, \`filter\`, and \`__gmitm\` intact.
+Only change the Semrush URL \`q\` parameter. Keep \`db=us\`, \`filter\`, and \`__gmitm\` intact. Browser fallback order: ego-browser -> browser-skill -> @Chrome.
 
 ## 2) KDRoi Gate
 \`\`\`bash

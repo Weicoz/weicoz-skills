@@ -1,19 +1,19 @@
 ---
-name: weicoz-bb-browser-x
+name: weicoz-ego-browser-x
 description: |
-  用 bb-browser 的 X/Twitter adapters 执行 x.com 查询、搜索、用户页读取、线程提取与结果归档。用户提到“用 bb-browser 查 x.com”“搜索 X 推文”“抓 x.com 帖子和回复”“看某个账号最近发了什么”“把 X 查询结果落盘成文件”“一边给我结果一边保存文档”时都应使用本 skill。它负责查询执行、结果整理、标准化落盘和对话内回报；不负责发帖、回复、点赞、转发或账号运营。
-allowed-tools: Bash(bb-browser:*), Bash(mkdir:*), Bash(date:*), Bash(cat:*), Bash(printf:*), Bash(test:*), Bash(pwd:*)
+  用 ego-browser 优先执行 x.com 查询、搜索、用户页读取、线程提取与结果归档。用户提到“用 ego-browser 查 x.com”“搜索 X 推文”“抓 x.com 帖子和回复”“看某个账号最近发了什么”“把 X 查询结果落盘成文件”“一边给我结果一边保存文档”时都应使用本 skill。它负责查询执行、结果整理、标准化落盘和对话内回报；不负责发帖、回复、点赞、转发或账号运营。
+allowed-tools: Bash(ego-browser:*), Bash(bsk:*), Bash(mkdir:*), Bash(date:*), Bash(cat:*), Bash(printf:*), Bash(test:*), Bash(pwd:*)
 ---
 
-# Weicoz BB Browser X
+# Weicoz Ego Browser X
 
-用 `bb-browser` 的 X/Twitter 能力完成一次性 `x.com` 查询任务，并把结果同时交付到对话和文件。
+用 `ego-browser` 优先完成一次性 `x.com` 查询任务，并把结果同时交付到对话和文件。
 
 ## 触发范围
 
 出现下面任一类需求就用本 skill：
 
-- 用 `bb-browser` 查 `x.com`
+- 用 `ego-browser` 查 `x.com`
 - 打开某个 `x.com` 页面或帖子并确认能否访问
 - 搜某个关键词、账号、thread
 - 提取推文正文、回复、链接
@@ -23,9 +23,9 @@ allowed-tools: Bash(bb-browser:*), Bash(mkdir:*), Bash(date:*), Bash(cat:*), Bas
 
 ## 默认原则
 
-1. 用户明确指定 `bb-browser` 时，不切到别的浏览器工具。
-2. `bb-browser` 对 X 的 adapter 命名是 `twitter/*`，执行时按真实 adapter 名称走。
-3. 先用最短路径完成任务：能用 `site twitter/search` 就不要手搓页面点击。
+1. 浏览器固定优先级：`ego-browser` -> `browser-skill` -> `@Chrome`。
+2. 只有当前工具不可用，或已确认无法完成当前页面能力时，才进入下一层；必须记录失败信号，不能因操作习惯直接跳级。
+3. 优先直接打开 X 搜索页、thread URL 或用户时间线，不做无关页面探索。
 4. 每次任务都要有两份输出：
    - 对话内简明结果
    - 文件落盘结果
@@ -51,44 +51,22 @@ projects/x-research/runs/<YYYY-MM-DD-HHMMSS>/
 
 - `raw-links.md`
 
-## 命令路由
+## 浏览器路由
 
-### 1. 搜索 X 主题
+### 1. ego-browser
 
-优先：
+- 通过 `ego-browser nodejs <<'EOF' ... EOF` 执行。
+- 用 `useOrCreateTaskSpace` 创建并复用同一 task space。
+- 搜索、thread、用户页均用 `openOrReuseTab` 打开真实 `x.com` URL；先 `snapshotText()`，需要结构化正文/回复时再用 `js()` 提取。
+- 任务确认完成后，单独一次 heredoc 调用 `completeTaskSpace(taskId, { keep: false })`。
 
-```bash
-bb-browser site twitter/search "<query>"
-```
+### 2. browser-skill fallback
 
-### 2. 读取指定推文 thread
+仅 ego-browser 不可用或无法完成当前能力时使用。严格执行 `bsk session start` -> `bsk navigate/snapshot/... --session <id>` -> `bsk session stop <id>`，包括失败路径。
 
-```bash
-bb-browser site twitter/thread "<x_or_twitter_url>"
-```
+### 3. @Chrome fallback
 
-### 3. 查看用户资料或最近推文
-
-```bash
-bb-browser site twitter/user "<handle>"
-bb-browser site twitter/tweets "<handle>"
-```
-
-### 4. 打开页面确认是否可访问
-
-```bash
-bb-browser open https://x.com
-bb-browser get title
-bb-browser get url
-```
-
-### 5. 需要更细的页面正文或交互时
-
-```bash
-bb-browser open "<url>"
-bb-browser snapshot -i
-bb-browser eval "document.body.innerText.substring(0, 5000)"
-```
+仅 browser-skill 也不可用或无法完成当前能力时使用。加载 `chrome:control-chrome`，按其 `browser-client` 工作流复用 Chrome 登录态和 tab binding。
 
 ## 执行流程
 
@@ -106,10 +84,10 @@ bb-browser eval "document.body.innerText.substring(0, 5000)"
 
 ### Step 2: 执行最短查询
 
-- 搜索类：先 `twitter/search`
-- 帖子类：先 `twitter/thread`
-- 用户类：先 `twitter/user` 或 `twitter/tweets`
-- 访问验证类：先 `open + get title + get url`
+- 搜索类：打开 X 搜索结果页，提取命中推文 URL
+- 帖子类：直接打开 thread URL，读取正文和回复
+- 用户类：打开用户页或时间线
+- 访问验证类：核对标题、URL 和页面正文
 
 如果命令失败，保留失败信息，不要装成功。
 

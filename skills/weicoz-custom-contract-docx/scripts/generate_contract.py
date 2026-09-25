@@ -10,7 +10,9 @@ from typing import Any
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
 from docx.shared import Mm
+from docx.text.paragraph import Paragraph
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -123,6 +125,7 @@ def apply_defaults(config: dict[str, Any]) -> dict[str, Any]:
     data.setdefault("feature_title", "需求功能清单")
     data.setdefault("feature_headers", ["类型", "类型描述", "模块名称", "功能描述"])
     data.setdefault("feature_image_path", "")
+    data.setdefault("feature_image_paths", [])
     data.setdefault("feature_rows", [])
     data.setdefault("feature_image_output", "")
 
@@ -209,13 +212,23 @@ def draw_wrapped_text(
         draw.text((inner_left, start_y + index * line_height), line, font=font, fill=fill)
 
 
-def build_feature_image(config: dict[str, Any], output_docx: Path) -> Path:
+def build_feature_images(config: dict[str, Any], output_docx: Path) -> list[Path]:
+    image_paths: list[Path] = []
+    paths_raw = config.get("feature_image_paths") or []
+    if isinstance(paths_raw, str):
+        paths_raw = [paths_raw]
+    for raw in paths_raw:
+        if to_text(raw):
+            image_paths.append(Path(to_text(raw)).expanduser().resolve())
     source_image = to_text(config.get("feature_image_path"))
-    if source_image:
-        path = Path(source_image).expanduser().resolve()
+    if source_image and not image_paths:
+        image_paths.append(Path(source_image).expanduser().resolve())
+
+    for path in image_paths:
         if not path.exists():
-            raise FileNotFoundError(f"feature_image_path does not exist: {path}")
-        return path
+            raise FileNotFoundError(f"feature image does not exist: {path}")
+    if image_paths:
+        return image_paths
 
     rows = config.get("feature_rows") or []
     if not rows:
@@ -307,7 +320,7 @@ def build_feature_image(config: dict[str, Any], output_docx: Path) -> Path:
 
     flush_type_group(current_type, current_group_rows)
     image.save(image_path)
-    return image_path
+    return [image_path]
 
 
 def replace_paragraph(paragraph, text: str) -> None:
@@ -336,7 +349,7 @@ def maybe_fill_contact_detail(paragraph, config: dict[str, Any], paragraph_text:
     return False
 
 
-def fill_contract(template: Path, config: dict[str, Any], output_docx: Path, feature_image_path: Path) -> Path:
+def fill_contract(template: Path, config: dict[str, Any], output_docx: Path, feature_image_paths: list[Path]) -> Path:
     doc = Document(str(template))
     image_inserted = False
     in_party_a = False
@@ -377,10 +390,16 @@ def fill_contract(template: Path, config: dict[str, Any], output_docx: Path, fea
 
         if "{{image:需求清单}}" in raw:
             replace_paragraph(paragraph, "")
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             section = doc.sections[0]
             available_width = section.page_width - section.left_margin - section.right_margin
-            paragraph.add_run().add_picture(str(feature_image_path), width=available_width - Mm(6))
+            anchor = paragraph
+            for index, image_path in enumerate(feature_image_paths):
+                if index:
+                    picture_paragraph = Paragraph(OxmlElement("w:p"), anchor._parent)
+                    anchor._p.addnext(picture_paragraph._p)
+                    anchor = picture_paragraph
+                anchor.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                anchor.add_run().add_picture(str(image_path), width=available_width - Mm(6))
             image_inserted = True
             continue
 
@@ -428,6 +447,8 @@ def fill_contract(template: Path, config: dict[str, Any], output_docx: Path, fea
 
     if not image_inserted:
         raise ValueError("Did not find the feature image placeholder in the template.")
+    if not feature_image_paths:
+        raise ValueError("No feature images were inserted.")
 
     output_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(output_docx))
@@ -446,11 +467,12 @@ def main() -> None:
         raise FileNotFoundError(f"Config not found: {config_path}")
 
     config = apply_defaults(read_json(config_path))
-    feature_image_path = build_feature_image(config, output_docx)
-    generated_docx = fill_contract(template, config, output_docx, feature_image_path)
+    feature_image_paths = build_feature_images(config, output_docx)
+    generated_docx = fill_contract(template, config, output_docx, feature_image_paths)
 
     print(f"Generated DOCX: {generated_docx}")
-    print(f"Feature image: {feature_image_path}")
+    for path in feature_image_paths:
+        print(f"Feature image: {path}")
 
 
 if __name__ == "__main__":

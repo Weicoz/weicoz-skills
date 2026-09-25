@@ -49,7 +49,7 @@ Default target:
    - Admin controls.
    - Risk and unclear rules.
 
-🔴 CHECKPOINT: If the source cannot be read, or if less than 60% of requested fields can be inferred from the source, stop and ask for a readable file or missing business rules. Do not fabricate rules to fill gaps.
+材料完全不可读且没有其他可靠输入时，请求可读材料；部分可读或规则不全时，完成有证据的整理，将缺口列为“待确认”，不设百分比停止门槛。只有缺项使用户要求的交付无法成立时才暂停受影响部分；不得推断补造业务规则。
 
 3. Set length and scope.
    - Count source lines or estimate source size.
@@ -67,7 +67,7 @@ Default target:
    - If the deliverable includes a `需求文档`, the document must contain at least one explicit ASCII business flow diagram in the main body.
    - Add feature scope.
    - Add open questions.
-   - Add quote/timeline if useful or requested.
+   - 仅用户要求报价、工期或明确包含销售交接时加入报价和工期。
 
 🔴 CHECKPOINT: Before finalizing, compare the document against user-named requirements. If any named item is missing, add it or mark it “需确认”.
 

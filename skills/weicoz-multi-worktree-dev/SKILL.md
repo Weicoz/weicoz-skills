@@ -1,15 +1,6 @@
 ---
 name: weicoz-multi-worktree-dev
-description: >
-  Use this skill whenever the user wants multiple AI sessions to develop multiple features in parallel
-  with git worktree without interference, each independently testable, merged into develop with full
-  regression. Trigger on Chinese/English requests like 多 worktree 并行开发, 多个 AI 会话同时开发,
-  worktree 隔离, 并行开发测试流程, feature 分支合并 develop 回归, 开一个 worktree 做新需求,
-  并行开发互不干扰, worktree 环境搭建, git worktree parallel agents, baseline.sql 基准库,
-  new-worktree.sh. It enforces a three-layer isolation model (code via worktree, data via per-worktree
-  database, runtime via per-worktree port + .env.local), a one-command environment provisioning script
-  with a versioned baseline DB dump, per-worktree dev/test loop, and a guarded merge flow where feature
-  branches land on develop with per-merge regression while main stays protected behind a manual PR.
+description: 仅用于用户明确指定 weicoz-multi-worktree-dev 历史版本的多 worktree 流程或兼容维护。通用 worktree 隔离、并行开发和集成任务使用 weicoz-multi-worktree-dev-v3，不自动套用本历史版的固定数据库、全量测试和人工 main 流程。
 ---
 
 # 多 Worktree 并行开发测试流程

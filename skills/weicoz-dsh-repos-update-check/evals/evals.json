@@ -1,0 +1,59 @@
+{
+  "skill_name": "weicoz-dsh-repos-update-check",
+  "evals": [
+    {
+      "id": 0,
+      "name": "check-both-repos-updates",
+      "prompt": "看看 dsh-anchored-standard 和 dsh-routing-suite 是不是有更新了",
+      "expected_output": "只读检查两个仓库；对每个仓库给出状态（有/无更新）、local/remote HEAD 哈希、新增提交列表；不修改任何文件",
+      "files": [],
+      "assertions": [
+        {
+          "text": "报告同时覆盖 xiaobright/dsh-anchored-standard 与 yjh051108/dsh-routing-suite 两个仓库",
+          "passed": false
+        },
+        {
+          "text": "对每个仓库都给出明确状态（有更新/无更新）",
+          "passed": false
+        },
+        {
+          "text": "对每个仓库给出信号灯（🟢 绿灯=无需操作 / 🔴 红灯=需同步；以实装~/.dsh为准，不以缓存 clone 落后就报红）",
+          "passed": false
+        },
+        {
+          "text": "缓存 clone 落后但实装已同步时，判定为绿灯而非红灯",
+          "passed": false
+        },
+        {
+          "text": "列出新增提交（哈希+说明）而非只给结论",
+          "passed": false
+        },
+        {
+          "text": "只读：不执行 pull/reset/git checkout，不修改 ~/.dsh 或安装预设",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "name": "read-only-with-urls",
+      "prompt": "这两个仓库 https://github.com/xiaobright/dsh-anchored-standard 和 https://github.com/yjh051108/dsh-routing-suite 有没有更新？只检查，别动任何东西。",
+      "expected_output": "识别出两个仓库 URL；只读检查并报告；明确不迁移/不卸载/不 pull；无副作用",
+      "files": [],
+      "assertions": [
+        {
+          "text": "识别并报告两个指定仓库的更新状态",
+          "passed": false
+        },
+        {
+          "text": "遵循只读约束：不 pull、不卸载插件、不改本地 checkout 到远端",
+          "passed": false
+        },
+        {
+          "text": "明确告知未做任何修改",
+          "passed": false
+        }
+      ]
+    }
+  ]
+}

@@ -24,17 +24,17 @@ function run(query, db, options) {
   const args = [
     new URL('./keywordmagic-filter-runner.mjs', import.meta.url).pathname,
     '--query', query, '--db', db, '--fid', options.fid,
-    '--tab', options.tab, '--seedTab', options.seedTab,
+    '--seed-url', options.seedUrl, '--task', options.task,
     '--maxKd', options.maxKd, '--minCpc', options.minCpc, '--limit', options.limit
   ];
   return JSON.parse(execFileSync('node', args, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }));
 }
 
 const options = {
-  fid: option('fid', process.env.WEICOZ_SEMRUSH_FID || ''), tab: option('tab'), seedTab: option('seedTab'),
+  fid: option('fid', process.env.WEICOZ_SEMRUSH_FID || ''), seedUrl: option('seed-url'), task: option('task', 'semrush spanish roots'),
   maxKd: option('maxKd', '40'), minCpc: option('minCpc', '0.1'), limit: option('limit', '20')
 };
-if (!options.tab || !options.seedTab) throw new Error('Usage: --tab <temporary-tab> --seedTab <verified-filter-tab>');
+if (!options.seedUrl) throw new Error('Usage: --seed-url <verified-filter-url>');
 
 const unique = [...new Map(mappings.map(([, spanish]) => [spanish, spanish])).values()];
 const resumePath = option('resume');

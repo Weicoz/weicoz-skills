@@ -2,7 +2,7 @@
   {
     "id": 1,
     "prompt": "我想做一个出海 AI 工具站，方向是 AI resume tailoring，帮我用 BRD + KDRoi 判断值不值得做。",
-    "expected": "The agent runs Step 0 keyword gate first, requests or obtains KD/Volume/CPC via weicoz-semrush-bb-browser or existing CSV, then proceeds to BRD only for candidates that pass or hold with explicit evidence gaps."
+    "expected": "The agent runs Step 0 keyword gate first, requests or obtains KD/Volume/CPC via weicoz-semrush-ego-browser or existing CSV, then proceeds to BRD only for candidates that pass or hold with explicit evidence gaps."
   },
   {
     "id": 2,

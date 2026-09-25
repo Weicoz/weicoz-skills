@@ -4,7 +4,7 @@ description: >
   先用 KDRoi（Volume x CPC / KD）做关键词可达性 Gate，再执行 6 步 BRD 市场调研并输出 GO/NO-GO/HOLD。
   用于出海工具站、AI SaaS、Chrome 插件、SEO 工具站、micro SaaS 的需求筛选与商业决策一体化评估。
   当用户提到选题验证、关键词机会、产品机会、BRD、市调、商业可行性、GO/NO-GO/HOLD、KDRoi、KD/Volume/CPC 时使用。
-  需要真实 KD / Volume / CPC 时默认调用 weicoz-semrush-bb-browser 获取 Semrush Keyword Magic 数据；禁止编造 KD 或把 proxy 当标准 SEO KD。
+  需要真实 KD / Volume / CPC 时默认调用 weicoz-semrush-ego-browser 获取 Semrush Keyword Magic 数据；禁止编造 KD 或把 proxy 当标准 SEO KD。
 ---
 
 # BRD + KDRoi Fusion
@@ -50,10 +50,9 @@ scripts/init_research_workspace.sh <project-slug> [output-dir]
 cat <workspace>/notes/preflight-checklist.md
 ```
 
-3. 获取关键词 KD 数据。默认先使用 `weicoz-semrush-bb-browser`：
-```bash
-bb-browser open "https://${WEICOZ_SEMRUSH_PROXY_HOST}/analytics/keywordmagic/?db=us&q=ai&filter=...&__gmitm=..." --tab
-bb-browser site sem3ue/keywordmagic "<seed>" us "${WEICOZ_SEMRUSH_FID}" --json --tab <tab-id>
+3. 获取关键词 KD 数据。默认先使用 `weicoz-semrush-ego-browser`：
+```text
+用 ego-browser nodejs 打开 Keyword Magic live result page，复用同一 task space，验证标题/URL/渲染表格和筛选控件，再输出 CSV/JSON。
 ```
 
 说明：
@@ -140,16 +139,17 @@ scripts/run_fusion_pipeline.sh <workspace> --strict
 
 ## Tooling Rules
 
+- 浏览器优先级固定为 `ego-browser` -> `browser-skill` -> `@Chrome`；只有当前工具不可用或确认无法完成当前能力时才进入下一层，并记录失败信号。
+- `ego-browser` 通过 `ego-browser nodejs`、同一 task space 和最终独立的 `completeTaskSpace(..., { keep: false })` 执行；`browser-skill` 必须完整执行 `bsk session start` -> 操作 -> `bsk session stop`；`@Chrome` 遵循 `chrome:control-chrome` 的 browser-client 工作流。
 - 优先使用可复验公开来源：Google Trends、SimilarWeb、G2、Capterra、Trustpilot、Reddit、Product Hunt、Chrome Web Store、Statista、Crunchbase。
-- 网页访问采用两级策略：先用 `browse`，失败再切 `web-access`。
-- `browse` 失败判定：403/429、验证码拦截、正文为空、关键字段缺失且重试无效、强登录态阻塞。
-- 触发兜底时必须记录：失败页面、失败信号、重试次数、兜底结果。
+- 网页访问先走上述浏览器优先级；失败判定包括 403/429、验证码拦截、正文为空、关键字段缺失、强登录态阻塞。
+- 触发兜底时必须记录：失败页面、失败信号、重试次数、下一层结果。
 - Step 0 数据源优先级：
-  - `weicoz-semrush-bb-browser` 生成的 Semrush Keyword Magic CSV/JSON（默认）
+  - `weicoz-semrush-ego-browser` 生成的 Semrush Keyword Magic CSV/JSON（默认）
   - 已有 `Semrush / Ahrefs / Keyword Planner CSV`
   - `Google Ads Keyword Planner + 手工 SERP 难度`
   - `公开免费工具 proxy`（如 `kwresearch.io`）
-- 只要任务需要真实 SEO `KD / Volume / CPC`，优先切到 `weicoz-semrush-bb-browser` 执行；不要手工编造 KD，也不要把 Google Ads competition 当作 SEO KD。
+- 只要任务需要真实 SEO `KD / Volume / CPC`，优先切到 `weicoz-semrush-ego-browser` 执行；不要手工编造 KD，也不要把 Google Ads competition 当作 SEO KD。
 - 当拿不到真实 SEO `KD` 时，允许使用 `Ads-KDRoi proxy` 做预检，但输出中必须显式标注 `proxy`，不能伪装成标准 KDRoi。
 - `proxy` 模式下，不允许仅凭 `Volume + CPC + Ads competition` 就把 `keyword_accessible=true` 判成强通过；必须追加 SERP 首页结构检查。
 
@@ -175,7 +175,7 @@ scripts/run_fusion_pipeline.sh <workspace> --strict
 
 执行：
 - 用 [references/roots-core.md](references/roots-core.md) 选 3-5 个词根扩展。
-- 先调用 `weicoz-semrush-bb-browser` 获取第一页 Semrush Keyword Magic 结果，并保存到 `outputs/semrush-keywordmagic-page1.csv` / `.json`。
+- 先调用 `weicoz-semrush-ego-browser` 获取第一页 Semrush Keyword Magic 结果，并保存到 `outputs/semrush-keywordmagic-page1.csv` / `.json`。
 - 再跑 `rank_kdroi.py` 获取排序结果；如果 Semrush 脚本已产出 `kdroi`，仍允许用 `rank_kdroi.py` 做统一筛选和 Top N 截断。
 - 对 Top 20 做四步验证：
   - 数据面（Volume/KD/CPC）

@@ -1,6 +1,6 @@
 ---
 name: weicoz-multi-worktree-dev-v2
-description: "多 AI 会话 + git worktree 并行开发多个需求的完整测试与合并流程。核心：代码/数据/运行时三层隔离、基准库供给、worktree 内全量测试、逐分支合并回归、main 受保护。技术栈无关：数据库/迁移命令抽成可配置函数，MySQL/PostgreSQL/SQLite、Laravel/Next.js/Django 等任意栈均可。当用户提到多worktree、并行开发、git worktree、worktree 隔离、多个 AI 会话同时开发、并行测试、互不干扰、develop 回归、合并冲突、parallel worktree development、multiple agents same repo、worktree 环境搭建、feature 分支管理时使用。"
+description: 仅用于用户明确指定 weicoz-multi-worktree-dev-v2 历史版本的多 worktree 流程或兼容维护。通用 worktree 隔离、并行开发和集成任务使用 weicoz-multi-worktree-dev-v3，不自动套用本历史版的固定数据库、全量测试和人工 main 流程。
 ---
 
 # 多 Worktree 并行开发测试流程

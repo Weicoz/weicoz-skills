@@ -202,11 +202,11 @@ duration_ms
 
 If the normal loop cannot continue cleanly, use one of these explicit branches:
 
-- If you cannot run the target workflow locally, stop changing behavior and give the user one exact command, one expected event name, and one correlation id or lookup key to return.
+- 本地无法运行时，继续检查现有日志、实现、调用方和可用测试；有充分证据时完成范围内修复与可执行验证。仍缺关键证据时只暂停依赖它的修改，给出一条可执行命令、预期事件和关联标识。不得把未执行的目标流程报告为已验证。
 - If you cannot safely add logs in the target environment, add the smallest safe summary event locally or in staging, then state what evidence is still missing.
 - If the codebase has no structured logging helper, standardize one stable event name plus one correlation id first, then continue.
 - If high log volume is a risk, log only boundary summaries at `entry`, `decision`, and `result` points; do not add per-loop chatter.
-- If the only available evidence is a symptom report, convert it into an evidence request before proposing a fix.
+- 只有症状描述时先自行收集可用证据；工具无法取得的关键证据再向用户请求，不凭症状猜改。
 
 ## Step 4: Run Or Reproduce
 

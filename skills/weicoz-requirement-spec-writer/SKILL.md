@@ -1,9 +1,13 @@
 ---
 name: weicoz-requirement-spec-writer
-description: 通过追问澄清需求目标、边界条件、业务术语和关键决策，再生成并持续维护可执行的 SPEC.md / Requirement Spec / PRD / 技术边界说明。用户一旦提到“写需求文档”“整理 spec”“补一份 PRD”“把需求问清楚再写”“生成 SPEC.md”“需求变了同步更新 spec”“把这段聊天变成开发可执行文档”“需要明确功能、流程、接口、验收、边界”时都应使用；最终产物默认必须落盘为当前工作目录的 SPEC.md，后续需求变更也必须同步更新该文件。
+description: 通过追问澄清需求目标、边界条件、业务术语和关键决策，再生成并持续维护可执行的 SPEC.md / Requirement Spec / PRD / 技术边界说明。仅当用户明确调用 `$weicoz-requirement-spec-writer`，或明确要求“使用 weicoz-requirement-spec-writer skill”时使用；不得因用户仅提到需求文档、SPEC、PRD、产品文档或需求变更而自动触发。
 ---
 
 # Requirement Spec Writer
+
+## 触发规则
+
+本 skill 仅允许手动调用。只有用户明确点名 `$weicoz-requirement-spec-writer`，或明确要求使用本 skill 时才加载并执行。普通的“写需求文档”“生成 PRD”“整理产品定义”等请求不得自动触发。
 
 这个 skill 用来把“想法”变成“可执行文档”。
 

@@ -50,10 +50,10 @@ Rules:
 ## Data source
 
 1. Convert `YYYY-MM` to the first day of that month: `YYYY-MM-01`.
-2. Fetch the monthly ranking JSON with `bb-browser fetch`:
+2. Fetch the monthly ranking JSON with ego-browser `serverFetch`; if the endpoint needs browser state, retry with `browserFetch` in the same task space:
 
-```bash
-bb-browser fetch "https://www.toolify.ai/self-api/v1/top/month-top?page=1&per_page=50&date=YYYY-MM-01&order_by=<sort_by>&direction=<direction>"
+```javascript
+await serverFetch("https://www.toolify.ai/self-api/v1/top/month-top?page=1&per_page=50&date=YYYY-MM-01&order_by=<sort_by>&direction=<direction>")
 ```
 
 3. Read `data.data` from the JSON response.
@@ -72,7 +72,7 @@ https://www.toolify.ai/zh/tool/<handle>
    - Normalize the final URL by removing tracking params such as `utm_source`, `ref`, or `fpr` when safe.
    - If the official site cannot be resolved, fall back to the Toolify detail URL.
 
-Prefer `bb-browser fetch` for both the month API and the detail page HTML. If a request returns a Cloudflare challenge or unexpected HTML, open the URL in a browser tab and inspect the live page text instead. Close any temporary tabs after extracting the URL.
+Browser priority is `ego-browser` -> `browser-skill` -> `@Chrome`. Use ego-browser `serverFetch` / `browserFetch` for both the month API and detail HTML. If a request returns a Cloudflare challenge or unexpected HTML, open the URL in the same task space and inspect the rendered page. Only when ego-browser is unavailable or cannot complete the current capability, use browser-skill with its full session lifecycle; only then fall back to `@Chrome`. Record each failure signal and close temporary tabs/task spaces after extraction.
 
 ## Failure Modes
 

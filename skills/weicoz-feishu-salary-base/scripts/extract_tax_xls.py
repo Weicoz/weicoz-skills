@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import re
 import sys
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -42,14 +43,74 @@ def month_value(value, workbook):
     raise ValueError(f"无法识别税款所属期: {value!r}")
 
 
+def extract_declaration_report(sheet):
+    period = str(sheet.cell_value(1, 0))
+    match = re.search(r"(\d{4})年(\d{1,2})月\d{1,2}日至(\d{4})年(\d{1,2})月\d{1,2}日", period)
+    if not match:
+        raise ValueError(f"无法识别税款所属期: {period!r}")
+    start = f"{match[1]}{int(match[2]):02d}"
+    end = f"{match[3]}{int(match[4]):02d}"
+    if start != end:
+        raise ValueError(f"税款所属期跨月: {start} -> {end}")
+
+    header = next(
+        (i for i in range(sheet.nrows - 3)
+         if sheet.cell_value(i, 0) == "序号" and sheet.cell_value(i, 1) == "姓名"),
+        None,
+    )
+    if header is None:
+        raise ValueError("找不到申报表姓名表头")
+
+    def column(row, name):
+        values = [str(sheet.cell_value(row, col)).strip() for col in range(sheet.ncols)]
+        if name not in values:
+            raise ValueError(f"缺少必要字段: {name}")
+        return values.index(name)
+
+    social_columns = {
+        field: column(header + 2, field.removeprefix("本期"))
+        for field in SOCIAL_COLUMNS
+    }
+    income_column = column(header + 2, "收入")
+    tax_column = column(header + 1, "应补/退税额")
+    rows = []
+    names = set()
+    for row_index in range(header + 4, sheet.nrows):
+        if not str(sheet.cell_value(row_index, 0)).strip().isdigit():
+            break
+        row_number = row_index + 1
+        name = str(sheet.cell_value(row_index, 1)).strip()
+        if not name or name in names:
+            raise ValueError(f"第 {row_number} 行姓名缺失或重复: {name!r}")
+        if str(sheet.cell_value(row_index, 6)).strip() != "正常工资薪金":
+            raise ValueError(f"第 {row_number} 行不是正常工资薪金")
+        names.add(name)
+        details = {
+            field: decimal_value(sheet.cell_value(row_index, col), field, row_number)
+            for field, col in social_columns.items()
+        }
+        rows.append({
+            "name": name,
+            "social_security": float(sum(details.values(), Decimal("0")).quantize(CENT)),
+            "tax": float(decimal_value(sheet.cell_value(row_index, tax_column), "应补/退税额", row_number)),
+            "declared_income": float(decimal_value(sheet.cell_value(row_index, income_column), "收入", row_number)),
+            "social_details": {key: float(value) for key, value in details.items()},
+        })
+    if not rows:
+        raise ValueError("没有可用申报明细")
+    return {"month": start, "rows": rows}
+
+
 def extract(path):
-    workbook = xlrd.open_workbook(str(path), formatting_info=False)
+    workbook = xlrd.open_workbook(str(path), formatting_info=False, logfile=sys.stderr)
     if not workbook.sheet_names():
         raise ValueError("工作簿没有工作表")
 
     sheet = workbook.sheet_by_index(0)
     if sheet.nrows < 2:
         raise ValueError("工作表没有税务明细")
+    if str(sheet.cell_value(0, 0)).strip() == "个人所得税扣缴申报表":
+        return extract_declaration_report(sheet)
 
     headers = [str(sheet.cell_value(0, col)).strip() for col in range(sheet.ncols)]
     missing = [name for name in REQUIRED_COLUMNS if name not in headers]
@@ -98,7 +159,7 @@ def extract(path):
 
 def main():
     if len(sys.argv) != 2:
-        raise SystemExit(f"用法: {Path(sys.argv[0]).name} <税款计算.xls>")
+        raise SystemExit(f"用法: {Path(sys.argv[0]).name} <税款计算或综合所得申报.xls>")
     path = Path(sys.argv[1]).expanduser()
     if path.suffix.lower() != ".xls":
         raise SystemExit("仅支持 .xls 文件")

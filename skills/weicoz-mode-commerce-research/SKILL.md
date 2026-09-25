@@ -40,17 +40,15 @@ Official sources are allowed only as baseline facts unless the user explicitly a
 
 Respect the user's specified tool first.
 
-**Do not use `bb-browser` for this skill.**
+Use browser tools with this fixed priority for web research and article retrieval:
 
-Use the following priority order for web research and article retrieval:
+1. **`ego-browser`** — use `ego-browser nodejs`, reuse one task space, and close it with `completeTaskSpace` after verified completion.
+2. **`browser-skill`** — only when ego-browser is unavailable or cannot complete the current capability; always run `bsk session start` -> operations -> `bsk session stop`.
+3. **`@Chrome`** — only when the first two cannot complete the current capability; follow `chrome:control-chrome` browser-client workflow.
 
-1. **Built-in web search tool (`WebSearch`)** — default first choice for all queries. Run broad and intent-specific queries in parallel, then use `FetchURL` to open high-value articles.
-2. **`opencli`** — use when the built-in search returns insufficient results, or when you need site-specific commands (e.g. `opencli search`, `opencli site <domain>`). Load `opencli-usage` first if unfamiliar with available adapters.
-3. **`web-access`** — use when `WebSearch` and `opencli` both fail, or when the task explicitly requires a browser-agent workflow. This skill wraps browser automation behind a unified interface.
-4. **`agent-browser`** — use as the fourth fallback for logged-in browser tasks, form interaction, or JavaScript-heavy pages that the above tools cannot retrieve.
-5. **`playwright`** / `playwright-cli` — use only as the final fallback when all other tools fail and a real browser session is absolutely required. Prefer `playwright-cli` over the MCP variants.
+Do not jump to a lower layer because it is more familiar. Record the failure signal before fallback.
 
-For 微信公众号 content, try the built-in `WebSearch` with queries like `site:mp.weixin.qq.com <品牌名> <关键词>` first. If that yields only snippets, escalate through `opencli` → `web-access` → `agent-browser` → `playwright`.
+For 微信公众号 content, use the same browser priority. If the page yields only shell HTML or snippets, record that failure and continue at the next browser layer.
 
 Use `FetchURL` to open high-value articles when possible. If an article is blocked, removed, or only the search snippet is available, record it as `snippet-only` evidence and lower confidence.
 

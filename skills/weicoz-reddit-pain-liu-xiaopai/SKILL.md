@@ -37,7 +37,7 @@ description: |
 - 用 `--emit=compact`。
 - 有 WebSearch / 可推理规划时，先做 subreddit / handle / hashtag / repo 等 pre-flight，再传 `--plan`。
 - 面向 Reddit 痛点时，`--subreddits` 优先覆盖高痛点社区。
-- 如果 Reddit public 403、ScrapeCreators 402、X 不可用、bb-browser daemon 失败，早转 WebSearch + direct Reddit page open，并在报告里写清 source gap。
+- Reddit 页面固定按 `ego-browser` -> `browser-skill` -> `@Chrome` 路由；若三层都无法完成，才转 WebSearch + direct Reddit page open，并在报告里写清 source gap、失败信号和尝试次数。
 - 将 WebSearch 补充写入 raw 文件的 `## WebSearch Supplemental Results`，不要替代原始结果。
 
 常用高痛点 subreddit：
@@ -296,7 +296,7 @@ ${WEICOZ_OUTPUT_ROOT:-$PWD}/outputs/YYYY-MM-DD-reddit-pain-liu-xiaopai.md
 # Reddit 真实痛点证据 + 刘小排视角评估
 
 日期：YYYY-MM-DD
-工具：last30days / Reddit thread / WebSearch / bb-browser fallback
+工具：last30days / Reddit thread / ego-browser -> browser-skill -> @Chrome
 证据标准：抱怨型痛点 + 评论区佐证/反证 + 刘小排式 MVP 评估 + 可持续交易判断
 
 ## 方法摘要

@@ -17,8 +17,8 @@ It is intentionally narrow:
 
 ## Operating rules
 
-1. Prefer the built-in search/browser tools first when reading Reddit.
-2. Use `bb-browser` only as fallback if the built-in path cannot fetch the post body or comments.
+1. Use browser tools in this fixed order: `ego-browser` -> `browser-skill` -> `@Chrome`.
+2. Move to the next layer only when the current layer is unavailable or cannot fetch the post body/comments; record the failure signal before moving.
 3. Keep the workflow read-heavy. Do not drift into automatic posting or commenting.
 4. Keep Semrush work out of this skill. If keyword validation is needed, hand off to the Reddit + Semrush skill.
 5. Save outputs instead of narrating them. The point is a durable document trail, not a chat summary.
@@ -143,4 +143,3 @@ Use this skill when the user asks for:
 - a Codex-driven Reddit report pipeline
 - a markdown archive of Reddit research runs
 - an automated, repeatable version of the Reddit workflow
-

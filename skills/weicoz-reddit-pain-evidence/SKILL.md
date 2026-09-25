@@ -2,7 +2,7 @@
 name: weicoz-reddit-pain-evidence
 description: |
   从 Reddit 挖掘真实用户痛点，并按“抱怨型痛点”标准判定“真需求”。当用户说“去 Reddit 找真实痛点”“如何判断 Reddit 用户痛点是真痛点”“看评论区交叉验证需求”“整理 Reddit 用户需求证据”“不要只看标题，要看评论区”时使用本 skill。它负责 Reddit 搜索、thread 阅读、评论证据抽取、痛点判定和证据报告；不自动替代 Semrush/KDRoi、产品机会评估或商业决策，除非用户另外要求。
-allowed-tools: Bash(bb-browser:*), Bash(rg:*), Bash(sed:*), Bash(mkdir:*), Bash(wc:*)
+allowed-tools: Bash(ego-browser:*), Bash(bsk:*), Bash(rg:*), Bash(sed:*), Bash(mkdir:*), Bash(wc:*)
 ---
 
 # Reddit Pain Evidence
@@ -72,25 +72,11 @@ allowed-tools: Bash(bb-browser:*), Bash(rg:*), Bash(sed:*), Bash(mkdir:*), Bash(
 
 优先尊重用户指定工具。
 
-- Reddit 搜索和 thread 阅读：默认优先使用当前环境自带的搜索/浏览工具；如果拿不到搜索结果、thread 正文或评论，再用 `bb-browser` 兜底。
-- 用户明确指定 `bb-browser`：使用本机 `bb-browser`，优先 `reddit/search` 和 `reddit/thread`。
-- 用户指定其他浏览器/搜索工具：按用户指定工具执行。
-- 用户没有指定工具：按当前项目/环境的浏览器默认规则执行。
-
-`bb-browser` 兜底命令：
-
-```bash
-bb-browser site reddit/search "<query>" --subreddit <subreddit> --sort comments --time year --count 20 --json
-bb-browser site reddit/thread <reddit_thread_url> --json
-```
-
-如果 `bb-browser` 报 `No page target found`，先确认 daemon 和 tab：
-
-```bash
-bb-browser status
-bb-browser tab
-bb-browser tab new https://www.reddit.com
-```
+- Reddit 搜索和 thread 阅读固定按 `ego-browser` -> `browser-skill` -> `@Chrome` 路由。
+- ego-browser：`ego-browser nodejs` + `useOrCreateTaskSpace` + `openOrReuseTab` + `snapshotText`；正文/评论需要结构化时再 `js()` 提取，完成后单独调用 `completeTaskSpace(..., { keep: false })`。
+- browser-skill fallback：完整执行 `bsk session start` -> `bsk navigate/snapshot/evaluate` -> `bsk session stop`。
+- @Chrome fallback：仅前两层无法完成时，加载 `chrome:control-chrome` 并复用其 browser-client tab binding。
+- 每次 fallback 记录失败页面、失败信号和已尝试次数；禁止跳过前层或把搜索结果当 thread 证据。
 
 ## Step 0: Define The Search Job
 

@@ -1,6 +1,6 @@
 ---
 name: weicoz-frp-port-dispatch
-description: Use when user wants to configure, migrate, verify, or troubleshoot FRP frps/frpc port dispatch, reverse access, or startup services on a server or local machine, especially when a configured public relay is used. Always ask user to confirm ports, token, target host, service names, and any sudo-required step instead of deciding them.
+description: Use when user wants to configure, migrate, verify, or troubleshoot FRP frps/frpc port dispatch, reverse access, or startup services on a server or local machine, especially when a configured public relay is used. 复用当前请求与已核验配置，仅对无法确定的目标、网络暴露范围或认证策略请求澄清；已有授权不重复确认。
 ---
 
 # Weicoz FRP Port Dispatch
@@ -13,27 +13,27 @@ description: Use when user wants to configure, migrate, verify, or troubleshoot 
 - 用户明确说以后想复用同一套 FRP 配置流程。
 
 ## 硬规则
-1. 不替用户决定关键参数。以下信息必须先问清或让用户确认：
+1. 先读现有配置和用户请求，核对以下适用信息；已有明确值不重问，仅对无法确定且会改变目标、暴露范围或认证策略的缺项集中澄清：
    - `frps` 入口端口
    - `auth.token`（只从环境变量或用户确认值读取）
    - 每个 `remotePort`
    - 要暴露的本地服务与端口
    - 是否停用旧 `frp-tunnel` / 旧 `frpc` / 旧代理规则
    - 是否需要 systemd 开机自启
-   - 是否有 `sudo` 权限与密码
+   - 是否有可用的 `sudo` 权限；密码通过已有安全认证方式提供，不要求贴到对话
 2. 不把“已监听”当成“已可用”。必须做真实连通验证。
 3. 改端口后，必须提醒用户所有客户端同步改 `serverPort`。
-4. 若涉及 systemd、`/etc`、防火墙、云安全组，先说明哪一步需要用户确认或凭据。
+4. systemd、`/etc`、防火墙、云安全组的范围内修改随明确配置请求执行；新增公网暴露或认证策略变更超出授权时才询问。
 5. 若缺 `sudo`，先完成用户态可运行版本，再明确告诉用户“自动启动未完成”。
 6. 若用户要求“外网必须密钥、内网可密码”，不要把同一个 SSH 监听口同时给内外网共用。默认改为双端口方案：
    - 内网直连端口：保留密码策略
    - 外网经 FRP 端口：单独本地 SSH 监听口，仅允许公钥
-7. 涉及 SSH 认证策略时，必须先向用户确认：
+7. 涉及 SSH 认证策略时，先核对已授权的下列参数；缺失且无法查证时才询问：
    - 外网入口映射到本地哪个 SSH 端口
    - 哪个用户允许外网登录
    - 外网使用哪把公钥/现有 `authorized_keys` 是否沿用
    - 是否允许 root 外网登录
-8. 如果这次任务中新建、替换、追加了任何 SSH key，最终必须把可供登录使用的私钥与公钥内容、落点文件、对应用户、登录命令一并输出给用户；否则不算完成。
+8. 新建或追加 SSH key 后交付密钥文件路径、公钥指纹、对应用户和登录命令。私钥保留在权限受限的文件中，不输出到对话或日志；新密钥须实际验证登录，不能以泄露私钥作为完成条件。
 
 ## 默认输出协议
 - Goal
@@ -44,9 +44,9 @@ description: Use when user wants to configure, migrate, verify, or troubleshoot 
 ## 优先流程
 
 ## 标准执行顺序
-以后遇到同类任务，严格按这个顺序，避免乱序出错：
+以下仅适用于已授权的配置或迁移。只读诊断只查状态和连通性，不改配置、重启服务或新增密钥；步骤按依赖执行，不运行无关分支：
 
-1. 先确认参数
+1. 从请求和现有配置核对参数
    - `frps` 入口端口
    - `auth.token`
    - `remotePort`
@@ -55,7 +55,7 @@ description: Use when user wants to configure, migrate, verify, or troubleshoot 
    - 是否沿用旧 key 还是新生成 key
    - 是否要求 systemd 开机自启
    - 是否有可用 `sudo`
-2. 再查真实现状
+2. 修改前核验真实现状
    - `frps/frpc` 服务状态
    - 配置文件当前位置与内容
    - 旧 `frp-tunnel` / 旧依赖是否存在
@@ -82,7 +82,7 @@ description: Use when user wants to configure, migrate, verify, or troubleshoot 
    - 密码成功/失败
    - 公钥成功
    - service restart 后恢复
-   - key 全文交付
+   - 密钥路径、指纹和登录命令交付
 
 不要跳步。尤其不要：
 - 没确认参数就改
@@ -92,7 +92,7 @@ description: Use when user wants to configure, migrate, verify, or troubleshoot 
 - 没做 restart 复验就说“自启已完成”
 
 ### 1. 先识别角色
-先问清这是哪一类：
+从请求和现状识别任务类型，不明确且影响目标时才询问：
 - `frps` 服务端
 - `frpc` 客户端
 - 两边都要
@@ -108,9 +108,9 @@ description: Use when user wants to configure, migrate, verify, or troubleshoot 
 先查真实现状：
 - `systemctl status frps --no-pager -l`
 - `ss -lntp | grep frps`
-- `sed -n '1,220p' /etc/frp/frps.toml`
+- 读取 `/etc/frp/frps.toml`；仅输出必要的非敏感字段，token 脱敏
 
-要确认用户这些参数：
+从请求或现有配置核对这些参数；不要回显 token：
 - `bindPort`
 - `auth.token`
 - `allowPorts` 范围
@@ -146,9 +146,9 @@ allowPorts = [
 - `systemctl status frpc --no-pager -l`
 - `systemctl status frp-tunnel --no-pager -l`
 - `ps -ef | grep '[f]rpc'`
-- `sed -n '1,220p' <frpc 配置文件>`
+- 读取 frpc 配置文件；仅输出必要的非敏感字段，token 脱敏
 
-必须先问用户确认：
+从请求和现有配置核对；只有尚未授权或无法确定的项目才问：
 - 这台客户端要映射哪些服务
 - 每个服务对应哪个 `remotePort`
 - 是否保留旧代理
@@ -171,7 +171,7 @@ localPort = 22
 remotePort = 50022
 ```
 
-多服务时重复 `[[proxies]]`，但不要替用户自动分配端口。先让用户确认端口表。
+多服务时重复 `[[proxies]]`。指定端口按要求使用；已授权自动分配时检查允许范围与占用后选择并记录，否则缺失的公网端口集中询问。
 
 ### 4. systemd 落地流程
 若用户要开机自启，且有 `sudo`：
@@ -278,14 +278,12 @@ remotePort = 50022
 9. 是否还残留旧 `frp-tunnel` / 旧 `frpc` 抢配置
 
 ## 43 服务器惯例
-如果任务明确指向当前这套环境，先向用户确认是否继续使用这些值：
+以下是历史定位线索，使用前只读核验；任务已明确沿用时不重复询问：
 - 公网中转：读取 `WEICOZ_FRP_SERVER_ADDR`
 - 当前 `frps` 入口端口：`47000`
 - 常用映射范围：`50000-59000`
 
-如果用户说“按 43 这套规则走”，也仍然要确认：
-- 这次是否沿用当前 token
-- 这次具体要占哪些 `remotePort`
+用户说“按 43 这套规则走”时，沿用核验后的配置及 token。新 `remotePort` 未指定且未授权分配时才询问；token 只在安全配置中读取使用，不回显。
 
 ## 常见坑位
 - 只开了 `frps` 端口，没开实际 `remotePort`
@@ -303,8 +301,8 @@ remotePort = 50022
   - systemd 是否已完成
   - 真实验证是否通过
 - 若涉及 SSH key，额外列出：
-  - 私钥全文
-  - 公钥全文
+  - 私钥文件路径及访问权限
+  - 公钥指纹及文件路径
   - 写入到哪台机器、哪个用户、哪个文件
   - 对应登录命令
 - 无论是否新配 key，只要本次涉及 SSH 连接配置，最终都必须同时给出：
@@ -313,7 +311,7 @@ remotePort = 50022
 - 若有任何未完成项，必须单独列到 `Blocker`，不能包装成完成。
 
 ## 强制验证清单
-凡是 FRP + SSH 相关任务，结束前至少逐项核对：
+按本次改动选择适用检查；只读排障不要求写配置、重启或建立自启。配置变更检查对应配置与进程，SSH 策略变更检查认证，自启变更检查恢复能力：
 
 ### A. 配置验证
 - `frps` 配置文件已写入目标值
@@ -343,9 +341,9 @@ remotePort = 50022
 - 若尝试了经 FRP 外网入口密码登录，也要记录结果
 
 ### E. Key 交付验证
-若新配、替换、追加了 key，必须确认最终答复里已经包含：
- - 私钥全文
- - 公钥全文
+若新配、替换、追加了 key，核对最终交付已包含：
+ - 私钥文件路径及访问权限
+ - 公钥指纹及文件路径
  - 机器 / 用户 / 文件路径
  - 登录命令
 

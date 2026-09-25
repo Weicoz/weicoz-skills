@@ -3,7 +3,7 @@
 ## 0. Demand Gate (KDRoi Precheck)
 
 - Input roots:
-- Input keyword source (default: `weicoz-semrush-bb-browser`):
+- Input keyword source (default: `weicoz-semrush-ego-browser`):
 - Semrush export path:
 - Filters used (KD/Volume/CPC):
 - Keywords after filter:

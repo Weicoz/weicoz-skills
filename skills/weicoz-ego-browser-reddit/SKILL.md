@@ -1,19 +1,19 @@
 ---
-name: weicoz-bb-browser-reddit
+name: weicoz-ego-browser-reddit
 description: |
-  用 bb-browser 的 Reddit adapters 执行 Reddit 查询、搜索、帖子阅读、评论提取与结果归档。用户提到“用 bb-browser 查 Reddit”“打开 Reddit 帖子”“搜索 Reddit 关键词”“抓 Reddit 评论”“把 Reddit 查询结果落盘成文件”“一边给我结果一边保存文档”时都应使用本 skill。它负责查询执行、结果整理、标准化落盘和对话内回报；不负责发帖、评论、点赞或账号运营。
-allowed-tools: Bash(bb-browser:*), Bash(mkdir:*), Bash(date:*), Bash(cat:*), Bash(printf:*), Bash(test:*), Bash(pwd:*)
+  用 ego-browser 优先执行 Reddit 查询、搜索、帖子阅读、评论提取与结果归档。用户提到“用 ego-browser 查 Reddit”“打开 Reddit 帖子”“搜索 Reddit 关键词”“抓 Reddit 评论”“把 Reddit 查询结果落盘成文件”“一边给我结果一边保存文档”时都应使用本 skill。它负责查询执行、结果整理、标准化落盘和对话内回报；不负责发帖、评论、点赞或账号运营。
+allowed-tools: Bash(ego-browser:*), Bash(bsk:*), Bash(mkdir:*), Bash(date:*), Bash(cat:*), Bash(printf:*), Bash(test:*), Bash(pwd:*)
 ---
 
-# Weicoz BB Browser Reddit
+# Weicoz Ego Browser Reddit
 
-用 `bb-browser` 的 Reddit 能力完成一次性 Reddit 查询任务，并把结果同时交付到对话和文件。
+用 `ego-browser` 优先完成一次性 Reddit 查询任务，并把结果同时交付到对话和文件。
 
 ## 触发范围
 
 出现下面任一类需求就用本 skill：
 
-- 用 `bb-browser` 查 Reddit
+- 用 `ego-browser` 查 Reddit
 - 打开某个 Reddit 页面或帖子并确认能否访问
 - 搜某个关键词、subreddit、用户或 thread
 - 提取帖子正文、评论、链接
@@ -22,8 +22,8 @@ allowed-tools: Bash(bb-browser:*), Bash(mkdir:*), Bash(date:*), Bash(cat:*), Bas
 
 ## 默认原则
 
-1. 用户明确指定 `bb-browser` 时，不切到别的浏览器工具。
-2. 先用最短路径完成任务：能用 `site reddit/search` 就不要手搓页面点击。
+1. 浏览器固定优先级：`ego-browser` -> `browser-skill` -> `@Chrome`。
+2. 只有当前工具不可用，或已确认无法完成当前页面能力时，才进入下一层；必须记录失败信号，不能因操作习惯直接跳级。
 3. 每次任务都要有两份输出：
    - 对话内简明结果
    - 文件落盘结果
@@ -49,37 +49,23 @@ projects/reddit-research/runs/<YYYY-MM-DD-HHMMSS>/
 
 - `raw-links.md`
 
-## 命令路由
+## 浏览器路由
 
-### 1. 搜索 Reddit 主题
+### 1. ego-browser
 
-优先：
+- 通过 `ego-browser nodejs <<'EOF' ... EOF` 执行。
+- 用 `useOrCreateTaskSpace` 创建并复用同一 task space。
+- 搜索页用 `openOrReuseTab` 打开 Reddit 搜索 URL，先 `snapshotText()`，需要结构化正文/评论时再用 `js()` 提取。
+- 指定帖子直接打开 canonical thread URL，提取 OP、评论、作者、时间和永久链接。
+- 任务确认完成后，单独一次 heredoc 调用 `completeTaskSpace(taskId, { keep: false })`。
 
-```bash
-bb-browser site reddit/search "<query>"
-```
+### 2. browser-skill fallback
 
-如果用户给了明确帖子 URL，直接走 thread：
+仅 ego-browser 不可用或无法完成当前能力时使用。严格执行 `bsk session start` -> `bsk navigate/snapshot/... --session <id>` -> `bsk session stop <id>`，包括失败路径。
 
-```bash
-bb-browser site reddit/thread "<reddit_thread_url>"
-```
+### 3. @Chrome fallback
 
-### 2. 打开页面确认是否可访问
-
-```bash
-bb-browser open https://www.reddit.com
-bb-browser get title
-bb-browser get url
-```
-
-### 3. 需要更细的页面正文或交互时
-
-```bash
-bb-browser open "<url>"
-bb-browser snapshot -i
-bb-browser eval "document.body.innerText.substring(0, 5000)"
-```
+仅 browser-skill 也不可用或无法完成当前能力时使用。加载 `chrome:control-chrome`，按其 `browser-client` 工作流复用 Chrome 登录态和 tab binding。
 
 ## 执行流程
 
@@ -96,9 +82,9 @@ bb-browser eval "document.body.innerText.substring(0, 5000)"
 
 ### Step 2: 执行最短查询
 
-- 搜索类：先 `reddit/search`
-- 帖子类：先 `reddit/thread`
-- 访问验证类：先 `open + get title + get url`
+- 搜索类：先打开 Reddit 搜索结果页，再提取候选 thread URL
+- 帖子类：直接打开 thread URL，读取 OP 和评论
+- 访问验证类：核对标题、URL 和页面正文
 
 如果命令失败，保留失败信息，不要装成功。
 

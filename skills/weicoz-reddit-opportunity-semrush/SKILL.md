@@ -3,7 +3,7 @@ name: weicoz-reddit-opportunity-semrush
 description: |
   从 Reddit 真实抱怨和评论交叉验证里挖产品需求，再用 Semrush 关键词门槛筛选，并输出带 GO/HOLD/NO-GO、MVP、商业化和执行建议的产品机会报告。
   当用户说“从 Reddit 找真需求”“找痛点并用 Semrush 验证”“Reddit + Semrush 需求挖掘”“生成机会报告”“找 10 个能做的 AI Web 产品方向”“用 weicoz-ai-product-opportunity / 刘小排视角判断需求”时使用本 skill。
-  执行前要询问用户想找多少个需求/痛点，以及 Semrush 的 Volume/KD/CPC 筛选条件；如果用户不知道或不提供，默认找 10 个方向，Semrush 默认 Volume > 500、KD <= 29、CPC > 0.1。
+  执行前要询问用户想找多少个需求/痛点，以及 Semrush 的 Volume/KD/CPC 筛选条件；如果用户不知道或不提供，默认找 10 个方向并使用内置 Semrush 阈值。
 ---
 
 # Reddit Opportunity + Semrush Validation
@@ -24,12 +24,12 @@ description: |
 
 优先使用这些官方工具和本机业务 skill：
 
-- Reddit 抓取和网页浏览：优先使用官方 `bb-browser` 能力。
-- Semrush：所有 Semrush 查询必须使用 `weicoz-semrush-bb-browser`。
+- Reddit 抓取和网页浏览：按 `ego-browser` -> `browser-skill` -> `@Chrome` 路由。
+- Semrush：所有 Semrush 查询必须使用 `weicoz-semrush-ego-browser`。
 - 产品机会判断：使用 `weicoz-ai-product-opportunity` 的结构。
 - 刘小排视角：使用 `weicoz-liu-xiaopai-perspective` 的判断方式。
 
-不要把 Semrush 主路径切回 OBU、临时 DOM 脚本或手搓浏览器解析，除非 `weicoz-semrush-bb-browser` 明确不可用，并且要在报告里写明 fallback 原因。
+不要把 Semrush 主路径切回临时 DOM 脚本或手搓浏览器解析，除非 `weicoz-semrush-ego-browser` 明确不可用，并且要在报告里写明 fallback 原因。浏览器 fallback 只能按 `ego-browser` -> `browser-skill` -> `@Chrome` 逐级执行。
 
 ## Step 0: Ask For Parameters
 
@@ -51,7 +51,7 @@ Semrush 筛选条件要用什么？不提供默认 Volume > 500、KD <= 29、CPC
 - `market = US`
 - `language = English keyword first`
 
-Semrush adapter 的过滤语义要注意：
+Semrush 页面筛选语义要注意：
 
 - `volume > minVolume`
 - `kd < maxKd`
@@ -114,28 +114,26 @@ Semrush adapter 的过滤语义要注意：
 - 模板/工具词：`template`, `generator`, `tracker`, `converter`, `checker`, `assistant`。
 - 类别承接词：当直接词不过线但类别词和 Reddit 工作流一致时可保留，但要在报告中标注“承接词，不是最直接购买词”。
 
-必须使用 `weicoz-semrush-bb-browser`。
+必须使用 `weicoz-semrush-ego-browser`。
 
 推荐流程：
 
-1. 用 `bb-browser open` 打开 live result page。
-2. 拿到 `Tab ID`。
-3. 等待页面渲染。
-4. 用 `bb-browser site sem3ue/keywordmagic ... --tab <Tab ID>` 提取。
-5. 每个 query 尽量单独打开 live tab，不要乱复用不同 query 的 tab。
+1. 用 ego-browser 打开 live result page，复用同一 task space。
+2. 核对标题、URL 和 query，等待页面渲染。
+3. 用 `snapshotText()` / `js()` 提取真实渲染表格，并验证筛选控件标签与返回行。
+4. 每个 query 尽量使用独立结果 tab，不要乱复用不同 query 的 tab。
 
 示例：
 
-```bash
-bb-browser open "https://${WEICOZ_SEMRUSH_PROXY_HOST}/analytics/keywordmagic/?q=product+description+generator&db=us&fid=${WEICOZ_SEMRUSH_FID}&__gmitm=..."
-bb-browser wait 5000
-bb-browser site sem3ue/keywordmagic "product description generator" us "${WEICOZ_SEMRUSH_FID}" 500 30 0.1 --json --tab "<Tab ID>"
+```text
+ego-browser nodejs：打开 Keyword Magic URL，等待渲染，验证标题/URL/KD/CPC/行数，再提取表格。
 ```
 
 如果使用 named flags：
 
-```bash
-bb-browser site sem3ue/keywordmagic "product description generator" us "${WEICOZ_SEMRUSH_FID}" --minVolume 500 --maxKd 30 --minCpc 0.1 --json --tab "<Tab ID>"
+```text
+browser-skill fallback：bsk session start -> navigate/snapshot/evaluate -> bsk session stop。
+@Chrome fallback：加载 chrome:control-chrome 后按 browser-client 工作流执行。
 ```
 
 记录每个过线词：

@@ -1,6 +1,6 @@
 ---
 name: weicoz-brd-market-research
-description: 用 3 小时 BRD 流程评估独立开发产品机会并输出 GO/NO-GO 决策，默认赛道是 AI 工具、出海、SaaS（含 Chrome 插件和各类平台插件）。Use when deciding whether to build a new AI SaaS, plugin, extension, validating a pivot, or re-checking demand before coding MVP. Includes demand trend checks, competitor pain mining, ICP and willingness-to-pay validation, TAM/SAM/SOM sizing, pricing strategy, risk scoring, and evidence-based final decision. When keyword KD / Volume / CPC data is needed, use weicoz-semrush-bb-browser first.
+description: 用 3 小时 BRD 流程评估独立开发产品机会并输出 GO/NO-GO 决策，默认赛道是 AI 工具、出海、SaaS（含 Chrome 插件和各类平台插件）。Use when deciding whether to build a new AI SaaS, plugin, extension, validating a pivot, or re-checking demand before coding MVP. Includes demand trend checks, competitor pain mining, ICP and willingness-to-pay validation, TAM/SAM/SOM sizing, pricing strategy, risk scoring, and evidence-based final decision. When keyword KD / Volume / CPC data is needed, use weicoz-semrush-ego-browser first.
 ---
 
 # BRD Market Research
@@ -37,13 +37,15 @@ scripts/score_go_no_go.py outputs/scoring-input.json
 
 ## Tooling Rules
 
+- 浏览器优先级固定为 `ego-browser` -> `browser-skill` -> `@Chrome`；只有当前工具不可用或确认无法完成当前能力时才进入下一层，并记录失败信号。
+- `ego-browser` 通过 `ego-browser nodejs`、同一 task space 和最终独立的 `completeTaskSpace(..., { keep: false })` 执行；`browser-skill` 必须完整执行 `bsk session start` -> 操作 -> `bsk session stop`；`@Chrome` 遵循 `chrome:control-chrome` 的 browser-client 工作流。
+
 - 优先使用可复验的公开来源：Google Trends、SimilarWeb、G2、Capterra、Trustpilot、Reddit、Product Hunt、Chrome Web Store、Statista、Crunchbase。
-- 网页访问采用两级策略：先用 `browse` skill；若 `browse` 无法成功获取内容，再切换 `web-access` skill 兜底。
-- `browse` 失败判定（命中任一即可切换）：持续 403/429、验证码/风控拦截、页面正文为空、关键字段缺失且重试后仍失败、需要登录态或复杂交互导致无法提取。
-- 触发兜底时必须记录：失败页面、失败信号、重试次数、切换到 `web-access` 后的结果。
+- 网页访问先走上述浏览器优先级；失败判定包括持续 403/429、验证码/风控拦截、页面正文为空、关键字段缺失、登录态或复杂交互阻塞。
+- 触发兜底时必须记录：失败页面、失败信号、重试次数、下一层结果。
 - 每条关键结论至少要有 2 个独立来源交叉验证，或明确标记为“单来源低置信度”。
 - 默认先用英文关键词检索（海外市场主语料），仅在需要补充区域市场时追加当地语言关键词。
-- 如果调研需要关键词 `KD / Volume / CPC / KDRoi`，优先调用 `weicoz-semrush-bb-browser` 从 Semrush Keyword Magic proxy 导出第一页过滤结果；只在拿不到真实 SEO KD 时，才使用 Google Ads / 免费工具 proxy，并显式标注不是标准 KD。
+- 如果调研需要关键词 `KD / Volume / CPC / KDRoi`，优先调用 `weicoz-semrush-ego-browser` 从 Semrush Keyword Magic 页面导出第一页过滤结果；只在拿不到真实 SEO KD 时，才使用 Google Ads / 免费工具 proxy，并显式标注不是标准 KD。
 
 ## 6-Step Workflow (3 Hours)
 
@@ -52,7 +54,7 @@ scripts/score_go_no_go.py outputs/scoring-input.json
 目标：回答“需求是否存在且在增长”。
 
 执行：
-- 如果当前方向还没有关键词数据，先用 `weicoz-semrush-bb-browser` 获取候选词的 `Volume / KD / CPC / KDRoi`，保存到工作区 `outputs/semrush-keywordmagic-page1.csv` / `.json`。
+- 如果当前方向还没有关键词数据，先用 `weicoz-semrush-ego-browser` 获取候选词的 `Volume / KD / CPC / KDRoi`，保存到工作区 `outputs/semrush-keywordmagic-page1.csv` / `.json`。
 - 搜主关键词（例：`remove background online`）看 3 年趋势。
 - 拉长到 5 年验证是否临时性需求。
 - 看 `Related Queries` 找高增速细分。
