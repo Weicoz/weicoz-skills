@@ -17,8 +17,8 @@ allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), B
 
 1. **优先级与读取机制**：
    - **第一优先级（仓库本地配置文件，最高优先级）**：
-     优先读取目标归档仓库根目录下的配置文件：
-     - `/Users/weicoz/File/git/steam-manifests/.user_specs.json` 或 `user_specs.json`
+     优先读取当前仓库根目录下的配置文件：
+     - `.user_specs.json` 或 `user_specs.json`
    - **第二优先级（环境变量）**：
      检查是否配置了以下环境变量（例如在 `~/.zshrc` 中导出）：
      - `STEAM_SPECS_CPU`（例如：`"Intel Core i5-9600K"`）
@@ -87,7 +87,7 @@ allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), B
    - **特征**：几个 G 到几十 G 的完整游戏安装包/分卷压缩包（解压即玩等）。
    - **行为**：**Skill 绝对不自动下载本体**；必须将本体的网盘链接、提取码、文件体积与版本特色整理记录在该游戏目录的 `README.md` 中，**由用户在需要时按需手动下载**。
 3. **归档仓库与目录规范**：
-   - **归档根仓库**：`/Users/weicoz/File/git/steam-manifests/`（独立公开仓库，禁止放入 LLM-wiki 中）
+   - **归档根仓库**：`steam-manifests` 根目录（独立公开仓库）
    - **清单子目录**：`manifests/{AppID} - {英文名} - {中文名}[ - {版本号}]`
    - **目录内文件配置**：
      - `{AppID} - {英文名} - {中文名}.lua`：可辨识清单文件（已自动下载就绪）
@@ -110,7 +110,7 @@ allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), B
 
 ### 第一步：硬件配置前置检查与匹配校验 (检查是否匹配，缺失提示补充)
 ```bash
-REPO_DIR="/Users/weicoz/File/git/steam-manifests"
+REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 # 1. 查找配置（仓库本地 -> 环境变量 -> 全局配置）
 # 2. 校验配置是否匹配必填规范 (cpu, gpu, ram 必须非空且有效)：
@@ -143,7 +143,8 @@ EOF
 
 ### 第四步：自动转存并下载清单文件 (夸克 CLI)
 ```bash
-cd /Users/weicoz/.agents/skills/quarkclouddrive
+QUARK_DIR="${QUARK_DRIVE_DIR:-$HOME/.agents/skills/quarkclouddrive}"
+cd "$QUARK_DIR"
 
 # 1. 自动转存
 env CODEX_SHELL=1 node scripts/quark-drive.cjs saveas \
@@ -156,7 +157,7 @@ env CODEX_SHELL=1 node scripts/quark-drive.cjs saveas \
 # 2. 自动下载到游戏目录
 env CODEX_SHELL=1 node scripts/quark-drive.cjs download \
   --fid "<文件FID>" \
-  --output-dir "/Users/weicoz/File/git/steam-manifests/manifests/{AppID} - {英文名} - {中文名}" \
+  --output-dir "$REPO_DIR/manifests/{AppID} - {英文名} - {中文名}" \
   --session-input "下载游戏清单" \
   --session-id "$(date +%s)-fetch"
 ```
@@ -169,7 +170,7 @@ env CODEX_SHELL=1 node scripts/quark-drive.cjs download \
 
 ### 第六步：刷新总索引并推送到 GitHub
 ```bash
-cd /Users/weicoz/File/git/steam-manifests
+cd "$REPO_DIR"
 node scripts/index_updater.js
 git add .
 git commit -m "feat: 归档《游戏名》(AppID) 入库清单与本体链接，更新硬件运行指南"
