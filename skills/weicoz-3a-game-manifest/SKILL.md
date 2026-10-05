@@ -1,13 +1,41 @@
 ---
 name: weicoz-3a-game-manifest
 description: |
-  专门用于从 3a.lol 游戏社区搜索、筛选、提取 Steam 游戏入库清单（.lua / manifest）及对应游戏本体资源，自动下载入库清单并规范归档。支持 ego-browser 优先控制，若不存在或异常则自动降级使用 CDP。当用户需要在 3a.lol 找游戏、抓取/保存游戏清单、下载 Steam 入库清单、整理游戏本体网盘链接时使用。
-allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), Bash(mkdir:*), Bash(cp:*), Bash(mv:*), Bash(ls:*)
+  专门用于从 3a.lol 游戏社区搜索、筛选、提取 Steam 游戏入库清单（.lua / manifest）及对应游戏本体资源，自动下载入库清单并规范归档至 steam-manifests 仓库。集成用户电脑硬件配置前置记忆与 doesitrun.com 画质/帧率预测流程，初次询问后永久免问，自动生成针对性画质调优指南并推送到 GitHub。
+allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), Bash(mkdir:*), Bash(cp:*), Bash(mv:*), Bash(ls:*), Bash(git:*)
 ---
 
 # Weicoz 3A Game Manifest
 
-专门用于从 `https://3a.lol` 游戏社区检索资源，**自动下载 Steam 入库清单（.lua/manifest）并规范归档**；若发现完整游戏本体，则将其下载链接整理至 `README.md` 中**供用户按需手动下载**。
+专门用于从 `https://3a.lol` 游戏社区检索资源，**自动下载 Steam 入库清单（.lua/manifest）并规范归档**；若发现完整游戏本体，则将其下载链接整理至 `README.md` 中**供用户按需手动下载**；同时结合用户硬件配置（基于 doesitrun.com 跑分模型），自动生成专属画质与帧率指南，并同步至 GitHub 远端仓库。
+
+---
+
+## 硬件配置前置检查与记忆机制 (首次必查，永久免问)
+
+在执行任何游戏检索与归档前，必须先确认是否已记录用户的电脑硬件配置：
+
+1. **配置文件路径**：
+   - 全局持久化：`~/.config/steam-manifests/user_specs.json`
+   - 仓库本地：`/Users/weicoz/File/git/steam-manifests/.user_specs.json`
+2. **前置判断逻辑**：
+   - 若上述配置文件已存在且包含 CPU、GPU、RAM 等信息：
+     - **严禁向用户重复询问硬件配置**，直接读取已保存的信息。
+   - 若配置文件不存在或字段缺失：
+     - 向用户询问当前电脑硬件配置（如 CPU、显卡型号及显存、内存、常用分辨率）。
+     - 将用户提供的配置写入 `~/.config/steam-manifests/user_specs.json` 与仓库中的 `.user_specs.json`。
+     - **问过一次后，后续所有执行绝不再问**。
+   - **当前用户硬件基准配置**：
+     ```json
+     {
+       "cpu": "Intel Core i5-9600K",
+       "gpu": "NVIDIA GeForce RTX 2060 6GB",
+       "ram": "16GB",
+       "vram": "6GB",
+       "resolution": "1080p",
+       "notes": "6核6线程无超线程，Turing架构6G显存，支持DLSS 2，大作建议关光追控制纹理"
+     }
+     ```
 
 ---
 
@@ -16,23 +44,19 @@ allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), B
 在与 `3a.lol` 交互时，严格按照以下双渠道优先级调度浏览器：
 
 1. **第一优先级：`ego-browser`（首选）**：
-   - **适用**：已安装 `ego-browser` 且能够正常启动，复用当前用户已登录态（`weicoz` 账号）。
-   - **检查**：优先运行 `which ego-browser` 与测试 taskSpace。
+   - **适用**：已安装 `ego-browser` 且能够正常启动，复用当前用户已登录态。
+   - **规范**：在任务开始时使用 `useOrCreateTaskSpace`，任务完成后**必须在独立的最终代码块中调用 `completeTaskSpace(taskId, { keep: false })` 清理**。
 2. **第二优先级：`CDP (Chrome DevTools Protocol)`（兜底降级）**：
    - **触发条件**：
      - 系统中未安装或找不到 `ego-browser` 命令；
      - `ego-browser` 进程卡死、启动报错、超时或无法读取页面数据。
    - **执行手段**：
      - 检查 Chrome 远程调试端口（默认 `http://127.0.0.1:9222`）；
-     - 若未启动，可唤起带调试参数的 Chrome 实例：
+     - 若未启动，唤起带调试参数的 Chrome 实例：
        ```bash
        /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 &
        ```
-     - 通过 HTTP API (`/json/new`, `/json/list`) 与 WebSocket CDP 协议发送 `Page.navigate` 与 `Runtime.evaluate` 指令，执行页面导航、元素提取与状态获取；
-     - 或直接调用配套辅助脚本：
-       ```bash
-       node /Users/weicoz/File/git/weicoz-skills/skills/weicoz-3a-game-manifest/scripts/cdp_browser.js check
-       ```
+     - 通过 HTTP API 与 WebSocket CDP 发送指令提取搜索结果与帖子数据。
 
 ---
 
@@ -41,79 +65,61 @@ allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), B
 1. **自动下载范围：仅限清单（默认行为）**：
    - **特征**：文件名为纯数字 AppID（如 `2825860`、`2825860.zip`、`2825860.lua`）或 `.lua` 文件，体积 **≤ 10 MB**（通常 < 1 MB）。
    - **行为**：**Skill 必须自动执行转存与下载**（使用夸克 CLI），拉取到本地对应游戏目录中解压归档。
-
 2. **本体资源处理：仅收录链接，严禁自动下载**：
    - **特征**：几个 G 到几十 G 的完整游戏安装包/分卷压缩包（解压即玩等）。
-   - **行为**：**Skill 绝对不自动下载本体**；必须将本体的网盘链接、提取码、文件体积与版本特色整理记录在该游戏目录的 `README.md` 中，**由用户自己在 README 中查找并按需手动下载**。
-
-3. **失效插件隔离**：
-   - 论坛页面中嵌入的“下载助手”等油猴插件已失效，严禁依赖。
-
-4. **目录与文件规范**：
-   - 归档根目录：`workspace/games/manifests/`
-   - 单游戏目录命名规则：
-     ```text
-     {AppID} - {英文名} - {中文名}[ - {版本号}]
-     ```
-   - 目录内文件配置：
+   - **行为**：**Skill 绝对不自动下载本体**；必须将本体的网盘链接、提取码、文件体积与版本特色整理记录在该游戏目录的 `README.md` 中，**由用户在需要时按需手动下载**。
+3. **归档仓库与目录规范**：
+   - **归档根仓库**：`/Users/weicoz/File/git/steam-manifests/`（独立公开仓库，禁止放入 LLM-wiki 中）
+   - **清单子目录**：`manifests/{AppID} - {英文名} - {中文名}[ - {版本号}]`
+   - **目录内文件配置**：
      - `{AppID} - {英文名} - {中文名}.lua`：可辨识清单文件（已自动下载就绪）
      - `{AppID}.lua`：纯数字 AppID 原名兼容文件（供入库工具自动扫描匹配）
-     - `{AppID} - {英文名} - {中文名}.zip`：原始压缩包备份
-     - `README.md`：记录清单代码、帖子源、以及**完整游戏本体手动下载链接专区**
-
-5. **总索引维护 (INDEX.md)**：
-   - 每次抓取并归档新游戏后，自动调用配套脚本更新总索引。
+     - `{AppID} - {英文名} - {中文名}.zip`：原始压缩包备份（若有配套 .manifest depot 清单亦一并放入）
+     - `README.md`：记录清单代码、原帖来源、本体手动下载专区，以及**专属硬件流畅运行指南**
+4. **硬件画质与帧率预测标准 (参考 doesitrun.com)**：
+   - 抓取后根据游戏引擎（UE5 / Northlight / RE Engine / 经典复刻等）与保存的电脑配置（如 i5-9600K / RTX 2060 6G），给出：
+     - **推荐分辨率与画质档位**（低/中/高/极高）
+     - **超分辨率缩放设置**（DLSS/FSR 档位）
+     - **预估 FPS**
+     - **避坑与微调建议**（光追关闭、显存防溢出、阴影/体积雾设中等）
+5. **索引维护与 GitHub 自动推送**：
+   - 归档后调用 `node scripts/index_updater.js` 自动更新根目录及子目录的 `INDEX.md` 与 `README.md`。
+   - 执行 `git add .`、中文 commit message、并自动推送至 GitHub 远端仓库。
 
 ---
 
 ## 标准操作流程
 
-### 第一步：社区检索目标游戏
+### 第一步：硬件配置前置检查 (免重复提问)
+```bash
+if [ -f "$HOME/.config/steam-manifests/user_specs.json" ]; then
+  # 已有配置，直接读取并静默使用
+  SPECS=$(cat "$HOME/.config/steam-manifests/user_specs.json")
+else
+  # 首次执行且无记录，向用户询问配置后写入
+  echo "请问您的电脑硬件配置是什么？(CPU / 显卡及显存 / 内存)"
+  # 接收并保存配置至 ~/.config/steam-manifests/user_specs.json
+fi
+```
 
-#### 方案 A：使用 ego-browser 检索 (首选)
+### 第二步：社区检索目标游戏
+使用 `ego-browser` 检索目标游戏：
 ```bash
 ego-browser nodejs <<'EOF'
-const task = await taskSpace("游戏检索");
-const page = task.page("p1");
-
-const keyword = encodeURIComponent("游戏名或AppID");
-await page.goto(`https://3a.lol/search?q=${keyword}`);
-await page.waitForTimeout(2500);
-
-const results = await page.evaluate(() => {
-  return Array.from(document.querySelectorAll(".fps-result")).map(item => ({
-    title: item.querySelector(".search-link")?.innerText?.trim(),
-    url: item.querySelector(".search-link")?.href,
-    snippet: item.querySelector(".blurb")?.innerText?.trim()
-  }));
-});
-
-console.log(JSON.stringify(results, null, 2));
-await task.finish({ keep: [] });
+const task = await useOrCreateTaskSpace("游戏检索");
+const enc = encodeURIComponent("游戏名或AppID");
+await openOrReuseTab(`https://3a.lol/search?q=${enc}`, { wait: true, timeout: 15 });
+await wait(2);
+// 提取搜索结果...
+await completeTaskSpace(task.id, { keep: false });
 EOF
 ```
 
-#### 方案 B：使用 CDP 降级检索 (ego-browser 异常或不存在时)
-通过 CDP 接口直接操作 Chrome 调试会话：
-```bash
-# 1. 确认 CDP 端口存活
-curl -s http://127.0.0.1:9222/json/version
-
-# 2. 打开新标签页并导航
-NEW_TAB=$(curl -s -X PUT "http://127.0.0.1:9222/json/new?https://3a.lol/search?q=游戏名")
-# 使用 WebSocket 或 Node.js 脚本执行 Runtime.evaluate 提取搜索结果
-```
-
-### 第二步：分析帖子并探测网盘资源（分类判定）
-
-遍历帖子详情中的网盘分享链接：
+### 第三步：分析帖子与网盘分类判定
 - **清单链接（≤ 10 MB）**：提取 URL、提取码、确切体积，进入下一步自动下载。
 - **本体链接（> 10 MB，通常几G~几十G）**：提取 URL、提取码、本体总大小、版本特性，仅记录备用，**不执行下载**。
 
-### 第三步：自动转存并下载清单文件 (夸克 CLI)
-
-对筛选出的清单链接（≤10MB），调用 `quarkclouddrive` 自动拉取：
-
+### 第四步：自动转存并下载清单文件 (夸克 CLI)
 ```bash
 cd /Users/weicoz/.agents/skills/quarkclouddrive
 
@@ -128,24 +134,22 @@ env CODEX_SHELL=1 node scripts/quark-drive.cjs saveas \
 # 2. 自动下载到游戏目录
 env CODEX_SHELL=1 node scripts/quark-drive.cjs download \
   --fid "<文件FID>" \
-  --output-dir "workspace/games/manifests/{AppID} - {英文名} - {中文名}" \
+  --output-dir "/Users/weicoz/File/git/steam-manifests/manifests/{AppID} - {英文名} - {中文名}" \
   --session-input "下载游戏清单" \
   --session-id "$(date +%s)-fetch"
 ```
 
-### 第四步：解压、重命名与生成 README
-
-在游戏目录内：
+### 第五步：解压、重命名、生成硬件画质指南并编写 README
 1. 解压压缩包获取 `.lua` 清单。
 2. 双版本重命名：生成 `{AppID} - {英文名} - {中文名}.lua`，同时保留 `{AppID}.lua` 兼容原名。
 3. 压缩包备份为 `{AppID} - {英文名} - {中文名}.zip`。
-4. 编写 `README.md`，包含已就绪的清单及**供用户手动下载的本体链接专区**。
+4. 结合当前用户的硬件规格与游戏引擎特性，编写包含 `## 🎮 硬件运行建议与预估表现` 章节的 `README.md`。
 
-### 第五步：刷新总索引 (INDEX.md)
-
-运行配套脚本更新 `workspace/games/manifests/INDEX.md`：
-
+### 第六步：刷新总索引并推送到 GitHub
 ```bash
-node /Users/weicoz/File/git/weicoz-skills/skills/weicoz-3a-game-manifest/scripts/index_updater.js
+cd /Users/weicoz/File/git/steam-manifests
+node scripts/index_updater.js
+git add .
+git commit -m "feat: 归档《游戏名》(AppID) 入库清单与本体链接，更新硬件运行指南"
+git push origin main
 ```
-EOF
