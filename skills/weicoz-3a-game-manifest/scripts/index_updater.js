@@ -14,14 +14,27 @@ const MANIFESTS_DIR = process.env.MANIFESTS_DIR ||
 const REPO_ROOT = path.resolve(MANIFESTS_DIR, "..");
 
 function getHardwareSpecs() {
-  // 1. 环境变量：STEAM_HARDWARE_SPECS (JSON 字符串)
+  // 1. 优先读取仓库内的配置文件（.user_specs.json 或 user_specs.json）
+  const repoCandidates = [
+    path.join(REPO_ROOT, ".user_specs.json"),
+    path.join(REPO_ROOT, "user_specs.json"),
+    path.resolve(process.cwd(), ".user_specs.json"),
+    path.resolve(process.cwd(), "user_specs.json")
+  ];
+  for (const f of repoCandidates) {
+    if (fs.existsSync(f)) {
+      try {
+        return JSON.parse(fs.readFileSync(f, "utf8"));
+      } catch (e) {}
+    }
+  }
+
+  // 2. 其次读取环境变量：STEAM_HARDWARE_SPECS (JSON 字符串) 或 STEAM_SPECS_*
   if (process.env.STEAM_HARDWARE_SPECS) {
     try {
       return JSON.parse(process.env.STEAM_HARDWARE_SPECS);
     } catch (e) {}
   }
-
-  // 2. 环境变量：STEAM_SPECS_*
   if (process.env.STEAM_SPECS_CPU || process.env.STEAM_SPECS_GPU) {
     return {
       cpu: process.env.STEAM_SPECS_CPU || "Intel Core i5-9600K",
@@ -38,14 +51,6 @@ function getHardwareSpecs() {
   if (fs.existsSync(homeConfig)) {
     try {
       return JSON.parse(fs.readFileSync(homeConfig, "utf8"));
-    } catch (e) {}
-  }
-
-  // 4. 仓库内本地配置文件
-  const repoConfig = path.join(REPO_ROOT, ".user_specs.json");
-  if (fs.existsSync(repoConfig)) {
-    try {
-      return JSON.parse(fs.readFileSync(repoConfig, "utf8"));
     } catch (e) {}
   }
 
