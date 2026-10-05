@@ -1,86 +1,49 @@
 ---
 name: weicoz-dsh-repos-update-check
 description: >
-  检查这两个 DeepSeek Harness (DSH) 插件仓库是否有更新：`xiaobright/dsh-anchored-standard`
-  与 `yjh051108/dsh-routing-suite`。当用户说“检查/看看这两个仓库(插件)有没有更新”“dsh-anchored-standard、
-  dsh-routing-suite 更新了吗”“这两个插件是不是有更新了”，或给出这两个 GitHub 链接想对比本地与远端最新提交时，
-  务必使用本 skill。只读检查并输出报告，绝不修改任何文件、不安装/卸载、不 pull。
+  只读检查 DeepSeek Harness (DSH) 本体、xiaobright/dsh-anchored-standard、
+  yjh051108/dsh-routing-suite 的更新与本机实装差异；用户要求时审计已装 DSH 插件的兼容和可用性。
+  适用于“DSH/这两个仓库有没有更新”“所有插件兼容吗/能用吗”。不负责自动升级或同步。
 ---
 
-# weicoz-dsh-repos-update-check
+# DSH 更新与插件审计
 
-只读检查两个 DSH 插件仓库相对本地实装的更新情况，产出报告。**只读**：只 `git fetch` 远端引用并比对哈希，
-不改工作区、不 checkout、不 pull、不 reset、不动已安装预设、不卸载已取消插件。所有判断和报告基于 git 事实。
+## 更新检查
 
-## 什么时候用
-- 用户问这两个仓库/插件“有没有更新”“是不是更新了”“看下最新到哪了”。
-- 用户贴出这两个 GitHub 链接要求对比本地与远端。
-- 需要知道每个仓库相对本地实装新增了哪些提交（哈希、时间、说明），以及是否涉及功能代码还是仅文档、
-  本机实装是否需要同步。
+运行 `bash /Users/weicoz/.agents/skills/weicoz-dsh-repos-update-check/scripts/check_updates.sh`。
+脚本从 npm 发布标签核对当前 `dsh --version`，fetch 两个仓库的远端引用，并逐文件对比已装预设及
+routing-suite 的 injector 链接。默认使用 `~/File/git/dsh-anchored-standard` 和
+`~/File/git/dsh-routing-suite` 作为对比 clone；可用 `DSH_REPOS_XIAOBRIGHT`、
+`DSH_REPOS_ROUTING`、`DSH_INSTALLED_ANCHORED` 覆盖路径。
 
-## 信号灯语义（关键）
-- 🟢 **绿灯** = 本地实装(~/.dsh)与上游一致 / 无需任何同步操作。
-- 🔴 **红灯** = 实装落后于上游，需要 pull / 重新同步预设（或注意移除联动）。
-- ⚪ **无法对比** = clone 缺失、网络失败或实装未能自动检测——如实说明，不要臆断红/绿。
+- 🟢 实装与上游一致；🔴 版本更新或实装不一致，需评估同步；⚪ 无法核实。
+- clone 的 HEAD 落后只说明对比镜像落后；信号灯以实装核对为准。
+- 对 🔴 项，用 `git diff --name-status HEAD..origin/HEAD` 分清功能代码、预设、文档；
+  再看实装文件是否是用户有意改动。文件不一致不自动等于应该覆盖。
+- 上游删除插件时，只统计当前 `package.json`/`node_modules` 的真实引用；忽略备份、日志、disabled 残留。
+- 报告 DSH 当前/发布版本，两个仓库 local/remote SHA、新提交、变化路径、实装差异与影响。
 
-> ⚠️ 判定基准以**实装(~/.dsh)**为准：`/tmp/dsh-compare` 下的 clone 只是对比镜像，其 local HEAD 落后
-> **不代表**你 DSH 的实装落后。不要凭缓存 clone 落后就报红灯。
+## 插件兼容与可用性审计（用户要求时）
 
-## 前置
-- 需要 `git` 与网络（访问 GitHub）。
-- 默认本地缓存 clone 位于 `/tmp/dsh-compare/xiaobright` 与 `/tmp/dsh-compare/routing-suite`。
-  可用环境变量覆盖：`DSH_REPOS_XIAOBRIGHT`、`DSH_REPOS_ROUTING`。
-- anchored 实装目录默认 `~/.dsh/.agent-presets/anchored-standard`，可用 `DSH_INSTALLED_ANCHORED` 覆盖。
+范围以本机 DSH 各 profile 的 `package.json` 直接依赖、有效配置及运行时注入插件为准；
+官方内置插件可汇总，第三方插件逐项列出。先查 `dsh --version`、Node 版本、
+`pnpm -C ~/.dsh/profiles/<profile> ls --depth 0` 和插件自身 `package.json` 的 `engines`、
+`peerDependencies`、实际包路径。GitHub 套装根目录可以没有 `package.json`，不能仅凭此报安装失败。
 
-## 步骤
+对每个可用 profile 运行 `dsh --profile <profile> --dump-config`，只提取插件名称、启停状态和错误；
+不要回显含密钥的完整配置。Desktop 若由 Electron 独占，标明 CLI 无法检查。区分：
 
-1. 运行捆绑脚本：
-   ```bash
-   bash "$(skill_dir)/scripts/check_updates.sh"
-   ```
-   - `skill_dir` 是技能基目录（`~/.agents/skills/weicoz-dsh-repos-update-check`）。
-   - 脚本输出每个仓库的：local HEAD、remote HEAD、状态、**信号灯**、新增提交列表。
-   - 脚本已内置实装核对：anchored-standard 对比实装目录关键文件(custom-bash.mjs / agent.cordis.yml)
-     与远端 `preset/`；routing-suite 检查上游是否移除 mode-boost 及本机是否有真实安装引用。
-   - 若某仓库 local clone 缺失，脚本只报远端 HEAD 并给 ⚪——如实告知，不要臆造本地基线。
+1. **安装**：包和 link 存在，依赖没有明显缺失或版本冲突。
+2. **装载**：有效配置启用，运行时插件列表无跳过/报错；主动 disabled 的插件标“未启用”，不判“正常使用”。
+3. **功能**：只对已启用插件走安全的实际用户路径，查看结果、console/network/进程日志；
+   不能用 `dump-config`、HTTP 200 或启动成功代替功能验收。需要发送、付费、外部写入的功能只检查到授权边界。
 
-2. 若某仓库 `HAS update` 且脚本给 🔴/⚪，用 git 事实补充定位新提交动了功能代码还是仅文档：
-   ```bash
-   git -C <local_dir> diff --name-only <local_head>..<remote_head>
-   git -C <local_dir> diff --name-only <local_head>..<remote_head> -- preset shared preset/preset
-   ```
-   - `preset`/`shared`（anchored-standard）或 `preset/preset`、`mode-boost`（routing-suite）等路径是功能相关；
-     只有 README/*.md/.gitmodules 等是文档/仓库级改动。
-   - 据此告诉用户“已装预设是否需要重新同步”。
+逐项输出“已验证可用 / 装载正常但功能未验 / 已禁用 / 不兼容或失败 / 无法判断”，
+注明 DSH 版本、证据和失败信息。评估新版 DSH 时，当前版本可用不代表新版兼容；
+若未安装新版，标“升级后未验证”。仅检查时不安装、重启、启用或卸载插件。
 
-3. 重要联动项（只报告，不自动改）：
-   - `routing-suite` 若移除/取消了子模块或插件（历史上 `mode-boost` 被取消），检查本地 DSH 是否还装有该插件的 link 引用；
-     若有，明确提醒用户“上游已取消，pull 本地 checkout 会断 link”，并提供可选的卸载路径，但需用户确认后再动手。
-   - 检测时**忽略备份/残留文件**（如 `package.json.bak-mode-boost-*`、`mode-boost-activity.jsonl`、`cordis.patch.yml`
-     里的 disabled 残留条目）：它们不是真实安装引用，不构成断 link 风险。
+## 只读边界
 
-## 报告模板
-对每个仓库 ALWAYS 用这个结构（中文）：
-
-```
-### <repo>
-- 信号灯: 🟢 绿灯 / 🔴 红灯 / ⚪ 无法对比
-- 状态: 有更新 / 无更新 / 无法对比（注：缓存 clone 状态，不直接决定信号灯）
-- 实装核对: 已同步 / 落后（说明依据，如关键文件哈希一致、无 mode-boost 引用等）
-- local HEAD : <sha>
-- remote HEAD: <sha>
-- 新增提交: <n>
-  - <sha> | <日期> | <说明>  ...
-- 本轮改动类型: 功能代码 / 仅文档 / 仓库级（说明路径）
-- 对已装插件影响: 无需同步 / 需同步预设 / 需注意 <风险>
-```
-
-结束后给一句总结表：每仓库信号灯（🟢/🔴/⚪）与是否需要额外动作（需用户拍板）。
-
-## 只读保证
-- 可与用户明确重申：绝不 checkout/reset/pull/clean，不卸载插件、不改 `~/.dsh`、不拉本地 checkout 到远端。
-- 若发现会导致破坏的动作（如“顺手 pull”“顺手卸载 mode-boost”），一律先报告、等用户确认。
-
-## 例子
-**输入**：“看看 dsh-anchored-standard 和 dsh-routing-suite 是不是有更新了”
-**输出**：运行脚本 → 两者状态与新增提交 → 判定功能/文档改动 → 报告“已装预设是否需同步”+ 任何取消插件风险。
+不 checkout/reset/pull/clean，不改 `~/.dsh`，不升级 DSH，不重启服务。
+`git fetch` 只更新对比 clone 的远端引用；脚本本身只读实装。
+用户明确要求修复或升级时，按其授权另行处理，先保留原有配置与运行态证据。

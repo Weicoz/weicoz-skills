@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# 只读检查两个 DSH 插件仓库是否有更新，并按"实装(~/.dsh)是否需同步"输出信号灯。
-# 只 fetch 远端引用、读本地 HEAD 与远端 HEAD 比对、核对实装关键文件哈希，
+# 只读检查 DSH 本体与两个预设仓库，并按实装状态输出信号灯。
+# 只 fetch 对比仓库的远端引用，核对实装文件哈希，
 # 绝不 checkout/reset/pull/clean，不修改任何工作区、不卸载插件、不改 ~/.dsh。
 #
 # 信号灯语义（关键）：
 #   🟢 绿灯 = 实装与上游一致 / 无需任何同步操作
-#   🔴 红灯 = 实装落后于上游，需要 pull / 重新同步预设
+#   🔴 红灯 = 实装与上游不一致，需评估同步
 #   ⚪ 无法对比 / 实装未能检测 = 如实说明，不断言
 #
 # 注意：/tmp/dsh-compare 下的 clone 只是"对比镜像"，落后不代表实装(DSH)落后。
@@ -20,68 +20,100 @@ set -u
 
 REMOTE_XIAOBRIGHT="${DSH_REMOTE_XIAOBRIGHT:-https://github.com/xiaobright/dsh-anchored-standard.git}"
 REMOTE_ROUTING="${DSH_REMOTE_ROUTING:-https://github.com/yjh051108/dsh-routing-suite.git}"
-LOCAL_XIAOBRIGHT="${DSH_REPOS_XIAOBRIGHT:-/tmp/dsh-compare/xiaobright}"
-LOCAL_ROUTING="${DSH_REPOS_ROUTING:-/tmp/dsh-compare/routing-suite}"
+LOCAL_XIAOBRIGHT="${DSH_REPOS_XIAOBRIGHT:-$HOME/File/git/dsh-anchored-standard}"
+LOCAL_ROUTING="${DSH_REPOS_ROUTING:-$HOME/File/git/dsh-routing-suite}"
 INSTALLED_ANCHORED="${DSH_INSTALLED_ANCHORED:-$HOME/.dsh/.agent-presets/anchored-standard}"
+DSH_HOME_DIR="${DSH_HOME:-$HOME/.dsh}"
 
 remote_head() { git ls-remote "$1" HEAD 2>/dev/null | awk '{print $1}'; }
 
-# ---- anchored-standard 实装核对：对比实装目录关键文件与远端 preset/ ----
-# 返回 0=已同步 GREEN / 1=落后 RED / 2=未检测 UNKNOWN
-check_anchored_installed() {
-  local local_dir="$1" remote_ref="$2"
-  if [ ! -d "$INSTALLED_ANCHORED" ]; then
-    echo "实装核对: 未找到实装目录 $INSTALLED_ANCHORED（未检测）"
-    return 2
+check_dsh() {
+  echo "===== deepseek-ai/dsh ====="
+  if ! command -v dsh >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    echo "信号灯: ⚪ 无法对比（缺少 dsh/npm/jq）"; echo; return
   fi
-  local ok=1 reason=""
-  for f in "custom-bash.mjs" "agent.cordis.yml"; do
-    # 远端路径在 preset/ 下；实装路径在目录根部
-    local rem loc
-    rem="$(git -C "$local_dir" show "$remote_ref:preset/$f" 2>/dev/null | shasum | awk '{print $1}')"
-    if [ -f "$INSTALLED_ANCHORED/$f" ]; then
-      loc="$(shasum "$INSTALLED_ANCHORED/$f" | awk '{print $1}')"
-    else
-      loc="__missing__"
-    fi
-    if [ -z "$rem" ] || [ "$rem" != "$loc" ]; then
-      ok=0
-      reason="$reason [$f 不一致]"
-    fi
-  done
-  if [ "$ok" = "1" ]; then
-    echo "实装核对: $INSTALLED_ANCHORED 关键文件与远端 preset/ 一致"
-    return 0
+  local installed tags latest next newest
+  installed="$(dsh --version 2>/dev/null)"
+  tags="$(npm view @deepseek-ai/dsh dist-tags --json 2>/dev/null)"
+  latest="$(printf '%s' "$tags" | jq -r '.latest // empty' 2>/dev/null)"
+  next="$(printf '%s' "$tags" | jq -r '.next // empty' 2>/dev/null)"
+  echo "本机版本: ${installed:-<未知>}"
+  echo "npm latest: ${latest:-<未知>}"
+  echo "npm next: ${next:-<未知>}"
+  if [ -z "$installed" ] || [ -z "$latest" ]; then
+    echo "信号灯: ⚪ 无法对比（npm 查询失败）"
   else
-    echo "实装核对: 实装与远端 preset/ 不一致$reason"
-    return 1
+    newest="$(printf '%s\n' "$latest" "$next" | sed '/^$/d' | sort -V | tail -1)"
+    if [ "$installed" = "$newest" ]; then
+      echo "信号灯: 🟢 绿灯（与 npm 最高发布标签一致）"
+    elif [ "$(printf '%s\n' "$installed" "$newest" | sort -V | tail -1)" = "$newest" ]; then
+      echo "信号灯: 🔴 红灯（有较新发布版本 ${newest}；未安装）"
+    else
+      echo "信号灯: ⚪ 本机版本高于发布标签，需人工核对"
+    fi
   fi
+  echo
 }
 
-# ---- routing-suite 联动核对：上游若移除 mode-boost，检查本机是否仍引用 ----
-# 返回 0=无需操作 GREEN / 1=需注意 RED / 2=未检测 UNKNOWN
+# 比对远端目录的直接文件与平铺实装目录；不把上游文档/测试算作预设文件。
+compare_flat_files() {
+  local local_dir="$1" remote_ref="$2" source_dir="$3" installed_dir="$4"
+  local count=0 mismatch=0 f rel upstream local_hash
+  if [ ! -d "$installed_dir" ]; then
+    echo "实装核对: 未找到 $installed_dir"; return 2
+  fi
+  while IFS= read -r f; do
+    case "${f#"$source_dir"/}" in */*) continue ;; esac
+    rel="${f#"$source_dir"/}"
+    upstream="$(git -C "$local_dir" rev-parse "$remote_ref:$f" 2>/dev/null)"
+    local_hash=""
+    [ ! -f "$installed_dir/$rel" ] || local_hash="$(git hash-object "$installed_dir/$rel" 2>/dev/null)"
+    count=$((count + 1))
+    if [ "$upstream" != "$local_hash" ]; then
+      mismatch=$((mismatch + 1))
+      echo "  不一致: $installed_dir/$rel"
+    fi
+  done < <(git -C "$local_dir" ls-tree -r --name-only "$remote_ref" -- "$source_dir")
+  echo "实装核对: $installed_dir 与上游 ${source_dir}：$count 个文件，$mismatch 个不一致"
+  [ "$count" -eq 0 ] && return 2
+  [ "$mismatch" -eq 0 ]
+}
+
+check_anchored_installed() {
+  local local_dir="$1" remote_ref="$2"
+  compare_flat_files "$local_dir" "$remote_ref" preset "$INSTALLED_ANCHORED"
+}
+
+# routing-suite 的两个已装预设和 injector 链接都要核对。
 check_routing_installed() {
   local local_dir="$1" remote_ref="$2"
-  local mb_removed=0
-  if ! git -C "$local_dir" ls-tree "$remote_ref" -- mode-boost 2>/dev/null | grep -q "mode-boost"; then
-    mb_removed=1
-  fi
-  if [ "$mb_removed" = "0" ]; then
-    echo "实装核对: 上游仍保留 mode-boost 子模块（未触发移除联动）"
-    return 0
-  fi
-  # 上游已移除：检查本机是否还有 link 引用（package.json）或 node_modules junction
-  # （只认真实安装痕迹，排除 *.bak 备份、*.jsonl 日志、cached 等）
-  local refs junction
-  refs="$(grep -rl "mode-boost" "$HOME/.dsh"/profiles/*/package.json 2>/dev/null | head -1)"
-  junction="$(find "$HOME/.dsh/profiles"/*/node_modules -maxdepth 1 -iname "*mode-boost*" ! -iname "*.bak*" 2>/dev/null | head -1)"
-  if [ -z "$refs" ] && [ -z "$junction" ]; then
-    echo "实装核对: 上游已移除 mode-boost，本机无线引用/无 junction，无断 link 风险"
-    return 0
+  local rc=0 part link f upstream local_hash refs junction
+  for part in router-standard router-spec; do
+    compare_flat_files "$local_dir" "$remote_ref" "preset/$part" "$DSH_HOME_DIR/.agent-presets/$part" || rc=1
+  done
+  link="$(jq -r '.dependencies["@dsh-external/dsh-super-injector"] // empty' "$DSH_HOME_DIR/profiles/web/package.json" 2>/dev/null)"
+  if [[ "$link" == link:* ]]; then
+    link="${link#link:}"
+    for f in package.json src/index.ts scripts/build.sh; do
+      upstream="$(git -C "$local_dir" rev-parse "$remote_ref:injector/$f" 2>/dev/null)"
+      local_hash=""
+      [ ! -f "$link/$f" ] || local_hash="$(git hash-object "$link/$f" 2>/dev/null)"
+      if [ "$upstream" != "$local_hash" ]; then
+        echo "  injector 链接与套装上游不一致: $link/$f"
+        rc=1
+      fi
+    done
   else
-    echo "实装核对: 上游已移除 mode-boost，但本机仍有引用(${refs:-无} ${junction:-无})，pull 可能断 link"
-    return 1
+    echo "实装核对: injector 未见明确 link 来源，无法自动核对"
+    rc=2
   fi
+  refs="$(grep -rl 'mode-boost' "$DSH_HOME_DIR"/profiles/*/package.json 2>/dev/null | head -1)"
+  junction="$(find "$DSH_HOME_DIR/profiles"/*/node_modules -maxdepth 1 -iname '*mode-boost*' ! -iname '*.bak*' 2>/dev/null | head -1)"
+  if ! git -C "$local_dir" ls-tree "$remote_ref" -- mode-boost 2>/dev/null | grep -q mode-boost && { [ -n "$refs" ] || [ -n "$junction" ]; }; then
+    echo "实装核对: 上游已移除 mode-boost，本机仍有真实引用，需处理断 link 风险"
+    rc=1
+  fi
+  return "$rc"
 }
 
 check_repo() {
@@ -90,7 +122,7 @@ check_repo() {
   remote_url="$3"
   echo "===== $name ====="
 
-  if [ ! -d "$local_dir/.git" ]; then
+  if ! git -C "$local_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "local clone 缺失: $local_dir"
     rh="$(remote_head "$remote_url")"
     if [ -n "$rh" ]; then
@@ -105,7 +137,9 @@ check_repo() {
   fi
 
   if ! git -C "$local_dir" fetch origin >/dev/null 2>&1; then
-    echo "fetch 失败（网络/权限？）。改用当前本地已有远端引用："
+    echo "fetch 失败（网络/权限）；旧远端引用不能证明当前状态"
+    echo "信号灯: ⚪ 无法对比"
+    echo; return
   fi
 
   local local_head remote_head
@@ -121,25 +155,23 @@ check_repo() {
   fi
 
   if [ "$local_head" = "$remote_head" ]; then
-    echo "状态: NO update（缓存 clone 本地=远端）"
-    echo "信号灯: 🟢 绿灯 - 无需同步"
+    echo "状态: NO update（对比 clone 本地=远端）"
   else
-    echo "状态: HAS update（缓存 clone 落后，下详）"
-    # 实装核对决定红/绿
-    local rc=2
-    case "$name" in
-      *anchored-standard*)
-        check_anchored_installed "$local_dir" "$remote_head"; rc=$? ;;
-      *routing-suite*)
-        check_routing_installed "$local_dir" "$remote_head"; rc=$? ;;
-    esac
-    if [ "$rc" = "0" ]; then
-      echo "信号灯: 🟢 绿灯 - 实装已是最新，无需操作"
-    elif [ "$rc" = "1" ]; then
-      echo "信号灯: 🔴 红灯 - 实装落后，需同步/注意联动"
-    else
-      echo "信号灯: ⚪ 实装未检测，请人工核对"
-    fi
+    echo "状态: HAS update（对比 clone 落后，下详）"
+  fi
+  local rc=2
+  case "$name" in
+    *anchored-standard*) check_anchored_installed "$local_dir" "$remote_head"; rc=$? ;;
+    *routing-suite*) check_routing_installed "$local_dir" "$remote_head"; rc=$? ;;
+  esac
+  if [ "$rc" = "0" ]; then
+    echo "信号灯: 🟢 绿灯 - 实装已与上游一致"
+  elif [ "$rc" = "1" ]; then
+    echo "信号灯: 🔴 红灯 - 实装与上游不一致，需评估同步"
+  else
+    echo "信号灯: ⚪ 实装未能完整检测"
+  fi
+  if [ "$local_head" != "$remote_head" ]; then
     echo "-- 新提交（local->remote）--"
     git -C "$local_dir" log --format='%h | %ci | %s' "$local_head..$remote_head" 2>/dev/null \
       | sed 's/^/    /' || echo "    (无法列出)"
@@ -148,5 +180,6 @@ check_repo() {
   echo ""
 }
 
+check_dsh
 check_repo "xiaobright/dsh-anchored-standard" "$LOCAL_XIAOBRIGHT" "$REMOTE_XIAOBRIGHT"
 check_repo "yjh051108/dsh-routing-suite"   "$LOCAL_ROUTING"   "$REMOTE_ROUTING"
