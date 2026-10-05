@@ -11,31 +11,38 @@ allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), B
 
 ---
 
-## 硬件配置前置检查与记忆机制 (首次必查，永久免问)
+## 硬件配置前置检查与环境变量读取机制 (环境变量优先，免重复提问)
 
-在执行任何游戏检索与归档前，必须先确认是否已记录用户的电脑硬件配置：
+在执行任何游戏检索与归档前，必须先获取用户的电脑硬件配置：
 
-1. **配置文件路径**：
-   - 全局持久化：`~/.config/steam-manifests/user_specs.json`
-   - 仓库本地：`/Users/weicoz/File/git/steam-manifests/.user_specs.json`
-2. **前置判断逻辑**：
-   - 若上述配置文件已存在且包含 CPU、GPU、RAM 等信息：
-     - **严禁向用户重复询问硬件配置**，直接读取已保存的信息。
-   - 若配置文件不存在或字段缺失：
-     - 向用户询问当前电脑硬件配置（如 CPU、显卡型号及显存、内存、常用分辨率）。
-     - 将用户提供的配置写入 `~/.config/steam-manifests/user_specs.json` 与仓库中的 `.user_specs.json`。
-     - **问过一次后，后续所有执行绝不再问**。
-   - **当前用户硬件基准配置**：
-     ```json
-     {
-       "cpu": "Intel Core i5-9600K",
-       "gpu": "NVIDIA GeForce RTX 2060 6GB",
-       "ram": "16GB",
-       "vram": "6GB",
-       "resolution": "1080p",
-       "notes": "6核6线程无超线程，Turing架构6G显存，支持DLSS 2，大作建议关光追控制纹理"
-     }
-     ```
+1. **优先级与读取机制**：
+   - **第一优先级（环境变量，最高优先级）**：
+     检查是否配置了以下环境变量（通常持久化配置在 `~/.zshrc` 中）：
+     - `STEAM_SPECS_CPU`（例如：`"Intel Core i5-9600K"`）
+     - `STEAM_SPECS_GPU`（例如：`"NVIDIA GeForce RTX 2060 6GB"`）
+     - `STEAM_SPECS_RAM`（例如：`"16GB"`）
+     - `STEAM_SPECS_VRAM`（例如：`"6GB"`）
+     - `STEAM_SPECS_RESOLUTION`（例如：`"1080p"`）
+     - 或复合 JSON 变量：`STEAM_HARDWARE_SPECS`
+   - **第二优先级（本地配置文件）**：
+     - 全局持久化：`~/.config/steam-manifests/user_specs.json`
+     - 仓库本地：`/Users/weicoz/File/git/steam-manifests/.user_specs.json`
+   - **第三优先级（首次交互提问）**：
+     - 仅当环境变量与上述配置文件均不存在时，才向用户询问一次硬件配置。
+     - 询问后将配置写入 `~/.config/steam-manifests/user_specs.json` 或提示用户写入 `~/.zshrc`。
+2. **免问契约**：
+   - **只要环境变量或配置文件任一存在，严禁向用户重复询问**，直接静默读取并继续执行。
+3. **当前用户硬件基准配置**：
+   ```json
+   {
+     "cpu": "Intel Core i5-9600K",
+     "gpu": "NVIDIA GeForce RTX 2060 6GB",
+     "ram": "16GB",
+     "vram": "6GB",
+     "resolution": "1080p",
+     "notes": "6核6线程无超线程，Turing架构6G显存，支持DLSS 2，大作建议关光追控制纹理"
+   }
+   ```
 
 ---
 
@@ -90,13 +97,16 @@ allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), B
 
 ## 标准操作流程
 
-### 第一步：硬件配置前置检查 (免重复提问)
+### 第一步：硬件配置前置检查 (环境变量优先，免重复提问)
 ```bash
-if [ -f "$HOME/.config/steam-manifests/user_specs.json" ]; then
-  # 已有配置，直接读取并静默使用
+# 1. 优先读取环境变量 (例如已在 ~/.zshrc 中导出)
+if [ -n "$STEAM_SPECS_CPU" ] || [ -n "$STEAM_HARDWARE_SPECS" ]; then
+  echo "检测到环境变量硬件配置: ${STEAM_SPECS_CPU:-$STEAM_HARDWARE_SPECS}，直接静默使用"
+elif [ -f "$HOME/.config/steam-manifests/user_specs.json" ]; then
+  # 2. 读取用户全局配置文件
   SPECS=$(cat "$HOME/.config/steam-manifests/user_specs.json")
 else
-  # 首次执行且无记录，向用户询问配置后写入
+  # 3. 首次执行且无记录，向用户询问配置后写入
   echo "请问您的电脑硬件配置是什么？(CPU / 显卡及显存 / 内存)"
   # 接收并保存配置至 ~/.config/steam-manifests/user_specs.json
 fi

@@ -2,7 +2,7 @@
 
 /**
  * 自动扫描 manifests/ 下各游戏目录并重新生成规范的 INDEX.md 和 README.md
- * 包含硬件配置推荐与预估运行画质/FPS (基于 i5-9600K / RTX 2060 6G / 16G RAM)
+ * 包含硬件配置推荐与预估运行画质/FPS (支持环境变量 STEAM_SPECS_* / STEAM_HARDWARE_SPECS 与配置文件)
  */
 
 const fs = require("fs");
@@ -13,11 +13,61 @@ const MANIFESTS_DIR = process.env.MANIFESTS_DIR ||
 
 const REPO_ROOT = path.resolve(MANIFESTS_DIR, "..");
 
+function getHardwareSpecs() {
+  // 1. 环境变量：STEAM_HARDWARE_SPECS (JSON 字符串)
+  if (process.env.STEAM_HARDWARE_SPECS) {
+    try {
+      return JSON.parse(process.env.STEAM_HARDWARE_SPECS);
+    } catch (e) {}
+  }
+
+  // 2. 环境变量：STEAM_SPECS_*
+  if (process.env.STEAM_SPECS_CPU || process.env.STEAM_SPECS_GPU) {
+    return {
+      cpu: process.env.STEAM_SPECS_CPU || "Intel Core i5-9600K",
+      gpu: process.env.STEAM_SPECS_GPU || "NVIDIA GeForce RTX 2060 6GB",
+      ram: process.env.STEAM_SPECS_RAM || "16GB",
+      vram: process.env.STEAM_SPECS_VRAM || "6GB",
+      resolution: process.env.STEAM_SPECS_RESOLUTION || "1080p",
+      notes: process.env.STEAM_SPECS_NOTES || ""
+    };
+  }
+
+  // 3. 用户全局配置文件
+  const homeConfig = path.join(process.env.HOME || "", ".config/steam-manifests/user_specs.json");
+  if (fs.existsSync(homeConfig)) {
+    try {
+      return JSON.parse(fs.readFileSync(homeConfig, "utf8"));
+    } catch (e) {}
+  }
+
+  // 4. 仓库内本地配置文件
+  const repoConfig = path.join(REPO_ROOT, ".user_specs.json");
+  if (fs.existsSync(repoConfig)) {
+    try {
+      return JSON.parse(fs.readFileSync(repoConfig, "utf8"));
+    } catch (e) {}
+  }
+
+  // 默认兜底
+  return {
+    cpu: "Intel Core i5-9600K",
+    gpu: "NVIDIA GeForce RTX 2060 6GB",
+    ram: "16GB",
+    vram: "6GB",
+    resolution: "1080p",
+    notes: "6核6线程无超线程，Turing架构6G显存，支持DLSS 2，大作建议关光追控制纹理"
+  };
+}
+
 function scanAndBuildIndex() {
   if (!fs.existsSync(MANIFESTS_DIR)) {
     console.error("Manifests dir not found:", MANIFESTS_DIR);
     process.exit(1);
   }
+
+  const specs = getHardwareSpecs();
+  const specSummary = `${specs.cpu} / ${specs.gpu} / ${specs.ram} RAM`;
 
   const entries = fs.readdirSync(MANIFESTS_DIR, { withFileTypes: true });
   const gameDirs = entries
@@ -92,11 +142,11 @@ function scanAndBuildIndex() {
 
   let md = `# Steam 游戏入库清单与本体资源总索引\n\n`;
   md += `> 自动维护汇总 \`manifests/\` 目录下所有已归档的游戏入库清单、本体网盘与硬件流畅运行指南。  \n`;
-  md += `> **基准配置参考**：\`Intel i5-9600K / NVIDIA RTX 2060 6GB / 16GB RAM\`（参考 doesitrun.com 跑分模型与实测调优）。  \n`;
+  md += `> **基准配置参考**：\`${specSummary}\`（参考 doesitrun.com 跑分模型与实测调优）。  \n`;
   md += `> 最后更新：${new Date().toISOString().split("T")[0]}\n\n`;
   md += `---\n\n`;
   md += `## 资源与硬件运行概况一览表\n\n`;
-  md += `| AppID | 游戏中文名 | 英文名 | 清单状态 | 推荐画质 (i5 + RTX 2060) | 预估 FPS | 完整本体 (按需下载) | 目录详情 |\n`;
+  md += `| AppID | 游戏中文名 | 英文名 | 清单状态 | 推荐画质 (${specs.resolution || "1080p"}) | 预估 FPS | 完整本体 (按需下载) | 目录详情 |\n`;
   md += `|---|---|---|---|---|---|---|---|\n`;
 
   for (const g of games) {
@@ -119,7 +169,7 @@ function scanAndBuildIndex() {
     if (g.bodyUrl) {
       md += `- **📦 完整本体 (用户手动下载)**：[下载链接](${g.bodyUrl}) (体积: ${g.bodySize}，解压即玩)\n`;
     }
-    md += `- **🎮 本机硬件 (i5-9600K / RTX 2060 6G / 16G RAM) 运行指南**：\n`;
+    md += `- **🎮 本机硬件 (${specSummary}) 运行指南**：\n`;
     md += `  - **推荐画质**：${g.recommendedSetting}\n`;
     md += `  - **预估帧率**：${g.estimatedFps}\n`;
     md += `\n`;
