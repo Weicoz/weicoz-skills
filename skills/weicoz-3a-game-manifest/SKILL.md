@@ -11,9 +11,9 @@ allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), B
 
 ---
 
-## 硬件配置前置检查与读取机制 (仓库配置优先，免重复提问)
+## 硬件配置前置检查与匹配校验机制 (字段校验，缺失提示补充，匹配免问)
 
-在执行任何游戏检索与归档前，必须先获取用户的电脑硬件配置：
+在执行任何游戏检索与归档前，必须先获取用户的电脑硬件配置并校验其是否匹配规范：
 
 1. **优先级与读取机制**：
    - **第一优先级（仓库本地配置文件，最高优先级）**：
@@ -29,11 +29,20 @@ allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), B
      - 或复合 JSON 变量：`STEAM_HARDWARE_SPECS`
    - **第三优先级（用户全局配置文件）**：
      - `~/.config/steam-manifests/user_specs.json`
-   - **第四优先级（首次交互提问）**：
-     - 仅当仓库配置、环境变量与全局配置均不存在时，才向用户询问一次硬件配置。
-     - 询问后将配置写入仓库 `.user_specs.json` 或 `~/.config/steam-manifests/user_specs.json`。
-2. **免问契约**：
-   - **只要上述任一配置存在，严禁向用户重复询问**，直接静默读取并继续执行。
+
+2. **字段匹配校验清单**：
+   - **必填项**（必须非空字符串）：
+     - `cpu`：CPU 处理器型号
+     - `gpu`：独立显卡型号及显存容量
+     - `ram`：系统运行内存
+   - **建议项**：
+     - `vram`：显卡独立显存（用于虚幻5及大作防爆显存）
+     - `resolution`：目标基准分辨率（默认 1080p）
+
+3. **判定与行为机制**：
+   - **完全匹配合格**：直接静默读取并继续执行游戏检索与性能预测，**绝不向用户重复提问**。
+   - **完全无配置**：明确向用户发出提示：“未检测到硬件配置，请补充电脑配置 (CPU / 显卡及显存 / 内存)”，引导用户补充或在仓库根目录生成 `.user_specs.json`。
+   - **配置存在但未匹配（字段缺失）**：明确指出具体缺失的必填项并提示用户补充：“检测到硬件配置缺少必填项 `[缺失字段]`，请补充完整”，补齐后继续。
 3. **当前用户硬件基准配置**：
    ```json
    {
@@ -99,25 +108,19 @@ allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), B
 
 ## 标准操作流程
 
-### 第一步：硬件配置前置检查 (仓库配置优先，免重复提问)
+### 第一步：硬件配置前置检查与匹配校验 (检查是否匹配，缺失提示补充)
 ```bash
 REPO_DIR="/Users/weicoz/File/git/steam-manifests"
 
-# 1. 优先读取仓库内的本地配置文件
-if [ -f "$REPO_DIR/.user_specs.json" ]; then
-  SPECS=$(cat "$REPO_DIR/.user_specs.json")
-elif [ -f "$REPO_DIR/user_specs.json" ]; then
-  SPECS=$(cat "$REPO_DIR/user_specs.json")
-# 2. 其次读取环境变量 (例如已在 ~/.zshrc 中导出)
-elif [ -n "$STEAM_SPECS_CPU" ] || [ -n "$STEAM_HARDWARE_SPECS" ]; then
-  echo "检测到环境变量硬件配置: ${STEAM_SPECS_CPU:-$STEAM_HARDWARE_SPECS}，直接静默使用"
-# 3. 再次读取用户全局配置文件
-elif [ -f "$HOME/.config/steam-manifests/user_specs.json" ]; then
-  SPECS=$(cat "$HOME/.config/steam-manifests/user_specs.json")
+# 1. 查找配置（仓库本地 -> 环境变量 -> 全局配置）
+# 2. 校验配置是否匹配必填规范 (cpu, gpu, ram 必须非空且有效)：
+if [ -f "$REPO_DIR/.user_specs.json" ] || [ -f "$REPO_DIR/user_specs.json" ] || [ -n "$STEAM_SPECS_CPU" ] || [ -f "$HOME/.config/steam-manifests/user_specs.json" ]; then
+  # 校验字段是否齐全，若缺失 cpu / gpu / ram 则提示补充
+  node "$REPO_DIR/scripts/index_updater.js" --check
 else
-  # 4. 首次执行且无记录，向用户询问配置后写入
-  echo "请问您的电脑硬件配置是什么？(CPU / 显卡及显存 / 内存)"
-  # 接收并保存配置至 $REPO_DIR/.user_specs.json
+  # 完全无配置时，主动提示用户补充
+  echo "⚠️ 未检测到硬件配置！请补充您的电脑配置信息 (CPU / 显卡及显存 / 内存容量)："
+  # 接收用户输入并写入 $REPO_DIR/.user_specs.json
 fi
 ```
 

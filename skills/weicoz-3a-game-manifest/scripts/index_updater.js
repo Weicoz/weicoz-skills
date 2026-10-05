@@ -13,55 +13,148 @@ const MANIFESTS_DIR = process.env.MANIFESTS_DIR ||
 
 const REPO_ROOT = path.resolve(MANIFESTS_DIR, "..");
 
+function validateSpecs(specs, sourceName) {
+  const issues = [];
+  if (!specs || typeof specs !== 'object') {
+    return {
+      valid: false,
+      issues: ['配置内容不是有效的 JSON 对象'],
+      warnings: [],
+      sourceName
+    };
+  }
+
+  const requiredFields = [
+    { key: 'cpu', label: 'CPU (处理器型号)', example: 'Intel Core i5-9600K' },
+    { key: 'gpu', label: 'GPU (显卡完整型号及显存)', example: 'NVIDIA GeForce RTX 2060 6GB' },
+    { key: 'ram', label: 'RAM (系统运行内存)', example: '16GB' }
+  ];
+
+  for (const f of requiredFields) {
+    if (!specs[f.key] || typeof specs[f.key] !== 'string' || !specs[f.key].trim()) {
+      issues.push(`缺少必填字段 "${f.key}" (${f.label})，示例: "${f.example}"`);
+    }
+  }
+
+  const warnings = [];
+  if (!specs.vram) {
+    warnings.push('未提供 vram (独立显存容量，建议提供如 "6GB" 以便虚幻5防爆显存调优)');
+  }
+  if (!specs.resolution) {
+    warnings.push('未提供 resolution (目标分辨率，默认将按 1080p 预估)');
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues,
+    warnings,
+    sourceName
+  };
+}
+
 function getHardwareSpecs() {
+  let foundRaw = null;
+  let sourceName = null;
+
   // 1. 优先读取仓库内的配置文件（.user_specs.json 或 user_specs.json）
   const repoCandidates = [
-    path.join(REPO_ROOT, ".user_specs.json"),
-    path.join(REPO_ROOT, "user_specs.json"),
-    path.resolve(process.cwd(), ".user_specs.json"),
-    path.resolve(process.cwd(), "user_specs.json")
+    { p: path.join(REPO_ROOT, ".user_specs.json"), name: "仓库本地配置文件 (.user_specs.json)" },
+    { p: path.join(REPO_ROOT, "user_specs.json"), name: "仓库本地配置文件 (user_specs.json)" },
+    { p: path.resolve(process.cwd(), ".user_specs.json"), name: "当前目录配置文件 (.user_specs.json)" },
+    { p: path.resolve(process.cwd(), "user_specs.json"), name: "当前目录配置文件 (user_specs.json)" }
   ];
-  for (const f of repoCandidates) {
-    if (fs.existsSync(f)) {
+  for (const item of repoCandidates) {
+    if (fs.existsSync(item.p)) {
       try {
-        return JSON.parse(fs.readFileSync(f, "utf8"));
-      } catch (e) {}
+        foundRaw = JSON.parse(fs.readFileSync(item.p, "utf8"));
+        sourceName = item.name;
+        break;
+      } catch (e) {
+        console.error(`⚠️ 读取配置文件 ${item.p} 解析 JSON 失败:`, e.message);
+      }
     }
   }
 
   // 2. 其次读取环境变量：STEAM_HARDWARE_SPECS (JSON 字符串) 或 STEAM_SPECS_*
-  if (process.env.STEAM_HARDWARE_SPECS) {
-    try {
-      return JSON.parse(process.env.STEAM_HARDWARE_SPECS);
-    } catch (e) {}
+  if (!foundRaw) {
+    if (process.env.STEAM_HARDWARE_SPECS) {
+      try {
+        foundRaw = JSON.parse(process.env.STEAM_HARDWARE_SPECS);
+        sourceName = "系统环境变量 (STEAM_HARDWARE_SPECS)";
+      } catch (e) {}
+    } else if (process.env.STEAM_SPECS_CPU || process.env.STEAM_SPECS_GPU) {
+      foundRaw = {
+        cpu: process.env.STEAM_SPECS_CPU,
+        gpu: process.env.STEAM_SPECS_GPU,
+        ram: process.env.STEAM_SPECS_RAM,
+        vram: process.env.STEAM_SPECS_VRAM,
+        resolution: process.env.STEAM_SPECS_RESOLUTION,
+        notes: process.env.STEAM_SPECS_NOTES
+      };
+      sourceName = "系统环境变量 (STEAM_SPECS_*)";
+    }
   }
-  if (process.env.STEAM_SPECS_CPU || process.env.STEAM_SPECS_GPU) {
+
+  // 3. 用户全局配置文件 (~/.config/steam-manifests/user_specs.json)
+  if (!foundRaw) {
+    const homeConfig = path.join(process.env.HOME || "", ".config/steam-manifests/user_specs.json");
+    if (fs.existsSync(homeConfig)) {
+      try {
+        foundRaw = JSON.parse(fs.readFileSync(homeConfig, "utf8"));
+        sourceName = "全局配置文件 (~/.config/steam-manifests/user_specs.json)";
+      } catch (e) {}
+    }
+  }
+
+  // 校验检查与提示用户补充
+  if (!foundRaw) {
+    console.warn("\n=======================================================");
+    console.warn("⚠️  【硬件配置缺失】未检测到任何有效的硬件配置来源！");
+    console.warn("👉  请补充硬件配置：在仓库根目录创建 .user_specs.json 或设置环境变量。");
+    console.warn("   必填项：cpu (处理器), gpu (显卡及显存), ram (内存容量)");
+    console.warn("   参考模板：user_specs.example.json");
+    console.warn("=======================================================\n");
     return {
-      cpu: process.env.STEAM_SPECS_CPU || "Intel Core i5-9600K",
-      gpu: process.env.STEAM_SPECS_GPU || "NVIDIA GeForce RTX 2060 6GB",
-      ram: process.env.STEAM_SPECS_RAM || "16GB",
-      vram: process.env.STEAM_SPECS_VRAM || "6GB",
-      resolution: process.env.STEAM_SPECS_RESOLUTION || "1080p",
-      notes: process.env.STEAM_SPECS_NOTES || ""
+      cpu: "未配置CPU",
+      gpu: "未配置显卡",
+      ram: "未配置内存",
+      vram: "-",
+      resolution: "1080p",
+      notes: "⚠️ 未配置硬件，请补充 .user_specs.json"
     };
   }
 
-  // 3. 用户全局配置文件
-  const homeConfig = path.join(process.env.HOME || "", ".config/steam-manifests/user_specs.json");
-  if (fs.existsSync(homeConfig)) {
-    try {
-      return JSON.parse(fs.readFileSync(homeConfig, "utf8"));
-    } catch (e) {}
+  const check = validateSpecs(foundRaw, sourceName);
+  if (!check.valid) {
+    console.warn("\n=======================================================");
+    console.warn(`⚠️  【硬件配置字段不匹配】已检测到【${sourceName}】，但必填字段不全：`);
+    for (const issue of check.issues) {
+      console.warn(`   ❌ ${issue}`);
+    }
+    console.warn("👉  请补充缺失字段以获得准确的画质与帧率预测！");
+    console.warn("=======================================================\n");
+  } else {
+    console.log(`✅ 【硬件配置校验匹配成功】`);
+    console.log(`   来源: ${sourceName}`);
+    console.log(`   CPU:  ${foundRaw.cpu}`);
+    console.log(`   GPU:  ${foundRaw.gpu}`);
+    console.log(`   RAM:  ${foundRaw.ram}`);
+    if (foundRaw.vram) console.log(`   显存: ${foundRaw.vram}`);
+    if (foundRaw.resolution) console.log(`   基准分辨率: ${foundRaw.resolution}`);
+    if (check.warnings.length > 0) {
+      for (const w of check.warnings) {
+        console.log(`   💡 建议: ${w}`);
+      }
+    }
   }
 
-  // 默认兜底
   return {
-    cpu: "Intel Core i5-9600K",
-    gpu: "NVIDIA GeForce RTX 2060 6GB",
-    ram: "16GB",
-    vram: "6GB",
-    resolution: "1080p",
-    notes: "6核6线程无超线程，Turing架构6G显存，支持DLSS 2，大作建议关光追控制纹理"
+    cpu: foundRaw.cpu || "未配置CPU",
+    gpu: foundRaw.gpu || "未配置显卡",
+    ram: foundRaw.ram || "未配置内存",
+    vram: foundRaw.vram || "-",
+    resolution: foundRaw.resolution || "1080p",
+    notes: foundRaw.notes || ""
   };
 }
 
@@ -223,6 +316,11 @@ function scanAndBuildIndex() {
   fs.writeFileSync(manifestsIndexPath, md, "utf8");
   fs.writeFileSync(manifestsReadmePath, md, "utf8");
   console.log("Successfully refreshed INDEX.md & README.md with hardware benchmarks for", games.length, "games.");
+}
+
+if (process.argv.includes("--check")) {
+  const specs = getHardwareSpecs();
+  process.exit(0);
 }
 
 scanAndBuildIndex();
