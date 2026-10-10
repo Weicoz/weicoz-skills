@@ -16,11 +16,10 @@ ssh -o BatchMode=yes <用户>@<地址> true
 [host:box2]
 ssh = user@10.0.0.12
 sync = direct
-max_sessions = 2
 max_heavy = 1
 ```
 
-并发怎么定：`max_sessions` 是同时运行的任务数，`max_heavy` 是同时运行的重命令数（经 `rd-heavy` 或 `--heavy` 排队的那些）。先看项目一个测试进程占多少内存，乘以并发数，不能超过机器的空闲内存。16 GB 的机器一般是会话 2、重命令 1。
+并发怎么定：**没有会话数上限**，一台机器同时能接几个任务由负载决定——每次派单前 `rd` 都会实测负载、空闲内存和磁盘，超过 `max_load_per_core`、低于 `min_free_mem_pct` 或 `min_free_disk_gb` 就不派。`max_heavy` 不是会话上限，它是重命令的排队口：经 `rd-heavy` 或 `--heavy` 跑的完整测试这类命令同一时刻只放行这么多个，其余排队等，避免几套完整测试同时把内存耗尽。先看项目一个测试进程占多少内存，乘以并发数，不能超过机器的空闲内存；16 GB 的机器一般是 1。
 
 ## 3. 远端装好要用的东西
 

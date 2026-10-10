@@ -31,7 +31,6 @@ DEFAULTS = {
     "env_file": "",
     "tags": "",
     "enabled": "true",
-    "max_sessions": "2",
     "max_heavy": "1",
     "max_load_per_core": "1.5",
     "min_free_mem_pct": "10",
@@ -257,8 +256,6 @@ def assess(host, info):
     disk = num(info.get("disk"))
     if disk is not None and disk < float(host["min_free_disk_gb"]):
         why.append(f"only {disk:.0f} GB disk free")
-    if (num(info.get("running")) or 0) >= int(host["max_sessions"]):
-        why.append(f"{info['running']}/{host['max_sessions']} sessions busy")
     return why
 
 
@@ -273,7 +270,7 @@ def fmt_probe(host, info, why):
     unk = lambda k, suf="": (info.get(k) or "?") + suf
     verdict = "ok" if not why else "busy: " + "; ".join(why)
     return (f"{host['name']:<12} load {unk('load1')}/{unk('ncpu')}c  mem-free {unk('memfree', '%')}  "
-            f"swap {unk('swap')}  disk {unk('disk', 'G')}  sessions {unk('running')}/{host['max_sessions']}  "
+            f"swap {unk('swap')}  disk {unk('disk', 'G')}  sessions {unk('running')}  "
             f"heavy {unk('heavy')}/{host['max_heavy']}  -> {verdict}")
 
 
@@ -294,9 +291,9 @@ def pick_host(cfg, name, tags):
         why = assess(host, info)
         print(fmt_probe(host, info, why))
         if not why:
-            slots = int(host["max_sessions"]) - int(num(info.get("running")) or 0)
+            # 没有会话数上限：能不能接由负载、内存、磁盘决定；多台都能接时挑负载最低的。
             per_core = (num(info.get("load1")) or 0) / (num(info.get("ncpu")) or 1)
-            free.append((-slots, per_core, host["name"], host))
+            free.append((per_core, int(num(info.get("running")) or 0), host["name"], host))
     if not free:
         die("no host can take the job right now; nothing was dispatched.", 3)
     return sorted(free, key=lambda t: t[:3])[0][3]
