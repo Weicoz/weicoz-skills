@@ -1,6 +1,6 @@
 ---
 name: weicoz-jev-ultrafast
-description: 用本机部署的 jev-ultrafast（Browser Use 的"选择而非生成"浏览器 agent）真实驱动浏览器完成任务、开 inspector 演示、做环境体检与端到端冒烟验证，并排查 chrome-not-running、浏览器没有 CDP、模型 401、文本层无输出等链路故障。执行层有兜底链：默认驱动 ego lite 并复用它现有的 profile，**因此能用用户已登录的站点**；没有 ego 就依次退到 Chrome → Edge → Brave → Chromium 等 Chromium 内核浏览器（能保登录态就先保，实在不行才用无登录态的独立 profile）。当用户说"用浏览器帮我做完这件事""跑一下那个浏览器 agent""看看 jev 还能不能用"时使用。不适用于 shadow DOM / iframe / canvas / 文件上传类页面，也不适用于云端或 CI（必须连本机浏览器）。
+description: 用本机部署的 jev-ultrafast（Browser Use 的"选择而非生成"浏览器 agent）真实驱动浏览器完成任务、开 inspector 演示、做环境体检与端到端冒烟验证，并排查 chrome-not-running、浏览器没有 CDP、模型 401、文本层无输出等链路故障。执行层一律使用**用户自己的浏览器 profile**（登录态、cookie、扩展都在）：默认驱动 ego lite，没有 ego 就依次退到 Chrome → Edge → Brave → Chromium 等 Chromium 内核浏览器；选中品牌没开用户级远程调试开关时会**自动打开它**（会重启该浏览器一次）。无登录态的独立 profile 默认禁用，只在显式 JEV_ALLOW_FRESH=1 时使用。当用户说"用浏览器帮我做完这件事""跑一下那个浏览器 agent""看看 jev 还能不能用"时使用。不适用于 shadow DOM / iframe / canvas / 文件上传类页面，也不适用于云端或 CI（必须连本机浏览器）。
 whenToUse: 用户要求用浏览器真实完成一个操作（尤其是需要已登录态的站点），或要确认 / 排查本机 jev-ultrafast 的可用性与链路故障。
 ---
 
@@ -55,7 +55,7 @@ print("DOM:", agent.browser.evaluate('JSON.stringify({v:document.querySelector("
 PY
 ```
 
-**为什么路径 3 要显式写这么多环境变量**：`run-local.sh` 帮 1、2 两条路径做了三件事——`source ~/.zsh_secrets` 拿 `OPENROUTER_API_KEY`、**按兜底链自动挑浏览器**（`ego → chrome → edge → brave → chromium → vivaldi → arc → opera → comet → dia`，逐档看"在跑且带端点 / 开关已开 / 独立 profile"，解析逻辑集中在 skill 的 `bin/lib/browser.sh`，并用 `BU_CDP_WS` 把端点交给 daemon）、用 `uv run --env-file .env` 把文本层配置喂进去。**别用 `source` 后再跑**：`source ~/.zsh_secrets` 里的变量不 export 到子进程，会直接撞 401。
+**为什么路径 3 要显式写这么多环境变量**：`run-local.sh` 帮 1、2 两条路径做了三件事——`source ~/.zsh_secrets` 拿 `OPENROUTER_API_KEY`、**按兜底链自动挑浏览器**（`ego → chrome → edge → brave → chromium → vivaldi → arc → opera → comet → dia`，逐档看"在跑且带端点 / 开关已开可直接启动 / 开关没开但**能自动打开**且它没在跑"，解析逻辑集中在 skill 的 `bin/lib/browser.sh`，并用 `BU_CDP_WS` 把端点交给 daemon）、用 `uv run --env-file .env` 把文本层配置喂进去。**别用 `source` 后再跑**：`source ~/.zsh_secrets` 里的变量不 export 到子进程，会直接撞 401。装与配（包括 jev key / llm key / base URL 到底写在哪）见同目录 `README.md`。
 
 ## 三件必须同时对的事
 
@@ -63,20 +63,21 @@ PY
 | --- | --- | --- |
 | 决策层 | OpenRouter 的 Jev，只改 base URL + key | `TYPESAFE_BASE_URL=https://openrouter.ai/api`、`TYPESAFE_MODEL=jev-latest`、key 取 `OPENROUTER_API_KEY` |
 | 文本层 | OpenAI 兼容的 `{"text": "..."}` 严格 JSON | NewAPI 网关 `http://43.167.206.51:3000/v1`、`TEXT_MODEL=deepseek-flash`、`TEXT_MODEL_REASONING=none` |
-| 执行层 | **默认 ego lite**（真实 profile，带登录态）；没有 ego 就按 **Chrome → Edge → Brave → Chromium → Vivaldi → Arc → Opera → Comet → Dia** 兜底，能保登录态就先保，最后才用无登录态的独立 profile | daemon 用官方开关 `BU_CDP_WS` 接管端点；`run-local.sh` 自动挑，`bin/lib/browser.sh` 是唯一真源 |
+| 执行层 | **默认 ego lite**；没有 ego 就按 **Chrome → Edge → Brave → Chromium → Vivaldi → Arc → Opera → Comet → Dia** 兜底。**一律用它自己的真实 profile（登录态在）**：没在跑就正常启动它，调试开关没开就自动打开（会重启它一次）；无登录态的独立 profile 默认禁用 | daemon 用官方开关 `BU_CDP_WS` 接管端点；`run-local.sh` 自动挑，`bin/lib/browser.sh` 是唯一真源 |
 
 ### 执行层：兜底链（ego → Chrome → Edge → 其它 Chromium 系）
 
-两条需求（用户原话 m00791 / m00826）：**默认用 ego lite**、**复用它的现有 profile 以保住登录态**；再加一条 m01045：**ego 不在就退 Chrome → Edge → 等 Chromium 内核浏览器**。
+三条需求（用户原话）：m00791 **默认用 ego lite**、m00826 **复用它的现有 profile 以保住登录态**、m01045 **ego 不在就退 Chrome → Edge → 等 Chromium 内核浏览器**；m01203 再加一条硬要求：**所有浏览器都默认使用用户的 profile、继承登录态**——于是"无登录态的独立 profile"从默认兜底降级为显式 opt-in。详细的安装与 key 配置见同目录 `README.md`。
 
 ego lite 自己不给外部 CDP（正常启动时进程**没有任何 TCP 监听**，只有 Chromium 单例 unix socket；它给自家 agent 的通道是 `ego-browser nodejs` 里的 IPC 版 `ego.sendCDPMessage`）。可行路线是 Chrome 的**用户级远程调试开关**：
 
 ```bash
-# 一次性打开（skill 已封装成 doctor.sh --fix-browser ego，做的是同一件事）
-# 1) 先退出该浏览器（退出时会重写 Local State，不退出写进去会被覆盖）
+# 一次性打开。手工 = doctor.sh --fix-browser <品牌>；自动 = lib/browser.sh 的 enable 档
+# （JEV_AUTO_ENABLE 默认开；能不能为它重启浏览器由 JEV_ALLOW_RESTART 决定，默认不重启）
+# 1) 先退出该浏览器（退出时会重写 Local State，不退出写进去会被覆盖；默认不打断用户，跳过并提示）
 # 2) 往 <该浏览器真实 profile>/Local State 写：
 #    devtools.remote_debugging = {"user-enabled": true, "allowed": true}
-# 3) 再把浏览器正常启动（ego：open -a "ego lite"；其它：直接带 --user-data-dir=<真实 profile> 起进程）
+# 3) 再把它正常启动起来（直接起可执行文件 + --user-data-dir=<真实 profile>；别用 open -a，它只会激活已在跑的实例）
 ```
 
 开关打开后**正常启动的浏览器就自带 CDP**，不用加任何启动参数，profile 也是它自己的——登录态、cookie、扩展全在。ego 上还有三条必须知道的特性：
@@ -85,16 +86,18 @@ ego lite 自己不给外部 CDP（正常启动时进程**没有任何 TCP 监听
 2. **第一次连接（每次 ego 启动后的第一条）ego 会弹 "Allow remote debugging?"**，必须点一次 Allow；点过之后**同一次 ego 启动内后续连接全部秒过**（实测连开 3 条都不用再点）。授权等待没有超时上限，脚本会挂在那儿等你点——别以为是卡死。
 3. 端口每次启动都可能变，这时绑在旧端点上的 daemon 必须重启（`bin/lib/browser.sh` 的 `jev_daemon_rebind` 与 `doctor.sh --fix` 都会比对 daemon 环境里的 `BU_CDP_WS` 并处理）。
 
-解析链的**三档**（每个品牌内部都按 real → toggle → fresh 试）：
+解析链的**五档**（每个品牌内部按 real → toggle → enable 试，三者都是真实 profile；fresh 只在你允许时才试）：
 
 | 档位 | 什么情况 | 登录态 |
 | --- | --- | --- |
 | `real` | 该品牌**已经在跑**且带端点，直接用它 | ✅ 在（真实 profile） |
-| `toggle` | 没在跑，但**调试开关已开** → 把它正常启动起来 | ✅ 在（真实 profile） |
-| `fresh` | 开关没开或没装 → 用独立 profile `~/.cache/jev-browser/<品牌>-profile` 起一个 | ❌ 无（会提示怎么升级到上面两档） |
+| `toggle` | 没在跑，但**调试开关已开** → 把它正常启动起来（它自己会写 `DevToolsActivePort`） | ✅ 在（真实 profile） |
+| `enable` | 开关没开且**它没在跑** → 自动写 `Local State` 打开开关再启动（原文件先备份到 `$TMPDIR`） | ✅ 在（真实 profile） |
+| `restart` | 它**正在普通模式下跑**（开关没开，或是开关打开之前启动的）→ 得先退出它才能写开关；**默认不打断用户**，只能 `doctor.sh --fix-browser <品牌>`，或设 `JEV_ALLOW_RESTART=1` 授权自动重启 | ✅ 在（要先重启它一次） |
+| `fresh` | 独立 profile `~/.cache/jev-browser/<品牌>-profile` 起一个只给 agent 用的实例（默认**禁用**） | ❌ 无（仅 `JEV_ALLOW_FRESH=1`） |
 | `env` | 调用方已给 `BU_CDP_WS`（最高优先级） | 取决于它 |
 
-`JEV_BROWSER=<品牌>` 是**强制**定向：只试这个品牌，三档都失败就报错退出（比如 `JEV_BROWSER=brave` → `没装（/Applications/Brave Browser.app）`），不会静默退到别的浏览器。其它旋钮：`JEV_BROWSER_LIB`（指定 `browser.sh` 路径）、`JEV_PROFILE_ROOT`（fresh profile 根，默认 `~/.cache/jev-browser`）、`JEV_LAUNCH_TIMEOUT`（默认 25 秒）、`JEV_DRY_RUN=1`（只报告不启动，`doctor.sh` 默认走这个）。
+`JEV_BROWSER=<品牌>` 是**强制**定向：只试这个品牌，各档都失败就报错退出（比如 `JEV_BROWSER=brave` → `没装（/Applications/Brave Browser.app）`），不会静默退到别的浏览器。其它旋钮：`JEV_AUTO_ENABLE=0`（禁止 enable 档写 `Local State`）、`JEV_ALLOW_RESTART=1`（允许为开开关而退出正在跑的浏览器）、`JEV_ALLOW_FRESH=1`（才允许无登录态的 fresh 档）、`JEV_BACKUP_DIR`（`Local State` 备份目录）、`JEV_BROWSER_LIB`（指定 `browser.sh` 路径）、`JEV_PROFILE_ROOT`（fresh profile 根）、`JEV_LAUNCH_TIMEOUT`（默认 25 秒）、`JEV_DRY_RUN=1`（只报告不启动、不写文件；`doctor.sh` 无参数时默认走这个）。
 
 为什么非要 `BU_CDP_WS`：`browser_harness/daemon.py` 的 `PROFILES = profile_dirs()` 只扫各家**默认** profile 目录，认不出 `~/.cache/jev-browser/…` 这类自定义目录，端点没被显式指定就会直接报
 
@@ -131,6 +134,8 @@ BU_CDP_WS="ws://127.0.0.1:<port>/devtools/browser/<uuid>" \
 | `curl .../json/version` 对 ego 返回 404 | 用户级调试模式没有 HTTP 发现接口 | 读 `<ego profile>/DevToolsActivePort`（第 1 行端口、第 2 行 ws 路径）拼 `BU_CDP_WS` |
 | ego 重启后 agent 连不上 / 报连接失败 | ego 端口每次启动都变，daemon 还绑在旧 `BU_CDP_WS` 上 | `pkill -f browser_harness.daemon`，再跑 `doctor.sh --fix`（它会比对 daemon 环境里的 `BU_CDP_WS`） |
 | `--fix-ego` 写进去的开关又没了 | ego 正在运行时写 `Local State`，退出时会被 Chromium 重写覆盖 | 必须先退出 ego 再写（脚本已按此顺序做） |
+| 自动打开开关那步被跳过，最后退到别的浏览器或直接报错 | 该浏览器**正在普通模式下运行**：Chromium 只在启动时读 `devtools.remote_debugging`，退出时还会用内存里的旧设置回写 `Local State`，所以"先写文件"没用，必须先退出它 | 默认**不打断用户窗口**（这就是 `restart` 档）；一步到位跑 `doctor.sh --fix-browser <品牌>`，或设 `JEV_ALLOW_RESTART=1` 授权它自己退出重开（只杀它自己真实 profile 的实例，不碰 bb-browser 之类的自动化实例） |
+| agent 跑到一个"没有登录态"的浏览器上，白跑一趟 | 旧策略会默认退到独立 profile；现在默认不再这么做，只有显式 `JEV_ALLOW_FRESH=1` 才可能 | 看解析日志里的档位：`real` / `toggle` / `enable` 才是真实 profile；确认自己没开 `JEV_ALLOW_FRESH`，也别用旧的 `--user-data-dir=~/.cache/jev-browser/…` 手工起浏览器 |
 | `fatal: chrome-not-running` | daemon 只扫 Chrome 默认 profile 目录 | 用 `BU_CDP_WS` 接管；或直接 `bash "$SKILL/bin/doctor.sh" --fix` |
 | `DevTools remote debugging requires a non-default data directory` | Chrome 145+ 拒绝**默认 profile**的裸远程调试参数 | 两条路：用非默认 `--user-data-dir`（无登录态）；或给该浏览器打开用户级开关后正常启动（有登录态，推荐） |
 | `Model provider returned HTTP 401` | `.env` 里 `TYPESAFE_API_KEY=${OPENROUTER_API_KEY}` 是**字面量**，`demo.py` 的 `load_environment()` 只做 `os.environ.setdefault`、**不展开** `${VAR}` | 用 `run-local.sh`（它会 source `~/.zsh_secrets` 再跑） |
@@ -165,7 +170,7 @@ curl -q -s -X POST http://127.0.0.1:8766/api/tick  "${H[@]}" -d '{}'   # 反复 
 ## 能力边界（要主动向用户说明）
 
 - 只支持常见 HTML + ARIA 控件；**不支持** shadow root、iframe、canvas、文件上传、新标签页、嵌套滚动、任意键盘组件。
-- 走 `real` / `toggle` 档时用的是**用户真实 profile**：登录态、cookie、扩展都在，能做需要登录的站点——但动作会发生在用户自己的浏览器窗口里（新开后台标签页，`Emulation.setDeviceMetricsOverride(1120×780)`），别在用户正忙时抢焦点；只有退到 `fresh` 档（`~/.cache/jev-browser/<品牌>-profile`）才没有登录态，并且要主动告诉用户"这次用的是无登录态的临时 profile"。
+- 走 `real` / `toggle` / `enable` 档时用的是**用户真实 profile**：登录态、cookie、扩展都在，能做需要登录的站点——但动作会发生在用户自己的浏览器窗口里（新开后台标签页，`Emulation.setDeviceMetricsOverride(1120×780)`），别在用户正忙时抢焦点。`enable` 档会**改用户的浏览器设置**（写 `Local State` 打开远程调试开关）并启动它一次，交付时要主动说明；`restart` 档需要先退出浏览器才有登录态，默认不做，等用户点头。唯一没有登录态的 `fresh` 档**默认禁用**，只在用户显式 `JEV_ALLOW_FRESH=1` 时才会用，用了必须声明"这次用的是无登录态的临时 profile"。
 - 页面上有遮挡检测（`elementFromPoint`）与稳定性等待，慢站点会拖长时间；单步一次 TypeSafe 往返，通常 2–8 秒。
 - 云端 / CI 不可用（必须连本机浏览器）。
 
@@ -173,6 +178,7 @@ curl -q -s -X POST http://127.0.0.1:8766/api/tick  "${H[@]}" -d '{}'   # 反复 
 
 | 用途 | 路径 |
 | --- | --- |
+| 使用说明 / 配置手册（给人看） | `~/File/git/weicoz-skills/skills/weicoz-jev-ultrafast/README.md`（怎么装、怎么跑、jev key / llm key / base URL 配在哪） |
 | 项目本体 | `~/File/git/jev-ultrafast`（`run-local.sh` / `.env` / `.venv` 都在这） |
 | 执行层解析真源 | `~/File/git/weicoz-skills/skills/weicoz-jev-ultrafast/bin/lib/browser.sh`（`run-local.sh` 从四处软链里找到它；`JEV_BROWSER_LIB` 可覆盖） |
 | ego 应用 | `/Applications/ego lite.app`（0.5.1.13，内置 Chromium 152） |
@@ -186,6 +192,7 @@ curl -q -s -X POST http://127.0.0.1:8766/api/tick  "${H[@]}" -d '{}'   # 反复 
 
 - 项目仓库：`~/File/git/jev-ultrafast`（上游 HEAD `1231850`）。本机改动 = `jev_ultrafast/model.py`（新增 `systemone()` 支持 base URL 覆盖、`post_json(url, key, body)` 保持 3 参数、错误文案按 URL 推导 provider、`field_text()` 的 reasoning 分支）+ `.gitignore` + 新增 `run-local.sh`（按兜底链自动接管浏览器；它 `source` skill 里的 `bin/lib/browser.sh`，找不到库时退回"ego → 9222"最小兜底）。
 - 改完项目代码跑：`uv run ruff check .` 与 `uv run pytest -q`（应为 31 passed）；改完 `run-local.sh` 或 `lib/browser.sh` 至少跑一次 `bash "$SKILL/bin/smoke.sh"`（默认链路）与 `env JEV_BROWSER=<品牌> bash "$SKILL/bin/smoke.sh"`（强制定向链路），并确认 `doctor.sh` 无参数时能正确"只报告不启动"。
+- 改本 skill 时 `README.md`（给人看的配置手册）与 `SKILL.md`（给 agent 看的操作说明）**要同步改**：档位、环境变量、密钥位置动了一边就得动另一边。
 - 改本 skill：真源在 `~/File/git/weicoz-skills/skills/weicoz-jev-ultrafast/`（远端 codeberg），由 Skills Manager 挂载——`~/.skills-manager/skills/weicoz-jev-ultrafast` 与 `~/.agents/skills/`、`~/.codex/skills/`、`~/.claude/skills/` 都是**软链**指向仓库目录；提交只能 `git add skills/weicoz-jev-ultrafast`（skills-manager-backup 那个仓库工作区长期有数千项脏改动，**不得 `git add -A`**）。
-- `bin/doctor.sh`：只读体检 + `--fix` / `--fix-browser <品牌>` / `--fix-ego`（= `--fix-browser ego`）/ `--net`，退出码 0=全绿；`bin/smoke.sh`：端到端冒烟（可用 `JEV_BROWSER=<品牌>` 强制定向），判定只看服务端日志，退出码 0=通过；`bin/lib/browser.sh`：浏览器解析链真源，被 `run-local.sh` 与 `doctor.sh` 共用——改它必须两个入口都回归。
+- `bin/doctor.sh`：只读体检 + `--fix` / `--fix-browser <品牌>` / `--fix-ego`（= `--fix-browser ego`）/ `--net`，退出码 0=全绿；`bin/smoke.sh`：端到端冒烟（可用 `JEV_BROWSER=<品牌>` 强制定向），判定只看服务端日志，退出码 0=通过；`bin/lib/browser.sh`：浏览器解析链真源（档位判定集中在 `jev_tier_for_brand`，开关写入集中在 `jev_toggle_enable`），被 `run-local.sh` 与 `doctor.sh` 共用——改它必须两个入口都回归。
 - 不要把 key 写进 skill、Wiki 或任何入库文件；需要凭据时从 `~/.zsh_secrets` 读。

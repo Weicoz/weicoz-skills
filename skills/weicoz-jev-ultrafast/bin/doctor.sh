@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # jev-ultrafast 环境体检。只读探测；--fix 时按 ego → Chrome → Edge → … 解析并拉起浏览器。
-#   bash doctor.sh                    # 体检（报告执行层会选哪个，不启动任何东西）
+# 执行层默认一律用**用户自己的 profile（带登录态）**：在跑的就直接用，没跑的正常启动它，
+# 开关没开就自动打开它（会重启它一次）；无登录态的独立 profile 只有 JEV_ALLOW_FRESH=1 才用。
+#   bash doctor.sh                    # 体检（报告执行层会选哪个，不启动任何东西、不改任何文件）
 #   bash doctor.sh --fix              # 缺什么起什么（浏览器 → daemon → inspector）
 #   bash doctor.sh --fix-browser edge # 给指定浏览器打开"用户级远程调试"（会重启它，登录态保留）
 #   bash doctor.sh --fix-ego          # 等价于 --fix-browser ego
@@ -24,7 +26,7 @@ for a in "$@"; do
     --fix-ego) FIX_BROWSER="ego" ;;
     --fix-browser) FIX_BROWSER="__next__" ;;
     --net) NET=1 ;;
-    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) if [ "$FIX_BROWSER" = "__next__" ]; then FIX_BROWSER="$a"; else echo "未知参数: $a" >&2; exit 2; fi ;;
   esac
 done
@@ -72,6 +74,8 @@ fi
 # ---------- 2. 执行层：浏览器解析链 ----------
 echo
 echo "[2/6] 执行层：浏览器解析链（ego → Chrome → Edge → Brave → Chromium → …）"
+echo "  策略：一律用用户自己的 profile（登录态在）；无登录态的独立 profile 只在 JEV_ALLOW_FRESH=1 时使用"
+echo "  可调：JEV_AUTO_ENABLE=0 禁止自动开调试开关；JEV_ALLOW_RESTART=1 允许为开开关而重启浏览器"
 
 if [ ! -f "$LIB" ]; then
   bad "找不到浏览器解析库 ${LIB}" "确认 skill 的 bin/lib/browser.sh 完整，或用 JEV_BROWSER_LIB=<路径> 指过去"
@@ -80,23 +84,31 @@ else
   # shellcheck disable=SC1090
   . "$LIB"
 
-  printf '  %-9s %-6s %-8s %s\n' 品牌 安装 调试开关 端点
+  printf '  %-9s %-6s %-8s %-22s %s\n' 品牌 安装 调试开关 当前档位 端点
   for b in "${JEV_BRANDS[@]}"; do
     b_app="$(jev_browser_app "$b")"
     [ -d "$b_app" ] || continue
     if jev_browser_toggle_on "$b"; then b_toggle="已开"; else b_toggle="未开"; fi
+    case "$(jev_tier_for_brand "$b")" in
+      real)    b_tier="real（在跑）" ;;
+      toggle)  b_tier="toggle（可启动）" ;;
+      enable)  b_tier="enable（能自动开开关）" ;;
+      restart) b_tier="restart（需退出重开）" ;;
+      fresh)   b_tier="fresh（无登录态）" ;;
+      *)       b_tier="—" ;;
+    esac
     b_ws="$(jev_ws_brand "$b" 2>/dev/null || true)"
     if [ -n "${b_ws}" ]; then
-      b_ep="✅ 活着（端口 $(printf '%s' "$b_ws" | sed -E 's|ws://127.0.0.1:([0-9]+)/.*|\1|')）"
+      b_ep="✅ 活着（端口 $(jev_ws_port "$b_ws")）"
     elif [ -f "$(jev_browser_profile "$b")/DevToolsActivePort" ]; then
       b_ep="⚠️ 端点文件过期（进程没带 CDP）"
     else
       b_ep="—"
     fi
-    printf '  %-9s %-6s %-8s %s\n' "$b" "yes" "$b_toggle" "$b_ep"
+    printf '  %-9s %-6s %-8s %-22s %s\n' "$b" "yes" "$b_toggle" "$b_tier" "$b_ep"
   done
   if [ -n "$(jev_legacy_9222)" ]; then
-    printf '  %-9s %-6s %-8s %s\n' "9222" "yes" "—" "✅ 老式自动化端点在线（无登录态）"
+    printf '  %-9s %-6s %-8s %-22s %s\n' "9222" "yes" "—" "—" "✅ 老式自动化端点在线（无登录态）"
   fi
 
   echo
@@ -104,8 +116,7 @@ else
     if jev_resolve_browser; then
       WS="$JEV_WS"; WS_KIND="$JEV_BRAND"
       ok "执行层：$(jev_browser_summary)"
-      [ "$JEV_MODE" = "fresh" ] && hint "这一档没有登录态；要登录态：bash $0 --fix-browser ${JEV_BRAND}（会重启它一次）"
-    else
+      [ "$JEV_MODE" = "fresh" ] && hint "这一档没有登录态；要登录态：bash $0 --fix-browser ${JEV_BRAND}（会重启它一次）"    else
       bad "没有任何可用浏览器（ego / Chrome / Edge … 都没解析出 CDP 端点）" "装任意一个 Chromium 系浏览器后重跑"
       fail_count=$((fail_count+1))
     fi
@@ -113,8 +124,10 @@ else
     if JEV_DRY_RUN=1 jev_resolve_browser; then
       ok "执行层（只报告，没启动任何东西）：$(jev_browser_summary)"
       case "${JEV_MODE}" in
-        fresh)  hint "这一档没有登录态；要登录态：bash $0 --fix-browser ${JEV_BRAND}" ;;
-        toggle) hint "真启动：bash $0 --fix（run-local.sh 也会自己拉起）" ;;
+        real)    hint "它已经在跑且带 CDP 端点，直接用（登录态在）" ;;
+        toggle)  hint "真启动：bash $0 --fix（run-local.sh 也会自己拉起）" ;;
+        enable)  hint "真启动：bash $0 --fix —— 会先给它打开用户级远程调试开关（一次性），登录态保留" ;;
+        fresh)   hint "这一档没有登录态（JEV_ALLOW_FRESH=1 的代价）；要登录态：bash $0 --fix-browser ${JEV_BRAND}" ;;
       esac
     else
       bad "没有可用的执行层（没装任何 Chromium 系浏览器？）" "装 ego lite / Chrome / Edge 任意一个即可"
@@ -138,39 +151,28 @@ if [ -n "$FIX_BROWSER" ]; then
   elif [ ! -f "$b_prof/Local State" ]; then
     bad "找不到 ${b_prof}/Local State" "先手动正常启动一次 ${b_name}，让它生成 profile"
     fail_count=$((fail_count+1))
-  elif jev_browser_toggle_on "$FIX_BROWSER"; then
-    ok "${FIX_BROWSER} 的开关本来就是开着的"
-    ws="$(jev_ws_brand "$FIX_BROWSER" 2>/dev/null || true)"
-    [ -n "${ws}" ] && { WS="$ws"; WS_KIND="$FIX_BROWSER"; ok "它现在就在跑，CDP 端点活着"; }
   else
-    if jev_is_running "$FIX_BROWSER"; then
-      echo "    先退出 ${b_name}——它退出时会重写 Local State，不退出写进去会被覆盖"
-      osascript -e "tell application \"${b_name}\" to quit" >/dev/null 2>&1 || true
-      sleep 3
-      pgrep -f "${b_app}/Contents/MacOS/" >/dev/null 2>&1 && { pkill -TERM -f "${b_app}/Contents/MacOS/"; sleep 4; }
-    fi
-    cp "$b_prof/Local State" "/tmp/${FIX_BROWSER}-Local-State.bak-$(date +%Y%m%d-%H%M%S)"
-    python3 - "$b_prof/Local State" <<'PY'
-import json,sys
-p=sys.argv[1]
-d=json.load(open(p, encoding="utf-8"))
-d.setdefault("devtools",{})["remote_debugging"]={"user-enabled":True,"allowed":True}
-json.dump(d,open(p,"w",encoding="utf-8"))
-PY
-    echo "    已写入 devtools.remote_debugging.user-enabled=true（旧文件备份在 /tmp）"
-    open -a "$b_app"
-    ws=""
-    for _ in $(seq 1 20); do
-      sleep 2
-      ws="$(jev_ws_from_dp "$b_prof/DevToolsActivePort")" && break
-    done
-    if [ -n "${ws}" ]; then
-      WS="$ws"; WS_KIND="$FIX_BROWSER"
-      ok "${b_name} 已带 CDP 启动（端口 $(printf '%s' "$ws" | sed -E 's|ws://127.0.0.1:([0-9]+)/.*|\1|')）"
-      hint "它若弹 \"Allow remote debugging?\"，点一次 Allow（同一次启动内会记住）"
+    b_ws="$(jev_ws_brand "$FIX_BROWSER" 2>/dev/null || true)"
+    if [ -n "${b_ws}" ] && jev_browser_toggle_on "$FIX_BROWSER"; then
+      WS="$b_ws"; WS_KIND="$FIX_BROWSER"; JEV_MODE="real"; JEV_LOGIN_STATE="yes"
+      ok "${b_name} 本来就在带 CDP 跑（端口 $(jev_ws_port "$b_ws")），不用重启"
     else
-      warn "${b_name} 起来了但没出可用的 DevToolsActivePort，看它是否弹了别的窗口"
-      fail_count=$((fail_count+1))
+      rc=0
+      jev_toggle_enable "$FIX_BROWSER" 1 || rc=$?    # 允许退出它一次：这是用户显式点名的修复动作
+      if [ "${rc}" != "0" ]; then
+        bad "写调试开关失败（退出码 ${rc}）" "确认 ${b_prof}/Local State 可写、${b_name} 已完全退出"
+        fail_count=$((fail_count+1))
+      else
+        b_ws="$(jev_launch_toggle "$FIX_BROWSER" 2>/dev/null || true)"
+        if [ -n "${b_ws}" ]; then
+          WS="$b_ws"; WS_KIND="$FIX_BROWSER"; JEV_MODE="toggle"; JEV_LOGIN_STATE="yes"
+          ok "${b_name} 已带 CDP 启动（端口 $(jev_ws_port "$b_ws")）"
+          hint "它若弹 \"Allow remote debugging?\"，点一次 Allow（同一次启动内会记住）"
+        else
+          bad "${b_name} 起来了但没出可用的 DevToolsActivePort" "看它是否弹了别的窗口；或再手动启动一次 ${b_name}"
+          fail_count=$((fail_count+1))
+        fi
+      fi
     fi
   fi
 fi
