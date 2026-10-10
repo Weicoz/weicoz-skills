@@ -1,6 +1,6 @@
 ---
 name: weicoz-jev-ultrafast
-description: 用本机部署的 jev-ultrafast（Browser Use 的"选择而非生成"浏览器 agent）真实驱动浏览器完成任务、开 inspector 演示、做环境体检与端到端冒烟验证，并排查 chrome-not-running、ego 没有 CDP、模型 401、文本层无输出等链路故障。默认驱动 ego lite 并复用它现有的 profile，**因此能用用户已登录的站点**。当用户说"用浏览器帮我做完这件事""跑一下那个浏览器 agent""看看 jev 还能不能用"时使用。不适用于 shadow DOM / iframe / canvas / 文件上传类页面，也不适用于云端或 CI（必须连本机浏览器）。
+description: 用本机部署的 jev-ultrafast（Browser Use 的"选择而非生成"浏览器 agent）真实驱动浏览器完成任务、开 inspector 演示、做环境体检与端到端冒烟验证，并排查 chrome-not-running、浏览器没有 CDP、模型 401、文本层无输出等链路故障。执行层有兜底链：默认驱动 ego lite 并复用它现有的 profile，**因此能用用户已登录的站点**；没有 ego 就依次退到 Chrome → Edge → Brave → Chromium 等 Chromium 内核浏览器（能保登录态就先保，实在不行才用无登录态的独立 profile）。当用户说"用浏览器帮我做完这件事""跑一下那个浏览器 agent""看看 jev 还能不能用"时使用。不适用于 shadow DOM / iframe / canvas / 文件上传类页面，也不适用于云端或 CI（必须连本机浏览器）。
 whenToUse: 用户要求用浏览器真实完成一个操作（尤其是需要已登录态的站点），或要确认 / 排查本机 jev-ultrafast 的可用性与链路故障。
 ---
 
@@ -17,11 +17,13 @@ whenToUse: 用户要求用浏览器真实完成一个操作（尤其是需要已
 ```bash
 SKILL=$(cd ~/.agents/skills/weicoz-jev-ultrafast && pwd -P)
 
-bash "$SKILL/bin/doctor.sh"           # 只读体检：ego CDP / Chrome 兜底 / daemon / 密钥 / inspector
-bash "$SKILL/bin/doctor.sh" --fix     # 缺什么起什么（浏览器 → daemon → inspector）
-bash "$SKILL/bin/doctor.sh" --fix-ego # 给 ego lite 打开"用户级远程调试"（会重启一次 ego，登录态保留）
-bash "$SKILL/bin/doctor.sh" --net     # 额外打一次真实网络，验证两个 key 活着
-bash "$SKILL/bin/smoke.sh"            # 端到端冒烟：真跑一个任务，用服务端日志判定成功
+bash "$SKILL/bin/doctor.sh"                      # 只读体检：执行层解析链 / daemon / 两个 key / inspector
+bash "$SKILL/bin/doctor.sh" --fix                # 缺什么起什么（按解析链挑浏览器 → daemon → inspector）
+bash "$SKILL/bin/doctor.sh" --fix-browser chrome # 给指定浏览器打开"用户级远程调试"（会重启它，登录态保留）
+bash "$SKILL/bin/doctor.sh" --fix-ego            # = --fix-browser ego（兼容写法）
+bash "$SKILL/bin/doctor.sh" --net                # 额外打一次真实网络，验证两个 key 活着
+bash "$SKILL/bin/smoke.sh"                       # 端到端冒烟：真跑一个任务，用服务端日志判定成功
+env JEV_BROWSER=edge bash "$SKILL/bin/smoke.sh"  # 强制某个浏览器（默认自动挑：ego → Chrome → Edge → …）
 ```
 
 `smoke.sh` 是**唯一能说"能用"的证据**：它起一个会回调记录端点的本地表单页，让 agent 填字并点提交，再检查服务端是否真的收到提交。退出码 0 才算通过。
@@ -53,7 +55,7 @@ print("DOM:", agent.browser.evaluate('JSON.stringify({v:document.querySelector("
 PY
 ```
 
-**为什么路径 3 要显式写这么多环境变量**：`run-local.sh` 帮 1、2 两条路径做了三件事——`source ~/.zsh_secrets` 拿 `OPENROUTER_API_KEY`、自动挑浏览器（**ego lite 优先**，读它的 `DevToolsActivePort` 并导出 `BU_CDP_WS`；ego 不可用才退回 9222 上的自动化 Chrome）、用 `uv run --env-file .env` 把文本层配置喂进去。**别用 `source` 后再跑**：`source ~/.zsh_secrets` 里的变量不 export 到子进程，会直接撞 401。
+**为什么路径 3 要显式写这么多环境变量**：`run-local.sh` 帮 1、2 两条路径做了三件事——`source ~/.zsh_secrets` 拿 `OPENROUTER_API_KEY`、**按兜底链自动挑浏览器**（`ego → chrome → edge → brave → chromium → vivaldi → arc → opera → comet → dia`，逐档看"在跑且带端点 / 开关已开 / 独立 profile"，解析逻辑集中在 skill 的 `bin/lib/browser.sh`，并用 `BU_CDP_WS` 把端点交给 daemon）、用 `uv run --env-file .env` 把文本层配置喂进去。**别用 `source` 后再跑**：`source ~/.zsh_secrets` 里的变量不 export 到子进程，会直接撞 401。
 
 ## 三件必须同时对的事
 
@@ -61,33 +63,46 @@ PY
 | --- | --- | --- |
 | 决策层 | OpenRouter 的 Jev，只改 base URL + key | `TYPESAFE_BASE_URL=https://openrouter.ai/api`、`TYPESAFE_MODEL=jev-latest`、key 取 `OPENROUTER_API_KEY` |
 | 文本层 | OpenAI 兼容的 `{"text": "..."}` 严格 JSON | NewAPI 网关 `http://43.167.206.51:3000/v1`、`TEXT_MODEL=deepseek-flash`、`TEXT_MODEL_REASONING=none` |
-| 执行层 | **默认 ego lite**（真实 profile，带登录态），Chrome 克隆 profile 兜底 | daemon 用官方开关 `BU_CDP_WS` 接管端点；`run-local.sh` 自动挑 |
+| 执行层 | **默认 ego lite**（真实 profile，带登录态）；没有 ego 就按 **Chrome → Edge → Brave → Chromium → Vivaldi → Arc → Opera → Comet → Dia** 兜底，能保登录态就先保，最后才用无登录态的独立 profile | daemon 用官方开关 `BU_CDP_WS` 接管端点；`run-local.sh` 自动挑，`bin/lib/browser.sh` 是唯一真源 |
 
-### 执行层：为什么默认用 ego，以及它怎么被接管
+### 执行层：兜底链（ego → Chrome → Edge → 其它 Chromium 系）
 
-需求是"**默认用 ego 浏览器、并且复用现有 profile 保住登录态**"。ego lite 自己不给外部 CDP（正常启动时进程**没有任何 TCP 监听**，只有 Chromium 单例 unix socket；它给 agent 的通道是 `ego-browser nodejs` 里的 IPC 版 `ego.sendCDPMessage`）。可行路线是 Chrome 的**用户级远程调试开关**：
+两条需求（用户原话 m00791 / m00826）：**默认用 ego lite**、**复用它的现有 profile 以保住登录态**；再加一条 m01045：**ego 不在就退 Chrome → Edge → 等 Chromium 内核浏览器**。
+
+ego lite 自己不给外部 CDP（正常启动时进程**没有任何 TCP 监听**，只有 Chromium 单例 unix socket；它给自家 agent 的通道是 `ego-browser nodejs` 里的 IPC 版 `ego.sendCDPMessage`）。可行路线是 Chrome 的**用户级远程调试开关**：
 
 ```bash
-# 一次性打开（skill 已封装成 doctor.sh --fix-ego，做的是同一件事）
-# 1) 先退出 ego（Chrome 退出时会重写 Local State，不退出写进去会被覆盖）
-# 2) 往 ~/Library/Application Support/Citro Labs/ego lite/Local State 写：
+# 一次性打开（skill 已封装成 doctor.sh --fix-browser ego，做的是同一件事）
+# 1) 先退出该浏览器（退出时会重写 Local State，不退出写进去会被覆盖）
+# 2) 往 <该浏览器真实 profile>/Local State 写：
 #    devtools.remote_debugging = {"user-enabled": true, "allowed": true}
-# 3) open -a "ego lite"
+# 3) 再把浏览器正常启动（ego：open -a "ego lite"；其它：直接带 --user-data-dir=<真实 profile> 起进程）
 ```
 
-打开之后**正常启动的 ego 就自带 CDP**，不需要加任何启动参数，profile 也是它自己的——登录态、cookie、扩展全在。三个必须知道的特性：
+开关打开后**正常启动的浏览器就自带 CDP**，不用加任何启动参数，profile 也是它自己的——登录态、cookie、扩展全在。ego 上还有三条必须知道的特性：
 
-1. 端点只写在 `<profile>/DevToolsActivePort` 里（两行：端口 + `/devtools/browser/<uuid>`）；该模式下 `/json/version`、`/json/list` 都是 **HTTP 404**，所以不能像 Chrome 那样用 curl 发现，只能读文件 + TCP 探活。
-2. **第一次连接（每次 ego 启动后的第一条）ego 会弹 "Allow remote debugging?"**，必须点一次 Allow；点过之后**同一次 ego 启动内后续连接全部秒过**（实测连开 3 条都不用再点）。授权等待没有超时上限，所以脚本会挂在那儿等你点——别以为是卡死。
-3. ego 重启后端口会变，这时绑在旧端点上的 daemon 必须重启（`doctor.sh` 会对比 daemon 环境里的 `BU_CDP_WS` 并报出来，`--fix` 会修）。
+1. 端点只写在 `<profile>/DevToolsActivePort` 里（两行：端口 + `/devtools/browser/<uuid>`）。**本 skill 对所有品牌都按"读这个文件 + TCP 探活端口"来发现端点**（ego 在该模式下 `/json/version`、`/json/list` 恒为 HTTP 404；toggle 模式下的 Chrome / Edge 虽保留 HTTP 发现接口，但没必要绕它）。
+2. **第一次连接（每次 ego 启动后的第一条）ego 会弹 "Allow remote debugging?"**，必须点一次 Allow；点过之后**同一次 ego 启动内后续连接全部秒过**（实测连开 3 条都不用再点）。授权等待没有超时上限，脚本会挂在那儿等你点——别以为是卡死。
+3. 端口每次启动都可能变，这时绑在旧端点上的 daemon 必须重启（`bin/lib/browser.sh` 的 `jev_daemon_rebind` 与 `doctor.sh --fix` 都会比对 daemon 环境里的 `BU_CDP_WS` 并处理）。
 
-兜底是 Chrome 克隆 profile（无登录态）：**Chrome 145+ 对默认 profile 拒绝远程调试**，所以自动化 Chrome 必须用非默认的 `--user-data-dir`；而 `browser_harness/daemon.py` 的 `PROFILES = profile_dirs()` 只扫默认 profile 目录，认不出自定义目录，于是 daemon 会直接报
+解析链的**三档**（每个品牌内部都按 real → toggle → fresh 试）：
+
+| 档位 | 什么情况 | 登录态 |
+| --- | --- | --- |
+| `real` | 该品牌**已经在跑**且带端点，直接用它 | ✅ 在（真实 profile） |
+| `toggle` | 没在跑，但**调试开关已开** → 把它正常启动起来 | ✅ 在（真实 profile） |
+| `fresh` | 开关没开或没装 → 用独立 profile `~/.cache/jev-browser/<品牌>-profile` 起一个 | ❌ 无（会提示怎么升级到上面两档） |
+| `env` | 调用方已给 `BU_CDP_WS`（最高优先级） | 取决于它 |
+
+`JEV_BROWSER=<品牌>` 是**强制**定向：只试这个品牌，三档都失败就报错退出（比如 `JEV_BROWSER=brave` → `没装（/Applications/Brave Browser.app）`），不会静默退到别的浏览器。其它旋钮：`JEV_BROWSER_LIB`（指定 `browser.sh` 路径）、`JEV_PROFILE_ROOT`（fresh profile 根，默认 `~/.cache/jev-browser`）、`JEV_LAUNCH_TIMEOUT`（默认 25 秒）、`JEV_DRY_RUN=1`（只报告不启动，`doctor.sh` 默认走这个）。
+
+为什么非要 `BU_CDP_WS`：`browser_harness/daemon.py` 的 `PROFILES = profile_dirs()` 只扫各家**默认** profile 目录，认不出 `~/.cache/jev-browser/…` 这类自定义目录，端点没被显式指定就会直接报
 
 ```
 fatal: chrome-not-running: no supported Chromium-family browser is running -- start Chrome, then retry
 ```
 
-两种浏览器的共同正解都是官方开关 `BU_CDP_WS`（`daemon.py:265` 优先读）显式指定 CDP 端点：
+正解是官方开关 `BU_CDP_WS`（`daemon.py:265` 优先读）：
 
 ```bash
 BU_CDP_WS="ws://127.0.0.1:<port>/devtools/browser/<uuid>" \
@@ -117,7 +132,7 @@ BU_CDP_WS="ws://127.0.0.1:<port>/devtools/browser/<uuid>" \
 | ego 重启后 agent 连不上 / 报连接失败 | ego 端口每次启动都变，daemon 还绑在旧 `BU_CDP_WS` 上 | `pkill -f browser_harness.daemon`，再跑 `doctor.sh --fix`（它会比对 daemon 环境里的 `BU_CDP_WS`） |
 | `--fix-ego` 写进去的开关又没了 | ego 正在运行时写 `Local State`，退出时会被 Chromium 重写覆盖 | 必须先退出 ego 再写（脚本已按此顺序做） |
 | `fatal: chrome-not-running` | daemon 只扫 Chrome 默认 profile 目录 | 用 `BU_CDP_WS` 接管；或直接 `bash "$SKILL/bin/doctor.sh" --fix` |
-| `DevTools remote debugging requires a non-default data directory` | Chrome 145+ 拒绝默认 profile 远程调试 | 必须带 `--user-data-dir=`（用 `~/.cache/jev-chrome-profile`） |
+| `DevTools remote debugging requires a non-default data directory` | Chrome 145+ 拒绝**默认 profile**的裸远程调试参数 | 两条路：用非默认 `--user-data-dir`（无登录态）；或给该浏览器打开用户级开关后正常启动（有登录态，推荐） |
 | `Model provider returned HTTP 401` | `.env` 里 `TYPESAFE_API_KEY=${OPENROUTER_API_KEY}` 是**字面量**，`demo.py` 的 `load_environment()` 只做 `os.environ.setdefault`、**不展开** `${VAR}` | 用 `run-local.sh`（它会 source `~/.zsh_secrets` 再跑） |
 | `OpenRouter provider returned HTTP 401` | `.env` 能被读到了，但 key 位置是占位符 | 同上；或显式 `env OPENROUTER_API_KEY=… uv run --env-file .env …` |
 | `Text helper returned no valid field value; nothing typed.` | 文本层没返回严格的 `{"text": "..."}` | 查 `TEXT_MODEL` / `TEXT_MODEL_BASE_URL` / `TEXT_MODEL_API_KEY`；该字段要求值 ≤2000 字符 |
@@ -128,6 +143,11 @@ BU_CDP_WS="ws://127.0.0.1:<port>/devtools/browser/<uuid>" \
 | 冒烟"服务端没收到"但一切看着正常 | 探针端口被上一轮的遗留服务占着，**就绪检查打到了别人的 200**，agent 去的是旧页面 | 就绪判定必须验到自家服务（smoke.sh 用 `/__ping` 回 nonce 校验），端口被占就换下一个 |
 | bash 报 `xxx；: unbound variable` | 中文/全角标点紧跟 `$var` 时被当成变量名的一部分 | 一律写 `${var}` |
 | `pkill -f "remote-debugging-port=9222"` 之后端口不回来 | Chrome 重启不会自恢复调试端口 | 重新启动 Chrome；别用这种模糊 pkill，按 `--user-data-dir` 精确匹配；**也别用 `lsof -ti :port` 收尾，它连"连到这个端口的客户端"一起列出来**（踩过：误杀 ego 一个渲染进程） |
+| 判定"某浏览器正在跑"判错，于是跳过它、悄悄退到无登录态档 | **同一个二进制可能被别的自动化工具用另一个 `--user-data-dir` 拉起**（本机 bb-browser 就是：Chrome 二进制 + `--user-data-dir=~/.bb-browser/browser/user-data --remote-debugging-port=19825`） | 别只 pgrep 二进制路径：逐个候选 pid `ps -o command= -p` 看命令行，命中 `--user-data-dir=<该品牌真实 profile>` 或完全没带 `--user-data-dir` 才算"用户的浏览器在跑"（`jev_is_running` 已按此实现） |
+| 想启动一个已有同二进制实例的浏览器，`open -a` 之后还是没端点 | `open -a` 只会**激活**已在跑的实例，起不了真实 profile 的新进程 | 直接起可执行文件：`"<app>/Contents/MacOS/<exe>" --user-data-dir="<真实 profile>" --no-first-run --no-default-browser-check about:blank`（`jev_launch_toggle` 已按此实现）；也**别先删 `DevToolsActivePort`**，新进程会重写它，删了只会多坑 |
+| `doctor.sh` 说浏览器"端点文件过期" | 该浏览器上次是**开关打开之前**启动的，旧 `DevToolsActivePort` 留在磁盘上（端口早没了） | 正常一档：`--fix`（重启它并带 CDP）；判定依据必须是"文件里的端口 TCP 探活 + 能解析出 ws" |
+| 默认链路 `smoke.sh`/`run-local.sh` 静默 exit 1，agent 一步都没跑 | 调用方是 `set -euo pipefail`，而 lib 里 `cur="$(ps … \| grep …)"` 在没有 daemon 时 grep 返回 1，**赋值语句的非零状态直接把脚本带走** | 这类"可能无匹配"的管道末尾一律 `|| true`，等待循环写成 `if ! …; then break; fi`（`jev_daemon_rebind` 已修） |
+| 冒烟失败提示里出现 `bash /doctor.sh` | 脚本前面 `cd "$PROJ"` 之后，`$(dirname "$0")` 已不是脚本目录 | 顶部先取 `SELF_DIR="$(cd "$(dirname "$0")" && pwd)"` 再用 `${SELF_DIR}/doctor.sh`（`smoke.sh` 已修） |
 
 ## inspector 的 curl 驱动法（不点 UI）
 
@@ -145,7 +165,7 @@ curl -q -s -X POST http://127.0.0.1:8766/api/tick  "${H[@]}" -d '{}'   # 反复 
 ## 能力边界（要主动向用户说明）
 
 - 只支持常见 HTML + ARIA 控件；**不支持** shadow root、iframe、canvas、文件上传、新标签页、嵌套滚动、任意键盘组件。
-- 走 ego 时用的是**用户真实 profile**：登录态、cookie、扩展都在，能做需要登录的站点——但动作会发生在用户自己的浏览器窗口里（新开后台标签页，`Emulation.setDeviceMetricsOverride(1120×780)`），别在用户正忙时抢焦点；Chrome 兜底路线则是克隆 profile、没有登录态。
+- 走 `real` / `toggle` 档时用的是**用户真实 profile**：登录态、cookie、扩展都在，能做需要登录的站点——但动作会发生在用户自己的浏览器窗口里（新开后台标签页，`Emulation.setDeviceMetricsOverride(1120×780)`），别在用户正忙时抢焦点；只有退到 `fresh` 档（`~/.cache/jev-browser/<品牌>-profile`）才没有登录态，并且要主动告诉用户"这次用的是无登录态的临时 profile"。
 - 页面上有遮挡检测（`elementFromPoint`）与稳定性等待，慢站点会拖长时间；单步一次 TypeSafe 往返，通常 2–8 秒。
 - 云端 / CI 不可用（必须连本机浏览器）。
 
@@ -154,16 +174,18 @@ curl -q -s -X POST http://127.0.0.1:8766/api/tick  "${H[@]}" -d '{}'   # 反复 
 | 用途 | 路径 |
 | --- | --- |
 | 项目本体 | `~/File/git/jev-ultrafast`（`run-local.sh` / `.env` / `.venv` 都在这） |
+| 执行层解析真源 | `~/File/git/weicoz-skills/skills/weicoz-jev-ultrafast/bin/lib/browser.sh`（`run-local.sh` 从四处软链里找到它；`JEV_BROWSER_LIB` 可覆盖） |
 | ego 应用 | `/Applications/ego lite.app`（0.5.1.13，内置 Chromium 152） |
 | ego profile（真实登录态） | `~/Library/Application Support/Citro Labs/ego lite/`，端点文件 `DevToolsActivePort`，pref 在 `Local State` |
-| Chrome 兜底 profile | `~/.cache/jev-chrome-profile`（克隆 profile，无登录态） |
+| Chrome / Edge 真实 profile | `~/Library/Application Support/Google/Chrome`、`~/Library/Application Support/Microsoft Edge`（同样看 `DevToolsActivePort` + `Local State`） |
+| 无登录态的独立 profile | `~/.cache/jev-browser/<品牌>-profile`（`fresh` 档；旧文档里的 `~/.cache/jev-chrome-profile` 已废弃） |
 | daemon socket | `~/.config/browser-harness/runtime/bu-default.sock`，日志 `~/.config/browser-harness/tmp/bu-default.log` |
 | 密钥 | `~/.zsh_secrets`（`OPENROUTER_API_KEY`）；文本层 key 在项目 `.env` |
 
 ## 维护
 
-- 项目仓库：`~/File/git/jev-ultrafast`（上游 HEAD `1231850`）。本机改动 = `jev_ultrafast/model.py`（新增 `systemone()` 支持 base URL 覆盖、`post_json(url, key, body)` 保持 3 参数、错误文案按 URL 推导 provider、`field_text()` 的 reasoning 分支）+ `.gitignore` + 新增 `run-local.sh`（ego 优先的浏览器自动接管）。
-- 改完项目代码跑：`uv run ruff check .` 与 `uv run pytest -q`（应为 31 passed）；改完 `run-local.sh` 至少跑一次 `bash "$SKILL/bin/smoke.sh"`。
-- 改本 skill：本体在 `~/.skills-manager/skills/weicoz-jev-ultrafast/`（weicoz-skills 仓库），三处软链 `~/.agents/skills/`、`~/.codex/skills/`、`~/.claude/skills/` 指向它；提交只能 `git add <指定目录>`（该仓库工作区长期有数千项 skills-manager 自身产生的脏改动，**不得 `git add -A`**）。
-- `bin/doctor.sh`：只读体检 + `--fix` / `--fix-ego` / `--net`，退出码 0=全绿；`bin/smoke.sh`：端到端冒烟，判定只看服务端日志，退出码 0=通过。
+- 项目仓库：`~/File/git/jev-ultrafast`（上游 HEAD `1231850`）。本机改动 = `jev_ultrafast/model.py`（新增 `systemone()` 支持 base URL 覆盖、`post_json(url, key, body)` 保持 3 参数、错误文案按 URL 推导 provider、`field_text()` 的 reasoning 分支）+ `.gitignore` + 新增 `run-local.sh`（按兜底链自动接管浏览器；它 `source` skill 里的 `bin/lib/browser.sh`，找不到库时退回"ego → 9222"最小兜底）。
+- 改完项目代码跑：`uv run ruff check .` 与 `uv run pytest -q`（应为 31 passed）；改完 `run-local.sh` 或 `lib/browser.sh` 至少跑一次 `bash "$SKILL/bin/smoke.sh"`（默认链路）与 `env JEV_BROWSER=<品牌> bash "$SKILL/bin/smoke.sh"`（强制定向链路），并确认 `doctor.sh` 无参数时能正确"只报告不启动"。
+- 改本 skill：真源在 `~/File/git/weicoz-skills/skills/weicoz-jev-ultrafast/`（远端 codeberg），由 Skills Manager 挂载——`~/.skills-manager/skills/weicoz-jev-ultrafast` 与 `~/.agents/skills/`、`~/.codex/skills/`、`~/.claude/skills/` 都是**软链**指向仓库目录；提交只能 `git add skills/weicoz-jev-ultrafast`（skills-manager-backup 那个仓库工作区长期有数千项脏改动，**不得 `git add -A`**）。
+- `bin/doctor.sh`：只读体检 + `--fix` / `--fix-browser <品牌>` / `--fix-ego`（= `--fix-browser ego`）/ `--net`，退出码 0=全绿；`bin/smoke.sh`：端到端冒烟（可用 `JEV_BROWSER=<品牌>` 强制定向），判定只看服务端日志，退出码 0=通过；`bin/lib/browser.sh`：浏览器解析链真源，被 `run-local.sh` 与 `doctor.sh` 共用——改它必须两个入口都回归。
 - 不要把 key 写进 skill、Wiki 或任何入库文件；需要凭据时从 `~/.zsh_secrets` 读。

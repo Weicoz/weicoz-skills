@@ -1,33 +1,37 @@
 #!/usr/bin/env bash
-# jev-ultrafast 环境体检。只读探测；--fix 时按顺序拉起浏览器 → daemon → inspector。
-#   bash doctor.sh            # 体检
-#   bash doctor.sh --fix      # 缺什么起什么（不会动正在运行的 ego）
-#   bash doctor.sh --fix-ego  # 给 ego lite 打开"用户级远程调试"（会重启 ego，登录态保留）
-#   bash doctor.sh --net      # 额外打一次真实网络，验证两个 key 活着
+# jev-ultrafast 环境体检。只读探测；--fix 时按 ego → Chrome → Edge → … 解析并拉起浏览器。
+#   bash doctor.sh                    # 体检（报告执行层会选哪个，不启动任何东西）
+#   bash doctor.sh --fix              # 缺什么起什么（浏览器 → daemon → inspector）
+#   bash doctor.sh --fix-browser edge # 给指定浏览器打开"用户级远程调试"（会重启它，登录态保留）
+#   bash doctor.sh --fix-ego          # 等价于 --fix-browser ego
+#   bash doctor.sh --net              # 额外打一次真实网络，验证两个 key 活着
 # 退出码：0 = 全绿（含 --fix 后修好），1 = 仍有阻塞项。
 set -uo pipefail
 
 PROJ="${JEV_PROJ:-$HOME/File/git/jev-ultrafast}"
-EGO_APP="/Applications/ego lite.app"
-EGO_PROFILE="${EGO_PROFILE:-$HOME/Library/Application Support/Citro Labs/ego lite}"
-EGO_DP="$EGO_PROFILE/DevToolsActivePort"
-CHROME_APP="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-CHROME_PROFILE="$HOME/.cache/jev-chrome-profile"
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+LIB="${JEV_BROWSER_LIB:-$SELF_DIR/lib/browser.sh}"
 CDP_PORT=9222
 INSPECT_PORT=8766
 SOCK="$HOME/.config/browser-harness/runtime/bu-default.sock"
 BU_LOG="$HOME/.config/browser-harness/tmp/bu-default.log"
 FIX=0
-FIX_EGO=0
+FIX_BROWSER=""
 NET=0
 for a in "$@"; do
   case "$a" in
     --fix) FIX=1 ;;
-    --fix-ego) FIX_EGO=1 ;;
+    --fix-ego) FIX_BROWSER="ego" ;;
+    --fix-browser) FIX_BROWSER="__next__" ;;
     --net) NET=1 ;;
-    *) echo "未知参数: $a" >&2; exit 2 ;;
+    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    *) if [ "$FIX_BROWSER" = "__next__" ]; then FIX_BROWSER="$a"; else echo "未知参数: $a" >&2; exit 2; fi ;;
   esac
 done
+if [ "$FIX_BROWSER" = "__next__" ]; then
+  echo "--fix-browser 需要一个品牌名：ego | chrome | edge | brave | chromium | vivaldi | arc | opera" >&2
+  exit 2
+fi
 
 ok()   { printf '  ✅ %s\n' "$1"; }
 bad()  { printf '  ❌ %s\n' "$1"; [ -n "${2:-}" ] && printf '     → %s\n' "$2"; }
@@ -65,133 +69,108 @@ fi
 [ -f "$PROJ/.env" ] && ok ".env 存在" || { bad "缺 .env" "cd ${PROJ} && cp .env.example .env，再填底座与文本层"; fail_count=$((fail_count+1)); }
 [ -x "$PROJ/run-local.sh" ] && ok "run-local.sh 可执行" || warn "run-local.sh 缺失或不可执行（--url 路径会不可用）"
 
-# ---------- 2. 执行层：ego 优先，Chrome 兜底 ----------
+# ---------- 2. 执行层：浏览器解析链 ----------
 echo
-echo "[2/6] 执行层：浏览器与 CDP 端点"
+echo "[2/6] 执行层：浏览器解析链（ego → Chrome → Edge → Brave → Chromium → …）"
 
-# --- ego lite（默认，真实 profile，带登录态）---
-ego_enabled=0
-if [ -f "$EGO_PROFILE/Local State" ]; then
-  ego_enabled="$(python3 - "$EGO_PROFILE/Local State" <<'PY' 2>/dev/null
-import json,sys
-try:
-    d=json.load(open(sys.argv[1]))
-except Exception:
-    print(0); raise SystemExit
-v=(d.get("devtools") or {}).get("remote_debugging") or {}
-print(1 if v.get("user-enabled") else 0)
-PY
-)"
-fi
-
-if [ -d "$EGO_APP" ]; then
-  ok "ego lite 已安装（${EGO_APP}）"
+if [ ! -f "$LIB" ]; then
+  bad "找不到浏览器解析库 ${LIB}" "确认 skill 的 bin/lib/browser.sh 完整，或用 JEV_BROWSER_LIB=<路径> 指过去"
+  fail_count=$((fail_count+1))
 else
-  warn "没装 ego lite（可选：装了就用它，登录态最省心）"
-fi
+  # shellcheck disable=SC1090
+  . "$LIB"
 
-ego_ws=""
-if [ "$ego_enabled" = 1 ]; then
-  ok "ego 用户级远程调试开关：已打开（devtools.remote_debugging.user-enabled）"
-  if [ -f "$EGO_DP" ]; then
-    ego_port="$(head -1 "$EGO_DP" 2>/dev/null | tr -d '[:space:]')"
-    ego_path="$(sed -n 2p "$EGO_DP" 2>/dev/null | tr -d '[:space:]')"
-    if [ -n "${ego_port}" ] && [ -n "${ego_path}" ] && port_alive "${ego_port}"; then
-      ego_ws="ws://127.0.0.1:${ego_port}${ego_path}"
-      ok "ego 正在跑且 CDP 已就绪（端口 ${ego_port}）"
-      http_code="$(curl -q -s -o /dev/null -w '%{http_code}' --max-time 3 "http://127.0.0.1:${ego_port}/json/version" 2>/dev/null || echo 000)"
-      if [ "${http_code}" = "200" ]; then
-        ok "ego 带 HTTP 发现接口（--remote-debugging-port 模式）"
-      else
-        warn "ego 走的是用户级调试模式（HTTP ${http_code}）：没有 /json/version，只能读 DevToolsActivePort"
-        hint "第一次连它会弹 \"Allow remote debugging?\" —— 点一次 Allow（同一次 ego 启动内会记住）"
-      fi
+  printf '  %-9s %-6s %-8s %s\n' 品牌 安装 调试开关 端点
+  for b in "${JEV_BRANDS[@]}"; do
+    b_app="$(jev_browser_app "$b")"
+    [ -d "$b_app" ] || continue
+    if jev_browser_toggle_on "$b"; then b_toggle="已开"; else b_toggle="未开"; fi
+    b_ws="$(jev_ws_brand "$b" 2>/dev/null || true)"
+    if [ -n "${b_ws}" ]; then
+      b_ep="✅ 活着（端口 $(printf '%s' "$b_ws" | sed -E 's|ws://127.0.0.1:([0-9]+)/.*|\1|')）"
+    elif [ -f "$(jev_browser_profile "$b")/DevToolsActivePort" ]; then
+      b_ep="⚠️ 端点文件过期（进程没带 CDP）"
     else
-      bad "ego 的 DevToolsActivePort 过期或端口不通" "ego 没在跑：open -a \"ego lite\""
+      b_ep="—"
+    fi
+    printf '  %-9s %-6s %-8s %s\n' "$b" "yes" "$b_toggle" "$b_ep"
+  done
+  if [ -n "$(jev_legacy_9222)" ]; then
+    printf '  %-9s %-6s %-8s %s\n' "9222" "yes" "—" "✅ 老式自动化端点在线（无登录态）"
+  fi
+
+  echo
+  if [ "$FIX" = 1 ]; then
+    if jev_resolve_browser; then
+      WS="$JEV_WS"; WS_KIND="$JEV_BRAND"
+      ok "执行层：$(jev_browser_summary)"
+      [ "$JEV_MODE" = "fresh" ] && hint "这一档没有登录态；要登录态：bash $0 --fix-browser ${JEV_BRAND}（会重启它一次）"
+    else
+      bad "没有任何可用浏览器（ego / Chrome / Edge … 都没解析出 CDP 端点）" "装任意一个 Chromium 系浏览器后重跑"
       fail_count=$((fail_count+1))
     fi
   else
-    bad "ego 开着调试开关但没有 DevToolsActivePort" "open -a \"ego lite\" 启动它；启动后文件才会出现"
-    fail_count=$((fail_count+1))
-  fi
-else
-  if [ -d "$EGO_APP" ]; then
-    warn "ego 的用户级远程调试开关没打开（当前是普通启动，外界拿不到 CDP）"
-    hint "一次性打开（会重启 ego，登录态保留）：bash $0 --fix-ego"
-  fi
-fi
-
-# --- 兜底：9222 上的自动化 Chrome ---
-chrome_ws=""
-version_json="$(curl -q -s --max-time 3 "http://127.0.0.1:${CDP_PORT}/json/version" 2>/dev/null || true)"
-if [ -n "$version_json" ]; then
-  chrome_ws="$(printf '%s' "$version_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["webSocketDebuggerUrl"])' 2>/dev/null || true)"
-  product="$(printf '%s' "$version_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Browser","?"))' 2>/dev/null || true)"
-  ok "兜底浏览器在线：${CDP_PORT} 上的 ${product}（克隆 profile，无登录态）"
-fi
-
-if [ -n "${ego_ws}" ]; then
-  WS="$ego_ws"; WS_KIND="ego"
-elif [ -n "${chrome_ws}" ]; then
-  WS="$chrome_ws"; WS_KIND="chrome"
-fi
-
-if [ -z "${WS}" ]; then
-  bad "没有任何可用 CDP 端点" "ego 不可用、9222 上也没有自动化 Chrome"
-  fail_count=$((fail_count+1))
-  if [ "$FIX" = 1 ]; then
-    echo "  … --fix：启动兜底 Chrome（真正的推荐路线是 --fix-ego）"
-    nohup "$CHROME_APP" --user-data-dir="$CHROME_PROFILE" --remote-debugging-port="$CDP_PORT" --no-first-run --no-default-browser-check about:blank >/dev/null 2>&1 &
-    for _ in $(seq 1 15); do
-      sleep 2
-      version_json="$(curl -q -s --max-time 3 "http://127.0.0.1:${CDP_PORT}/json/version" 2>/dev/null || true)"
-      [ -n "$version_json" ] && break
-    done
-    if [ -n "$version_json" ]; then
-      chrome_ws="$(printf '%s' "$version_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["webSocketDebuggerUrl"])' 2>/dev/null || true)"
-      WS="$chrome_ws"; WS_KIND="chrome"
-      ok "已拉起兜底 Chrome（${CDP_PORT}）"
-      fail_count=$((fail_count-1))
+    if JEV_DRY_RUN=1 jev_resolve_browser; then
+      ok "执行层（只报告，没启动任何东西）：$(jev_browser_summary)"
+      case "${JEV_MODE}" in
+        fresh)  hint "这一档没有登录态；要登录态：bash $0 --fix-browser ${JEV_BRAND}" ;;
+        toggle) hint "真启动：bash $0 --fix（run-local.sh 也会自己拉起）" ;;
+      esac
     else
-      warn "等了 30 秒仍未起来，看 Chrome 是否弹了窗口在等你"
+      bad "没有可用的执行层（没装任何 Chromium 系浏览器？）" "装 ego lite / Chrome / Edge 任意一个即可"
+      fail_count=$((fail_count+1))
     fi
   fi
 fi
 
-# --- --fix-ego：打开 ego 的用户级调试开关（会重启 ego）---
-if [ "$FIX_EGO" = 1 ]; then
+# --- --fix-browser <brand>：给该浏览器的真实 profile 打开用户级远程调试 ---
+# 通用实现：Chromium 系共用 <user-data-dir>/Local State 与 devtools.remote_debugging 首选项，
+# ego 只是其中一个品牌。必须先退出该浏览器——Chromium 退出时会用内存里的旧设置覆盖回写。
+if [ -n "$FIX_BROWSER" ]; then
   echo
-  echo "  … --fix-ego：给 ego lite 打开用户级远程调试"
-  if [ ! -f "$EGO_PROFILE/Local State" ]; then
-    bad "找不到 ${EGO_PROFILE}/Local State" "先手动启动一次 ego lite，让它生成 profile"
+  echo "  … --fix-browser ${FIX_BROWSER}：打开它的用户级远程调试（会重启它一次，登录态保留）"
+  b_app="$(jev_browser_app "$FIX_BROWSER")"
+  b_prof="$(jev_browser_profile "$FIX_BROWSER")"
+  b_name="$(basename "${b_app%.app}" 2>/dev/null || echo "$FIX_BROWSER")"
+  if [ ! -d "$b_app" ]; then
+    bad "没装 ${FIX_BROWSER}（${b_app}）" ""
+    fail_count=$((fail_count+1))
+  elif [ ! -f "$b_prof/Local State" ]; then
+    bad "找不到 ${b_prof}/Local State" "先手动正常启动一次 ${b_name}，让它生成 profile"
+    fail_count=$((fail_count+1))
+  elif jev_browser_toggle_on "$FIX_BROWSER"; then
+    ok "${FIX_BROWSER} 的开关本来就是开着的"
+    ws="$(jev_ws_brand "$FIX_BROWSER" 2>/dev/null || true)"
+    [ -n "${ws}" ] && { WS="$ws"; WS_KIND="$FIX_BROWSER"; ok "它现在就在跑，CDP 端点活着"; }
   else
-    running="$(pgrep -f "ego lite.app/Contents/MacOS/ego lite" | tr '\n' ' ' || true)"
-    if [ -n "${running}" ]; then
-      echo "    先退出 ego（pid ${running}）——Chrome 退出时会重写 Local State，不退出写进去会被覆盖"
-      osascript -e 'tell application "ego lite" to quit' >/dev/null 2>&1 || true
+    if jev_is_running "$FIX_BROWSER"; then
+      echo "    先退出 ${b_name}——它退出时会重写 Local State，不退出写进去会被覆盖"
+      osascript -e "tell application \"${b_name}\" to quit" >/dev/null 2>&1 || true
       sleep 3
-      pgrep -f "ego lite.app/Contents/MacOS/ego lite" >/dev/null 2>&1 && { pkill -TERM -f "ego lite.app/Contents/MacOS/ego lite"; sleep 4; }
+      pgrep -f "${b_app}/Contents/MacOS/" >/dev/null 2>&1 && { pkill -TERM -f "${b_app}/Contents/MacOS/"; sleep 4; }
     fi
-    cp "$EGO_PROFILE/Local State" "/tmp/Local State.bak-$(date +%Y%m%d-%H%M%S)"
-    python3 - "$EGO_PROFILE/Local State" <<'PY'
+    cp "$b_prof/Local State" "/tmp/${FIX_BROWSER}-Local-State.bak-$(date +%Y%m%d-%H%M%S)"
+    python3 - "$b_prof/Local State" <<'PY'
 import json,sys
 p=sys.argv[1]
-d=json.load(open(p))
+d=json.load(open(p, encoding="utf-8"))
 d.setdefault("devtools",{})["remote_debugging"]={"user-enabled":True,"allowed":True}
-json.dump(d,open(p,"w"))
+json.dump(d,open(p,"w",encoding="utf-8"))
 PY
     echo "    已写入 devtools.remote_debugging.user-enabled=true（旧文件备份在 /tmp）"
-    open -a "ego lite"
+    open -a "$b_app"
+    ws=""
     for _ in $(seq 1 20); do
       sleep 2
-      [ -f "$EGO_DP" ] && port_alive "$(head -1 "$EGO_DP" | tr -d '[:space:]')" && break
+      ws="$(jev_ws_from_dp "$b_prof/DevToolsActivePort")" && break
     done
-    if [ -f "$EGO_DP" ] && port_alive "$(head -1 "$EGO_DP" | tr -d '[:space:]')"; then
-      WS="ws://127.0.0.1:$(head -1 "$EGO_DP" | tr -d '[:space:]')$(sed -n 2p "$EGO_DP" | tr -d '[:space:]')"
-      WS_KIND="ego"
-      ok "ego 已带 CDP 启动；点一次 Allow 授权后即可用"
+    if [ -n "${ws}" ]; then
+      WS="$ws"; WS_KIND="$FIX_BROWSER"
+      ok "${b_name} 已带 CDP 启动（端口 $(printf '%s' "$ws" | sed -E 's|ws://127.0.0.1:([0-9]+)/.*|\1|')）"
+      hint "它若弹 \"Allow remote debugging?\"，点一次 Allow（同一次启动内会记住）"
     else
-      warn "ego 起来了但没出 DevToolsActivePort，看 ego 是否弹了别的窗口"
+      warn "${b_name} 起来了但没出可用的 DevToolsActivePort，看它是否弹了别的窗口"
+      fail_count=$((fail_count+1))
     fi
   fi
 fi
@@ -336,14 +315,16 @@ fi
 
 echo
 if [ -n "${WS}" ]; then
-  echo "选定的执行层：${WS_KIND}（$( [ "$WS_KIND" = ego ] && echo "真实 profile，带登录态" || echo "克隆 profile，无登录态" )）"
+  echo "选定的执行层：${WS_KIND} ｜ 档位 ${JEV_MODE:-?} ｜ 登录态 ${JEV_LOGIN_STATE:-unknown}"
+  if [ "${JEV_LOGIN_STATE:-no}" = "no" ] && [ -z "${FIX_BROWSER}" ] && [ "${WS_KIND}" != "(env)" ]; then
+    echo "  （要登录态：bash $0 --fix-browser ${WS_KIND} —— 给它真实 profile 打开用户级远程调试）"
+  fi
 fi
 if [ "$fail_count" -le 0 ]; then
   echo "结论：阻塞项全绿。下一步跑端到端冒烟（唯一能说\"能用\"的证据）："
-  echo "  bash $(cd "$(dirname "$0")" && pwd)/smoke.sh"
+  echo "  bash ${SELF_DIR}/smoke.sh"
   exit 0
 else
   echo "结论：仍有阻塞项（见上面的 ❌）。先按 → 后面的命令修，或整体跑 bash $0 --fix"
-  [ "$FIX_EGO" = 0 ] && [ "$ego_enabled" = 0 ] && [ -d "$EGO_APP" ] && echo "  （要默认用 ego：bash $0 --fix-ego）"
   exit 1
 fi

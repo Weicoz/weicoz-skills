@@ -6,6 +6,7 @@
 set -uo pipefail
 
 PROJ="${JEV_PROJ:-$HOME/File/git/jev-ultrafast}"
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"   # 脚本后面会 cd 到项目目录，必须先把自身路径定下来
 PORT_BASE="${SMOKE_PORT:-8899}"
 ROOT="$(mktemp -d)"
 LOG="$ROOT/submit.log"
@@ -108,6 +109,6 @@ if grep -q "submit value='${TEXT}'" "$LOG"; then
   echo "  ⚠️  服务端收到提交，但 agent 没报 done（可能超时或末步卡住）：$(cat "$LOG" | tr -d '\n')"
 else
   echo "  ❌ 服务端没有收到提交 —— DONE 不等于成功，这次没通过。"
-  echo "     先跑体检：bash $(cd "$(dirname "$0")" && pwd)/doctor.sh"
+  echo "     先跑体检：bash ${SELF_DIR}/doctor.sh"
 fi
 exit 1
