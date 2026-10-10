@@ -253,3 +253,7 @@ Chromium 只在**启动时**读"允许远程调试"这个用户级开关，而�
 | `bin/lib/browser.sh` | 浏览器解析链真源（档位判定、开关写入、daemon 重绑） |
 | `bin/doctor.sh` | 六段体检 + `--fix` / `--fix-browser <品牌>` / `--net` |
 | `bin/smoke.sh` | 端到端冒烟，用服务端日志判定成功 |
+
+## 用完关标签页
+
+每次任务都会在你的浏览器里新开一个后台标签页，结束后不会自动关。验证完要关掉：Python 里调 `agent.browser.close()`；漏关的按视口 1120×780 识别后用 CDP 的 `Target.closeTarget` 关掉，尺寸不符的是你自己的标签页，不要动。细节见 `SKILL.md` 的“用完关标签页”一节。

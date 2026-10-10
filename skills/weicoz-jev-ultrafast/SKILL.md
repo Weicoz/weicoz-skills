@@ -52,6 +52,7 @@ for _ in agent.run():
     pass
 print("status:", agent.state.get("status"))
 print("DOM:", agent.browser.evaluate('JSON.stringify({v:document.querySelector("#fullname")?.value})'))
+agent.browser.close()   # 读回完就关掉这次开的标签页，见“用完关标签页”
 PY
 ```
 
@@ -124,6 +125,15 @@ BU_CDP_WS="ws://127.0.0.1:<port>/devtools/browser/<uuid>" \
 3. **录屏帧**：`record_dir=` 落盘 jpg，看末帧页面状态——但这只是旁证，镜头里"看起来点了"不等于提交真的发生。
 
 读回 DOM 时注意：`browser-harness` 客户端**没有** `evaluate()`，只有 `cdp()` / `current_tab()` / `activate_tab()` / `close_tab()` / `new_tab()` / `capture_screenshot` / `click_at_xy`。要读页面就用上面第 2 条。
+
+## 用完关标签页
+
+每个 `Agent(...)` 都会在用户的浏览器里**新开一个后台标签页**，任务结束后它不会自己关。跑的是用户真实的浏览器，留着不管就是在用户那里越堆越多（实测一轮走查留下过 12 个）。
+
+- **验证完（读回 DOM、取完证据之后）立刻关**：Python 库里调 `agent.browser.close()`；循环跑多个场景时放进 `try … finally`，出错也要关。
+- `run-local.sh --url …` 这条路径不会替你关，跑完同样要清理。
+- 漏关了怎么补：用 `browser_harness.helpers.cdp` 列出 `Target.getTargets` 里的 `page`，逐个 attach 后读 `innerWidth+'x'+innerHeight`。jev 开的标签页视口固定是 **1120×780**（`Emulation.setDeviceMetricsOverride`），只关这些；尺寸不符的是用户自己的标签页，**不要动**。不要按 URL 判断，用户很可能正开着同一个页面。
+- 交付时说明关了几个、保留了几个。
 
 ## 坑表
 
