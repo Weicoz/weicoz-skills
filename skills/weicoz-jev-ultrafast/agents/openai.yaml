@@ -1,0 +1,5 @@
+interface:
+  display_name: "jev-ultrafast 本机浏览器驱动器"
+  short_description: "用 jev-ultrafast 驱动 ego/Chrome 真实完成任务并体检"
+  brand_color: "#1F6FEB"
+  default_prompt: "使用 $weicoz-jev-ultrafast 用本机 jev-ultrafast 驱动浏览器完成这个任务：先跑 doctor.sh 体检，再跑 smoke.sh 验证，最后用服务端日志或 DOM 回读证明结果。"
