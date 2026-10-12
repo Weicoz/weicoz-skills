@@ -1,0 +1,410 @@
+"""本地临时 worker 回归；不连接真实设备，不调用模型。"""
+import argparse
+import contextlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+from unittest.mock import patch
+
+import rd_profiles as profiles
+import rd_native as native
+
+loader = importlib.machinery.SourceFileLoader("rd", str(Path(__file__).with_name("rd")))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+rd = importlib.util.module_from_spec(spec)
+loader.exec_module(rd)
+
+
+class FixtureBase:
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="rd-tests-")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.source = self.root / "source"
+        self.source.mkdir()
+        (self.source / "config.toml").write_text('approval_policy="never"\nsandbox_mode="workspace-write"\nmodel="fixture-a"\n')
+        (self.source / "AGENTS.md").write_text("公司规范\nEMPLOYEE_RULE_MARKER\n")
+        (self.source / "git.json").write_text(json.dumps({"name": "RD Fixture", "email": "fixture@example.invalid"}))
+        self.state = self.root / "state"
+
+    def make_bundle(self, uid="employee_a"):
+        return profiles.bundle(self.source, uid, self.state)
+
+    def install(self, uid="employee_a"):
+        manifest, payload = self.make_bundle(uid)
+        worker = self.root / "worker" / "users" / uid
+        destination = worker / "profiles" / manifest["fingerprint"]
+        destination.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["tar", "-xf", "-", "-C", str(destination)], input=payload, check=True)
+        job = worker / "jobs" / "fixture-job"
+        job.mkdir(parents=True, exist_ok=True)
+        return manifest, job
+
+
+class ProfileTests(FixtureBase, unittest.TestCase):
+    def test_id_is_explicit_and_path_safe(self):
+        for value in ("", "../other", "alice/bob", "a b", "a;cmd", "a" * 65, "Employee_A", "con", "lpt1"):
+            with self.assertRaises(ValueError):
+                profiles.user_id(value)
+        self.assertEqual(profiles.user_id("employee_a-123"), "employee_a-123")
+
+    def test_missing_id_stops_before_any_repo_or_remote_work(self):
+        with patch.dict(os.environ, {"RD_USER_ID": ""}), patch.object(rd, "local_repo") as repo:
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as failure:
+                rd.cmd_run(argparse.Namespace(), None)
+            self.assertEqual(failure.exception.code, 4)
+            repo.assert_not_called()
+
+    def test_one_week_boundary_and_content_equality(self):
+        remote = {"fingerprint": "a", "source_updated_at": 100}
+        local = {"fingerprint": "b", "source_updated_at": 100 + profiles.WEEK}
+        self.assertEqual(profiles.comparison(local, remote), "different")
+        local["source_updated_at"] += 1
+        self.assertEqual(profiles.comparison(local, remote), "stale")
+        local["fingerprint"] = "a"
+        self.assertEqual(profiles.comparison(local, remote), "same")
+        local.update(fingerprint="b", source_updated_at=99)
+        self.assertEqual(profiles.comparison(local, remote), "remote-newer")
+        self.assertEqual(profiles.comparison(None, remote), "unknown")
+
+    def test_unchanged_mtime_does_not_change_version_and_deletion_does(self):
+        tool = self.source / "tools" / "fixture.txt"
+        tool.parent.mkdir()
+        tool.write_text("fixture")
+        first, _ = self.make_bundle()
+        os.utime(tool, (time.time(), time.time()))
+        second, _ = self.make_bundle()
+        self.assertEqual(first, second)
+        tool.unlink()
+        third, _ = self.make_bundle()
+        self.assertNotEqual(first["fingerprint"], third["fingerprint"])
+        self.assertNotIn("tools/fixture.txt", third["files"])
+
+    def test_credentials_and_symlinks_cannot_enter_bundle(self):
+        auth = self.source / "auth.json"
+        auth.write_text('{"fixture":"not-a-real-token"}')
+        with self.assertRaises(ValueError):
+            self.make_bundle()
+        auth.unlink()
+        link = self.source / "tools"
+        link.symlink_to(self.root, target_is_directory=True)
+        with self.assertRaises(ValueError):
+            self.make_bundle()
+
+    def test_local_paths_and_inline_secrets_are_rejected(self):
+        for extra in ('[mcp_servers.fixture]\ncommand="/Users/alice/tool"\n', '[model_providers.fixture]\napi_key="synthetic-fixture"\n'):
+            (self.source / "config.toml").write_text('approval_policy="never"\n' + extra)
+            with self.assertRaises(ValueError):
+                self.make_bundle()
+
+    def test_target_paths_and_resume_snapshot_stay_separate(self):
+        (self.source / "config.toml").write_text('approval_policy="never"\n[mcp_servers.fixture]\ncommand="python3"\nargs=["@RD_PROFILE@/tools/fixture.py"]\n')
+        tools = self.source / "tools"
+        tools.mkdir()
+        (tools / "fixture.py").write_text("pass\n")
+        a, job_a = self.install("employee_a")
+        b, job_b = self.install("employee_b")
+        with patch.object(profiles, "host_skill_paths", return_value=["/host/skills/private/SKILL.md"]):
+            home_a = profiles.prepare_runtime(job_a, a)
+            home_b = profiles.prepare_runtime(job_b, b)
+        config = profiles.tomllib.loads((home_a / "config.toml").read_text())
+        self.assertNotEqual(home_a, home_b)
+        self.assertEqual(config["mcp_servers"]["fixture"]["args"], [str(home_a / "tools/fixture.py")])
+        self.assertFalse(config["skills"]["config"][0]["enabled"])
+        self.assertEqual(config["sqlite_home"], str(home_a))
+        (self.source / "AGENTS.md").write_text("公司规范\nNEW_RULE_MARKER\n")
+        new, _ = self.install("employee_a")
+        self.assertEqual(profiles.prepare_runtime(job_a, a), home_a)
+        self.assertNotIn("NEW_RULE_MARKER", (home_a / "AGENTS.md").read_text())
+        with self.assertRaises(ValueError):
+            profiles.prepare_runtime(job_a, new)
+
+    def test_unlisted_remote_files_are_not_copied(self):
+        manifest, job = self.install()
+        version = job.parent.parent / "profiles" / manifest["fingerprint"]
+        (version / "auth.json").write_text('{"fixture":true}')
+        with patch.object(profiles, "host_skill_paths", return_value=[]):
+            runtime = profiles.prepare_runtime(job, manifest)
+        self.assertFalse((runtime / "auth.json").exists())
+
+    def test_manifest_rejects_other_user_and_traversal(self):
+        manifest, _ = self.make_bundle()
+        with self.assertRaises(ValueError):
+            profiles.validate_manifest(manifest, "employee_b")
+        manifest["files"]["../../outside"] = next(iter(manifest["files"].values()))
+        with self.assertRaises(ValueError):
+            profiles.validate_manifest(manifest, "employee_a")
+
+
+    def test_missing_auth_can_be_fixed_without_partial_runtime(self):
+        manifest, job = self.install()
+        auth = self.root / "approved-auth.json"
+        with self.assertRaises(ValueError):
+            profiles.prepare_runtime(job, manifest, str(auth))
+        self.assertFalse((job / "codex").exists())
+        auth.write_text('{"fixture":true}')
+        with patch.object(profiles, "host_skill_paths", return_value=[]):
+            home = profiles.prepare_runtime(job, manifest, str(auth))
+        self.assertEqual((home / "auth.json").stat().st_mode & 0o777, 0o600)
+
+    def test_agent_resource_paths_are_mapped_to_target_job(self):
+        (self.source / "config.toml").write_text('approval_policy="never"\n[agents.fixture]\nconfig_file="agents/fixture.toml"\n')
+        agents = self.source / "agents"
+        agents.mkdir()
+        (agents / "fixture.toml").write_text('developer_instructions="Use @RD_PROFILE@/tools/fixture.py"\n')
+        manifest, job = self.install()
+        with patch.object(profiles, "host_skill_paths", return_value=[]):
+            home = profiles.prepare_runtime(job, manifest)
+        self.assertIn(str(home / "tools/fixture.py"), (home / "agents/fixture.toml").read_text())
+
+
+class NativeTests(FixtureBase, unittest.TestCase):
+    def test_background_launch_failure_is_reported_as_failed(self):
+        root = self.root / "worker/users/employee_a"
+        spec = {"job": "employee_a-failed", "round": 1, "profile": None}
+        q = {"operation": "launch", "workdir": str(root), "shared_workdir": str(self.root / "worker"), "path": "", "spec": spec,
+             "prompt": "", "profile_code": Path(profiles.__file__).read_text(), "worker_code": Path(native.__file__).read_text()}
+        with patch.object(native.subprocess, "Popen", side_effect=OSError("fixture denied")), self.assertRaises(ValueError):
+            native.handle(q, io.BytesIO())
+        status = native.job_state(root, spec["job"])
+        self.assertEqual(status["state"], "done")
+        self.assertEqual(status["exit"], "98")
+
+    def test_windows_wire_preserves_binary_without_shell_interpolation(self):
+        import base64
+        payload = bytes(range(256)) * 300
+        host = {"workdir": "C:/rd/users/employee_a", "path": "", "python": "C:/Program Files/Python/python.exe", "ssh": "fixture", "ssh_opts": "-o BatchMode=yes"}
+        def transport(cmd, stdin, stdout, **kwargs):
+            header = json.loads(stdin.readline())
+            self.assertEqual(header["payload_encoding"], "base64")
+            self.assertEqual(b"".join(base64.b64decode(line.strip(), validate=True) for line in stdin), payload)
+            self.assertNotIn(host["workdir"], " ".join(cmd))
+            stdout.write(json.dumps({"ok": True, "result": None, "binary_encoding": "base64"}).encode() + b"\n")
+            stdout.write(base64.b64encode(payload) + b"\n")
+            return subprocess.CompletedProcess(cmd, 0, None, b"")
+        output = io.BytesIO()
+        with patch.object(native.subprocess, "run", side_effect=transport):
+            native.request(host, "fixture", payload=payload, output=output)
+        self.assertEqual(output.getvalue(), payload)
+
+    def test_powershell_uses_utf16_and_quotes_path_arguments(self):
+        script = "& " + native.ps_quote("C:\\员工 目录\\it's python.exe") + " 'argument'"
+        encoded = native.powershell(script)
+        self.assertEqual(encoded[:4], ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand"])
+        import base64
+        self.assertEqual(base64.b64decode(encoded[4]).decode("utf-16-le"), script)
+        self.assertIn("it''s", script)
+
+    def test_native_sync_preserves_utf8_and_id_namespace(self):
+        manifest, payload = self.make_bundle()
+        worker = self.root / "worker space 中文" / "users" / "employee_a"
+        q = {"workdir": str(worker), "shared_workdir": str(self.root / "worker space 中文"), "path": "",
+             "operation": "profile-sync", "expected": None, "manifest": manifest, "user_id": "employee_a"}
+        native.handle(q, io.BytesIO(payload))
+        loaded = native.handle(dict(q, operation="profile-read"), io.BytesIO())
+        self.assertEqual(loaded["root"], str(worker.resolve()))
+        self.assertEqual(loaded["manifest"], manifest)
+        self.assertIn("公司规范", (worker / "profiles" / manifest["fingerprint"] / "AGENTS.md").read_text(encoding="utf-8"))
+        with self.assertRaises(ValueError):
+            native.handle(q, io.BytesIO(payload))
+
+    def test_native_archive_cannot_escape_employee_directory(self):
+        import tarfile
+        payload = io.BytesIO()
+        with tarfile.open(fileobj=payload, mode="w") as archive:
+            entry = tarfile.TarInfo("../../outside")
+            entry.size = 1
+            archive.addfile(entry, io.BytesIO(b"x"))
+        payload.seek(0)
+        with self.assertRaises(ValueError):
+            native.extract(payload, self.root / "employee")
+        self.assertFalse((self.root.parent / "outside").exists())
+
+    def test_windows_environment_keeps_required_os_variables(self):
+        manifest, job = self.install()
+        with patch.object(profiles, "host_skill_paths", return_value=[]):
+            home = profiles.prepare_runtime(job, manifest)
+        env = profiles.runtime_environment(home, {"SYSTEMROOT": "C:\\Windows", "PATHEXT": ".EXE;.CMD", "USERPROFILE": "C:\\Users\\fixture", "UNRELATED_SECRET": "synthetic-fixture"})
+        self.assertEqual(env["SYSTEMROOT"], "C:\\Windows")
+        self.assertEqual(env["PATHEXT"], ".EXE;.CMD")
+        self.assertNotIn("UNRELATED_SECRET", env)
+        self.assertEqual(env["CODEX_HOME"], str(home))
+
+    def test_native_git_bundle_and_background_command_protocol(self):
+        repo = self.root / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-qm", "base"], check=True)
+        sha = rd.git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        root = self.root / "native worker 中文" / "users" / "employee_a"
+        shared = self.root / "native worker 中文"
+        host = {"workdir": str(root), "shared_workdir": str(shared), "platform": "windows", "path": ""}
+        rec = {"job": "employee_a-fixture", "bare": "repos/fixture.git", "branch": "rd/employee_a/fixture", "sync": "direct"}
+        def local_rpc(h, operation, data=None, payload=None, **kwargs):
+            q = dict(data or {}, operation=operation, workdir=h["workdir"], shared_workdir=h["shared_workdir"], path="")
+            return native.handle(q, payload or io.BytesIO())
+        with patch.object(native, "request", side_effect=local_rpc):
+            rd.native_init(host, rec, str(repo), sha, None)
+        self.assertNotIn("refs/rd-transfer/", rd.git(["show-ref"], str(repo), check=False).stdout)
+        self.assertEqual(native.git(root / rec["bare"], "rev-parse", rec["branch"]).stdout.strip(), sha)
+        spec = dict(rec, round=1, user_id="employee_a", profile=None, timeout=10, max_heavy=1, cmd='printf "完成"', heavy=False)
+        q = {"operation": "launch", "workdir": str(root), "shared_workdir": str(shared), "path": "", "spec": spec,
+             "prompt": "", "profile_code": Path(profiles.__file__).read_text(), "worker_code": Path(native.__file__).read_text()}
+        children = []
+        start = subprocess.Popen
+        def capture_child(*args, **kwargs):
+            child = start(*args, **kwargs)
+            children.append(child)
+            return child
+        with patch.object(native.subprocess, "Popen", side_effect=capture_child):
+            launched = native.handle(q, io.BytesIO())
+        deadline = time.monotonic() + 20
+        directory = root / "jobs" / rec["job"]
+        while not (directory / "exit_code").exists() and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertEqual((directory / "exit_code").read_text(), "0")
+        self.assertIn("完成", (directory / "stdout.r1.log").read_text(encoding="utf-8"))
+        self.assertEqual(json.loads((directory / "run.r1.json").read_text())["lock_dir"], str(shared.resolve() / "locks"))
+        self.assertEqual(children[0].wait(timeout=5), 0)
+        self.assertTrue((root / "bin/rd-heavy.cmd").exists())
+        capture = io.TextIOWrapper(io.BytesIO(), encoding="utf-8")
+        with patch.object(sys, "stdout", capture):
+            native.serve({"operation": "fetch-bundle", "workdir": str(root), "bare": rec["bare"], "branch": rec["branch"]})
+        capture.flush()
+        capture.buffer.seek(0)
+        self.assertTrue(json.loads(capture.buffer.readline())["ok"])
+        result_bundle = self.root / "result.bundle"
+        import base64
+        result_bundle.write_bytes(b"".join(base64.b64decode(line.strip(), validate=True) for line in capture.buffer))
+        self.assertEqual(subprocess.run(["git", "bundle", "verify", str(result_bundle)], cwd=repo, capture_output=True).returncode, 0)
+
+
+class WorkerTests(FixtureBase, unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.bin = self.root / "bin"
+        self.bin.mkdir()
+        (self.bin / "python3").symlink_to(sys.executable)
+        fake = self.bin / "codex"
+        fake.write_text('''#!/usr/bin/env python3
+import json, os, pathlib, subprocess, sys
+if "--help" in sys.argv:
+    print("--disable")
+    sys.exit(0)
+if sys.argv[1:] == ["features", "list"]:
+    print("hooks stable true\\nplugins stable true\\nmemories stable true\\nexternal_agent_memory_import development false")
+    sys.exit(0)
+home = pathlib.Path(os.environ["CODEX_HOME"])
+record = {"id":os.environ["RD_USER_ID"], "home":str(home), "config":(home/"config.toml").read_text(), "args":sys.argv[1:]}
+pathlib.Path("result.json").write_text(json.dumps(record))
+subprocess.run(["git","add","result.json"],check=True)
+subprocess.run(["git","commit","-qm","fixture"],check=True)
+print(json.dumps({"session_id":"fixture-session"}))
+''')
+        fake.chmod(0o755)
+        config = self.root / "config.ini"
+        config.write_text(f"[host:fixture]\nssh=not-a-real-host\nworkdir={self.root / 'worker'}\nsync=direct\npath={self.bin}:/usr/bin:/bin:/opt/homebrew/bin\n")
+        self.env = patch.dict(os.environ, {"RD_USER_ID": "employee_a", "RD_PROFILE_DIR": str(self.source)})
+        self.env.start()
+        self.addCleanup(self.env.stop)
+        self.config_patch = patch.object(rd, "CONFIG", str(config))
+        self.config_patch.start()
+        self.addCleanup(self.config_patch.stop)
+        self.state_patch = patch.object(rd, "STATE", str(self.state))
+        self.state_patch.start()
+        self.addCleanup(self.state_patch.stop)
+        self.cfg = rd.Config()
+        self.ssh_patch = patch.object(rd, "ssh", self.local_shell)
+        self.ssh_patch.start()
+        self.addCleanup(self.ssh_patch.stop)
+
+    def local_shell(self, host, script, check=True, stdin_data=None, stdin=None, timeout=None):
+        shared = dict(host, workdir=host.get("shared_workdir", host["workdir"]))
+        pre = f'export PATH="{host["path"]}:$PATH"; ROOT={rd.root_expr(host)}; SHARED_ROOT={rd.root_expr(shared)}; '
+        p = subprocess.run(["sh", "-c", pre + script], input=stdin_data, stdin=stdin, capture_output=True,
+                           text=stdin_data is not None, timeout=timeout or 20)
+        out = p.stdout if isinstance(p.stdout, str) else p.stdout.decode()
+        err = p.stderr if isinstance(p.stderr, str) else p.stderr.decode()
+        if check and p.returncode:
+            raise AssertionError(f"fixture worker shell failed ({p.returncode}): {err}")
+        return subprocess.CompletedProcess(p.args, p.returncode, out, err)
+
+    def sync(self):
+        manifest, _ = self.make_bundle()
+        with contextlib.redirect_stdout(io.StringIO()):
+            rd.cmd_profile(argparse.Namespace(action="sync", host="fixture", confirm_user_id="employee_a", confirm_version=manifest["fingerprint"]), self.cfg)
+        return manifest
+
+    def test_sync_requires_matching_id_and_reviewed_version(self):
+        for uid, version in [(None, None), ("employee_b", "a" * 64), ("employee_a", "a" * 64)]:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as failure:
+                rd.cmd_profile(argparse.Namespace(action="sync", host="fixture", confirm_user_id=uid, confirm_version=version), self.cfg)
+            self.assertEqual(failure.exception.code, 4)
+        self.assertFalse((self.root / "worker").exists())
+
+    def test_sync_versions_keep_old_files_and_do_not_touch_global_config(self):
+        first = self.sync()
+        (self.source / "AGENTS.md").write_text("公司规范\nVERSION_TWO\n")
+        second = self.sync()
+        root = self.root / "worker" / "users" / "employee_a"
+        self.assertTrue((root / "profiles" / first["fingerprint"] / "AGENTS.md").exists())
+        self.assertIn("VERSION_TWO", (root / "profiles" / second["fingerprint"] / "AGENTS.md").read_text())
+        self.assertEqual(json.loads((root / "profiles/current.json").read_text())["fingerprint"], second["fingerprint"])
+        self.assertFalse((self.root / "worker" / "config.toml").exists())
+        self.assertFalse((root / "profiles/.sync-lock").exists())
+
+    def wait_success(self, job):
+        with self.assertRaises(SystemExit) as complete:
+            rd.cmd_wait(argparse.Namespace(job=job, timeout=10, interval=0.05), self.cfg)
+        self.assertEqual(complete.exception.code, 0)
+
+    def test_real_git_and_worker_scripts_run_fetch_and_resume_original_profile(self):
+        first = self.sync()
+        repo = self.root / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-qm", "base"], check=True)
+        prompt = self.root / "task.md"
+        prompt.write_text("Fixture only; no model API request.\n")
+        args = argparse.Namespace(agent="codex", prompt_file=str(prompt), cmd=None, test=False, heavy=False,
+            host="fixture", force_host=True, tag=[], ref="HEAD", wip=False, branch=None, name="fixture",
+            project=None, include=[], model="override-fixture", effort="low", timeout=15)
+        with patch.object(rd, "local_repo", return_value=str(repo)), patch.object(rd, "scp_path", side_effect=lambda h, rel: str(Path(h["workdir"]) / rel)), contextlib.redirect_stdout(io.StringIO()):
+            rd.cmd_run(args, self.cfg)
+            rec = rd.all_jobs()[0]
+            self.wait_success(rec["job"])
+            rd.cmd_fetch(argparse.Namespace(job=rec["job"]), self.cfg)
+            result = json.loads(rd.git(["show", "rd/" + rec["branch"] + ":result.json"], str(repo)).stdout)
+            self.assertEqual(result["id"], "employee_a")
+            self.assertIn("/users/employee_a/jobs/", result["home"])
+            self.assertIn("override-fixture", result["args"])
+            (self.source / "AGENTS.md").write_text("公司规范\nCONFIG_FOR_NEW_JOBS\n")
+            second = self.sync()
+            self.assertNotEqual(first["fingerprint"], second["fingerprint"])
+            rd.cmd_resume(argparse.Namespace(job=rec["job"], session=None, prompt_file=str(prompt), force_host=True, model=None, effort=None, timeout=15), self.cfg)
+            self.wait_success(rec["job"])
+            rd.cmd_fetch(argparse.Namespace(job=rec["job"]), self.cfg)
+            home = Path(result["home"])
+            self.assertEqual(json.loads((home / "rd-profile.json").read_text())["fingerprint"], first["fingerprint"])
+            self.assertNotIn("CONFIG_FOR_NEW_JOBS", (home / "AGENTS.md").read_text())
+            after = json.loads(rd.git(["show", "rd/" + rec["branch"] + ":result.json"], str(repo)).stdout)
+            self.assertIn("override-fixture", after["args"])
+        host = rd.job_host(self.cfg, rec)
+        script = rd.build_run_script(host, rec, 1, 15)
+        self.assertIn(str(self.root / "worker") + "/locks", script)
+        self.assertNotIn(str(self.root / "worker/users/employee_a/locks"), script)
+        with patch.dict(os.environ, {"RD_USER_ID": "employee_b"}), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            rd.job_host(self.cfg, rec)
+
+
+if __name__ == "__main__":
+    unittest.main()

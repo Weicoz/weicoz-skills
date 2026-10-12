@@ -2,11 +2,13 @@
 
 每个代理是一组命令模板。内置的定义在 `scripts/rd` 的 `AGENTS` 里，可以在机器清单里用同名小节覆盖，也可以新增。
 
+本版共享员工模式仅启用 Codex，其他模板保留但派单被阻止。员工 `CODEX_HOME`、路径映射、认证和续跑版本由 [Employee Profiles](user-profiles.md) 管理。Codex 的 sandbox 不再强制完全访问，使用员工配置；后台要求 `approval_policy = "never"`。新版员工模式须独立验收，旧版实际跑通不代表新版已在目标机实跑。
+
 ## 内置代理
 
 | 名称 | 启动方式 | 换模型 | 推理强度 | 验证情况 |
 | --- | --- | --- | --- | --- |
-| `codex` | `codex exec`，完全访问、不询问、JSON 输出 | `--model` | `--effort` | 启动、续跑、提交回传都实际跑通过 |
+| `codex` | `codex exec`，员工权限配置、JSON 输出 | `--model` | `--effort` | 旧版启动、续跑、提交回传实跑；新版员工模式另行验证 |
 | `dsh` | `dsh headless --json` | 不支持，由远端的 headless profile 决定 | 不支持 | 命令取自帮助文档，未实跑 |
 | `kimi` | `kimi --auto`，stream-json 输出 | `--model`（别名见远端 `~/.kimi-code/config.toml`） | 不支持 | 命令取自帮助文档，未实跑 |
 | `claude` | `claude -p`，跳过权限询问，stream-json 输出 | `--model` | 不支持 | 命令取自帮助文档，未实跑 |
@@ -33,7 +35,7 @@
 ```ini
 [agent:codex]
 ; 收紧权限：只允许写工作区
-start = codex exec -C "$RD_WT" -s workspace-write -c approval_policy=never --json {model_args} - < "$RD_PROMPT"
+start = codex exec -C "$RD_WT" --json {model_args} - < "$RD_PROMPT"
 
 [agent:myagent]
 start = myagent run --json {model_args} < "$RD_PROMPT"
