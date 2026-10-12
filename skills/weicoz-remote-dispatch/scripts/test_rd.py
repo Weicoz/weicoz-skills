@@ -51,6 +51,36 @@ class FixtureBase:
 
 
 class ProfileTests(FixtureBase, unittest.TestCase):
+    def test_permission_config_serialization_preserves_nested_settings(self):
+        data = {"model": "fixture-a", "agents": {"reviewer": {"description": "中文代理", "config_file": "agents/reviewer.toml"}},
+                "skills": {"config": [{"path": "C:\\目录\\SKILL.md", "enabled": False}]}, "effort": 0.5}
+        text = "\n".join(json.dumps(k) + "=" + profiles.toml_value(v) for k, v in data.items())
+        self.assertEqual(profiles.tomllib.loads(text), data)
+
+    def test_workspace_permissions_allow_only_current_employee_git_metadata(self):
+        manifest, job = self.install()
+        worker = job.parent.parent
+        seed = self.root / "seed"
+        seed.mkdir()
+        subprocess.run(["git", "init", "-q", str(seed)], check=True)
+        subprocess.run(["git", "-C", str(seed), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-qm", "base"], check=True)
+        bare = worker / "repos/fixture.git"
+        bare.parent.mkdir()
+        subprocess.run(["git", "clone", "-q", "--bare", str(seed), str(bare)], check=True)
+        wt = worker / "wt" / job.name
+        wt.parent.mkdir()
+        subprocess.run(["git", "-C", str(bare), "worktree", "add", "-q", "-b", "fixture-task", str(wt)], check=True)
+        with patch.object(profiles, "host_skill_paths", return_value=[]):
+            home = profiles.prepare_runtime(job, manifest)
+        config = profiles.tomllib.loads((home / "config.toml").read_text())
+        self.assertEqual(config["model"], "fixture-a")
+        self.assertNotIn("sandbox_mode", config)
+        permission = config["permissions"][config["default_permissions"]]
+        self.assertEqual(permission["extends"], ":workspace")
+        self.assertFalse(permission["network"]["enabled"])
+        self.assertEqual(set(permission["filesystem"]), {str(bare.resolve()), str((bare / "worktrees" / job.name).resolve())})
+        self.assertTrue(all(Path(p).is_relative_to((worker / "repos").resolve()) for p in permission["filesystem"]))
+
     def test_id_is_explicit_and_path_safe(self):
         for value in ("", "../other", "alice/bob", "a b", "a;cmd", "a" * 65, "Employee_A", "con", "lpt1"):
             with self.assertRaises(ValueError):
@@ -298,7 +328,7 @@ class WorkerTests(FixtureBase, unittest.TestCase):
         fake.write_text('''#!/usr/bin/env python3
 import json, os, pathlib, subprocess, sys
 if "--help" in sys.argv:
-    print("--disable")
+    print("--disable --permission-profile")
     sys.exit(0)
 if sys.argv[1:] == ["features", "list"]:
     print("hooks stable true\\nplugins stable true\\nmemories stable true\\nexternal_agent_memory_import development false")
