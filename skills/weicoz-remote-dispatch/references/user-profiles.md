@@ -66,6 +66,10 @@ Windows 的目录由目标机 Python `Path` 处理，不沿用 Mac/Linux 的 HOM
 
 本机和目标机配置操作要求 Python 3.11+。后台配置明确设置 `approval_policy = "never"`，权限按配置包的 `sandbox_mode` 执行。没有身份认证时，ID 只负责配置归属；不要将 ID 称为 token。
 
+Codex 还必须支持命名 permission profiles。默认 `workspace-write` 将 worktree 指向的 Git 元数据保护为只读，直接提交会失败。运行脚本将这种模式编译为继承 `:workspace` 的任务权限，单独开放当前员工 `repos/` 内的 Git 公共目录和本任务 Git 目录写入，保持工作区其余保护及原网络设置。模型、规则和源配置版本不变；`read-only` 与 `danger-full-access` 不自动转换。元数据越出当前员工 `repos/` 时停止启动。
+
 认证只从目标机提供：主机 `codex_auth_file` 指向已授权的认证文件，或 `env_file` 导出配置引用的 API 环境变量。认证文件只复制到当前任务配置，权限 0600；不进入同步包、Git 或日志。不自动读共享账号默认 `auth.json` 或钥匙串。首次登录、验证码和扫码由用户接管。目标机环境只向代理传递基础变量、RD 变量及配置明确引用的 API/MCP 变量。
 
 当前只完成 Codex 员工配置适配，其他代理阻止派单。旧版任务保留原路径，可查看、取回、停止和清理；旧任务无员工配置快照，不能直接续跑。`rd status` 默认展示当前 ID 的任务及旧版任务，指定新任务 ID 时校验归属。ID 是操作防串用检查，不是安全授权边界。
+
+权限依据：[OpenAI permission profiles](https://learn.chatgpt.com/docs/permissions) 和 [worktree Git 路径保护](https://learn.chatgpt.com/docs/agent-approvals-security#protected-paths-in-writable-roots)。

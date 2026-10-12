@@ -4,7 +4,7 @@
 
 目标机可以是 **macOS、Linux 或 Windows**。管理员按机器配置平台；员工不用维护三份个人规范。Windows 使用原生 PowerShell worker，机器配置与验收见 [Platforms](references/platforms.md)。
 
-验证范围：macOS 和 Linux 容器的本地回归已通过；原生 Windows 尚未设备实跑，首次使用必须完成平台验收。回归使用假 Codex，不代表模型请求或目标机业务验收通过。
+验证范围：macOS 和 Linux 容器的本地回归已通过；M4 已完成真实 Codex 写文件、验证、提交、同一会话续跑及 SSH 取回验收。原生 Windows 尚未设备实跑，首次使用必须完成平台验收。回归中的假 Codex 与真实设备验收分别记录。
 
 ## 首次使用
 
@@ -146,6 +146,7 @@ RD_CONFIRMED_VERSION='填入已审阅的完整指纹'
 - **同步确认版本错误**：配置包已变化，重新 `profile check`，审阅新版本。
 - **认证失败**：由管理员检查目标机 `codex_auth_file` 或 API 环境变量。登录和验证码由用户处理。
 - **退出码 98**：员工配置或认证准备失败，查看 `logs <job> err`；不等于业务代码失败。
+- **workspace-write 提交失败**：目标 Codex 必须支持命名 permission profiles；运行脚本保留工作区保护，单独开放当前任务的 Git 元数据，详见 [Employee Profiles](references/user-profiles.md)。退出码 0 但无提交仍不能当作任务验收通过。
 - **其他代理不能派**：本版只完成 Codex 的员工配置适配，其他代理模板保留但阻止启动，避免串宿主环境。
 - **Windows 命令或路径失败**：确认机器配置为 `platform=windows`，Python 路径正确；环境文件用 JSON，任务命令用 PowerShell。不要直接搬 Bash 脚本。
 - **Windows 后台启动失败**：查看 OpenSSH 是否支持脱离 Job Object 和 `bootstrap.log`；首次使用必须验 SSH 返回后的任务状态，不能只看启动成功提示。

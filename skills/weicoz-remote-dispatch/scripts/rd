@@ -81,6 +81,7 @@ AGENTS = {
 KILLTREE = 'killtree() { for c in $(pgrep -P "$1" 2>/dev/null); do killtree "$c"; done; kill "$1" 2>/dev/null; }'
 
 CODEX_CHECK = r'''python3 -c "import tomllib" || exit 1
+codex sandbox --help | grep -q -- --permission-profile || exit 1
 flags=$(codex features list) || exit 1
 for flag in hooks plugins memories external_agent_memory_import; do
   echo "$flags" | awk '{print $1}' | grep -qx "$flag" || exit 1

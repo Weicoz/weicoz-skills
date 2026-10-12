@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -185,6 +186,55 @@ def host_skill_paths():
     return sorted(paths)
 
 
+def toml_value(value):
+    if isinstance(value, dict):
+        return "{" + ", ".join(json.dumps(k, ensure_ascii=False) + " = " + toml_value(v) for k, v in value.items()) + "}"
+    if isinstance(value, list):
+        return "[" + ", ".join(map(toml_value, value)) + "]"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    raise ValueError("员工配置包含无法保存的 TOML 类型。")
+
+
+def allow_task_git(runtime, job_dir):
+    """workspace-write 保留默认保护，只开放本任务所属仓库的 Git 元数据。"""
+    path = runtime / "config.toml"
+    config = tomllib.loads(path.read_text(encoding="utf-8"))
+    if config.get("sandbox_mode") != "workspace-write":
+        return
+    root = job_dir.parent.parent
+    wt = root / "wt" / job_dir.name
+    if not (wt / ".git").exists():
+        return
+    def git_path(flag):
+        result = subprocess.run(["git", "-C", str(wt), "rev-parse", flag], capture_output=True, text=True, encoding="utf-8")
+        if result.returncode or not result.stdout.strip():
+            raise ValueError("无法定位任务 Git 元数据目录。")
+        return (wt / result.stdout.strip()).resolve()
+    directory, common = git_path("--absolute-git-dir"), git_path("--git-common-dir")
+    if not all(p.is_relative_to((root / "repos").resolve()) for p in (directory, common)):
+        raise ValueError("任务 Git 元数据不在当前员工 repos 内；停止启动。")
+    previous = config.pop("sandbox_workspace_write", {})
+    filesystem = {str(common): "write", str(directory): "write"}
+    for extra in previous.get("writable_roots", []):
+        filesystem[extra] = "write"
+    if previous.get("exclude_tmpdir_env_var"):
+        filesystem[":tmpdir"] = "read"
+    if previous.get("exclude_slash_tmp"):
+        filesystem[":slash_tmp"] = "read"
+    config.pop("sandbox_mode")
+    config["default_permissions"] = "rd_workspace"
+    config["permissions"] = {"rd_workspace": {"extends": ":workspace", "filesystem": filesystem,
+                                                "network": {"enabled": bool(previous.get("network_access", False))}}}
+    path.write_text("\n".join(json.dumps(k) + " = " + toml_value(v) for k, v in config.items()) + "\n", encoding="utf-8")
+
+
 def prepare_runtime(job_dir, expected, auth_file=""):
     job_dir = Path(job_dir).resolve()
     runtime = job_dir / "codex"
@@ -195,6 +245,7 @@ def prepare_runtime(job_dir, expected, auth_file=""):
             raise ValueError("续跑配置版本不匹配；不得切换原任务配置。")
         if not (runtime / "config.toml").is_file():
             raise ValueError("原任务配置已丢失；不得回退系统账号配置。")
+        allow_task_git(runtime, job_dir)
         return runtime
     if runtime.exists():
         raise ValueError("任务配置初始化不完整；检查后重派，不覆盖现有目录。")
@@ -237,6 +288,7 @@ def prepare_runtime(job_dir, expected, auth_file=""):
     if auth is not None:
         shutil.copyfile(auth, runtime / "auth.json")
         (runtime / "auth.json").chmod(0o600)
+    allow_task_git(runtime, job_dir)
     marker.write_text(json.dumps(expected), encoding="utf-8")
     return runtime
 
