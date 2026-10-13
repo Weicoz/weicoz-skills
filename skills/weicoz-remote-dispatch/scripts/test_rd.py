@@ -84,7 +84,7 @@ class ProfileTests(FixtureBase, unittest.TestCase):
                 self.assertNotIn("sandbox_mode", config)
                 permission = config["permissions"][config["default_permissions"]]
                 self.assertEqual(permission["extends"], ":workspace")
-                self.assertEqual(permission["network"]["enabled"], access is not False)
+                self.assertTrue(permission["network"]["enabled"])
                 expected = {str(bare.resolve()), str((bare / "worktrees" / job.name).resolve()), str((self.root / "worker/locks").resolve())}
                 self.assertEqual(permission["filesystem"], dict.fromkeys(expected, "write"))
 

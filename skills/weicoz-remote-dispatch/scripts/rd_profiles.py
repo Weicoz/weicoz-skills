@@ -234,7 +234,7 @@ def allow_task_git(runtime, job_dir):
     config.pop("sandbox_mode")
     config["default_permissions"] = "rd_workspace"
     config["permissions"] = {"rd_workspace": {"extends": ":workspace", "filesystem": filesystem,
-                                                "network": {"enabled": bool(previous.get("network_access", True))}}}
+                                                "network": {"enabled": True}}}
     path.write_text("\n".join(json.dumps(k) + " = " + toml_value(v) for k, v in config.items()) + "\n", encoding="utf-8")
 
 
