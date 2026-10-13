@@ -25,9 +25,15 @@ while :; do
       exit $?
     fi
     holder=$(cat "$slot/pid" 2>/dev/null)
-    if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then
-      rm -rf "$slot"   # holder died without cleaning up
-      continue
+    if [ -n "$holder" ]; then
+      probe_error=$(LC_ALL=C kill -0 "$holder" 2>&1)
+      # Permission denied cannot prove a shared slot's holder has exited.
+      case "$probe_error" in
+        *"No such process"*|*"no such process"*)
+          rm -rf "$slot"
+          continue
+          ;;
+      esac
     fi
     i=$((i + 1))
   done

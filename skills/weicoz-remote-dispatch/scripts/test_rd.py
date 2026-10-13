@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -57,35 +58,50 @@ class ProfileTests(FixtureBase, unittest.TestCase):
         text = "\n".join(json.dumps(k) + "=" + profiles.toml_value(v) for k, v in data.items())
         self.assertEqual(profiles.tomllib.loads(text), data)
 
-    def test_workspace_permissions_allow_only_current_employee_git_metadata(self):
-        manifest, job = self.install()
-        worker = job.parent.parent
+    def test_workspace_permissions_allow_task_git_queue_and_default_network(self):
         seed = self.root / "seed"
         seed.mkdir()
         subprocess.run(["git", "init", "-q", str(seed)], check=True)
         subprocess.run(["git", "-C", str(seed), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-qm", "base"], check=True)
-        bare = worker / "repos/fixture.git"
-        bare.parent.mkdir()
-        subprocess.run(["git", "clone", "-q", "--bare", str(seed), str(bare)], check=True)
-        wt = worker / "wt" / job.name
-        wt.parent.mkdir()
-        subprocess.run(["git", "-C", str(bare), "worktree", "add", "-q", "-b", "fixture-task", str(wt)], check=True)
-        with patch.object(profiles, "host_skill_paths", return_value=[]):
-            home = profiles.prepare_runtime(job, manifest)
-        config = profiles.tomllib.loads((home / "config.toml").read_text())
-        self.assertEqual(config["model"], "fixture-a")
-        self.assertNotIn("sandbox_mode", config)
-        permission = config["permissions"][config["default_permissions"]]
-        self.assertEqual(permission["extends"], ":workspace")
-        self.assertFalse(permission["network"]["enabled"])
-        self.assertEqual(set(permission["filesystem"]), {str(bare.resolve()), str((bare / "worktrees" / job.name).resolve())})
-        self.assertTrue(all(Path(p).is_relative_to((worker / "repos").resolve()) for p in permission["filesystem"]))
+        for label, access in (("default", None), ("offline", False), ("online", True)):
+            with self.subTest(network=label):
+                text = 'approval_policy="never"\nsandbox_mode="workspace-write"\nmodel="fixture-a"\n'
+                if access is not None:
+                    text += '[sandbox_workspace_write]\nnetwork_access=' + str(access).lower() + '\n'
+                (self.source / "config.toml").write_text(text)
+                manifest, job = self.install("employee_" + label)
+                worker = job.parent.parent
+                bare = worker / "repos/fixture.git"
+                bare.parent.mkdir()
+                subprocess.run(["git", "clone", "-q", "--bare", str(seed), str(bare)], check=True)
+                wt = worker / "wt" / job.name
+                wt.parent.mkdir()
+                subprocess.run(["git", "-C", str(bare), "worktree", "add", "-q", "-b", "fixture-task", str(wt)], check=True)
+                with patch.object(profiles, "host_skill_paths", return_value=[]):
+                    home = profiles.prepare_runtime(job, manifest)
+                config = profiles.tomllib.loads((home / "config.toml").read_text())
+                self.assertEqual(config["model"], "fixture-a")
+                self.assertNotIn("sandbox_mode", config)
+                permission = config["permissions"][config["default_permissions"]]
+                self.assertEqual(permission["extends"], ":workspace")
+                self.assertEqual(permission["network"]["enabled"], access is not False)
+                expected = {str(bare.resolve()), str((bare / "worktrees" / job.name).resolve()), str((self.root / "worker/locks").resolve())}
+                self.assertEqual(permission["filesystem"], dict.fromkeys(expected, "write"))
 
     def test_id_is_explicit_and_path_safe(self):
         for value in ("", "../other", "alice/bob", "a b", "a;cmd", "a" * 65, "Employee_A", "con", "lpt1"):
             with self.assertRaises(ValueError):
                 profiles.user_id(value)
         self.assertEqual(profiles.user_id("employee_a-123"), "employee_a-123")
+
+    def test_runtime_rejects_job_outside_employee_users_namespace(self):
+        manifest, job = self.install()
+        users = job.parent.parent.parent
+        moved = users.with_name("employees")
+        users.rename(moved)
+        job = moved / job.relative_to(users)
+        with patch.object(profiles, "host_skill_paths", return_value=[]), self.assertRaises(ValueError):
+            profiles.prepare_runtime(job, manifest)
 
     def test_missing_id_stops_before_any_repo_or_remote_work(self):
         with patch.dict(os.environ, {"RD_USER_ID": ""}), patch.object(rd, "local_repo") as repo:
@@ -195,6 +211,45 @@ class ProfileTests(FixtureBase, unittest.TestCase):
         with patch.object(profiles, "host_skill_paths", return_value=[]):
             home = profiles.prepare_runtime(job, manifest)
         self.assertIn(str(home / "tools/fixture.py"), (home / "agents/fixture.toml").read_text())
+
+
+class HeavyQueueTests(FixtureBase, unittest.TestCase):
+    def test_permission_denied_pid_probe_does_not_steal_live_slot(self):
+        directory = self.root / "locks"
+        slot = directory / "heavy.1"
+        slot.mkdir(parents=True)
+        (slot / "pid").write_text(str(os.getpid()))
+        marker = self.root / "started"
+        helper = Path(__file__).with_name("rd-heavy")
+        command = 'kill() { echo "Operation not permitted" >&2; return 1; }; . "$1" sh -c \'touch "$1"\' fixture "$2"'
+        process = subprocess.Popen(["sh", "-c", command, "fixture", str(helper), str(marker)],
+                                   env=dict(os.environ, RD_LOCK_DIR=str(directory), RD_MAX_HEAVY="1"),
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            deadline = time.monotonic() + 0.5
+            while not marker.exists() and process.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertFalse(marker.exists(), "live slot was stolen after an inconclusive PID probe")
+            self.assertEqual((slot / "pid").read_text(), str(os.getpid()))
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGTERM)
+            process.communicate(timeout=5)
+
+    def test_confirmed_dead_holder_releases_slot(self):
+        dead = subprocess.Popen(["sh", "-c", "exit 0"])
+        dead.wait(timeout=5)
+        directory = self.root / "locks"
+        slot = directory / "heavy.1"
+        slot.mkdir(parents=True)
+        (slot / "pid").write_text(str(dead.pid))
+        helper = Path(__file__).with_name("rd-heavy")
+        result = subprocess.run(["sh", str(helper), "printf", "queue-ready"],
+                                env=dict(os.environ, RD_LOCK_DIR=str(directory), RD_MAX_HEAVY="1", LC_ALL="C"),
+                                capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "queue-ready")
+        self.assertFalse(slot.exists())
 
 
 class NativeTests(FixtureBase, unittest.TestCase):

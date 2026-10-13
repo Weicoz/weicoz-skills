@@ -203,12 +203,14 @@ def toml_value(value):
 
 
 def allow_task_git(runtime, job_dir):
-    """workspace-write 保留默认保护，只开放本任务所属仓库的 Git 元数据。"""
+    """workspace-write 保留文件保护，开放任务 Git 元数据、重任务队列和默认网络。"""
     path = runtime / "config.toml"
     config = tomllib.loads(path.read_text(encoding="utf-8"))
     if config.get("sandbox_mode") != "workspace-write":
         return
     root = job_dir.parent.parent
+    if root.parent.name != "users":
+        raise ValueError("任务目录不在员工 users 命名空间；停止授权共享队列。")
     wt = root / "wt" / job_dir.name
     if not (wt / ".git").exists():
         return
@@ -222,6 +224,7 @@ def allow_task_git(runtime, job_dir):
         raise ValueError("任务 Git 元数据不在当前员工 repos 内；停止启动。")
     previous = config.pop("sandbox_workspace_write", {})
     filesystem = {str(common): "write", str(directory): "write"}
+    filesystem[str((root.parent.parent / "locks").resolve())] = "write"
     for extra in previous.get("writable_roots", []):
         filesystem[extra] = "write"
     if previous.get("exclude_tmpdir_env_var"):
@@ -231,7 +234,7 @@ def allow_task_git(runtime, job_dir):
     config.pop("sandbox_mode")
     config["default_permissions"] = "rd_workspace"
     config["permissions"] = {"rd_workspace": {"extends": ":workspace", "filesystem": filesystem,
-                                                "network": {"enabled": bool(previous.get("network_access", False))}}}
+                                                "network": {"enabled": bool(previous.get("network_access", True))}}}
     path.write_text("\n".join(json.dumps(k) + " = " + toml_value(v) for k, v in config.items()) + "\n", encoding="utf-8")
 
 
