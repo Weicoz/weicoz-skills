@@ -145,4 +145,16 @@ test('isAutomatedOrHeadlessText：精准识别定时任务、自动化任务与�
   assert.equal(isAutomatedOrHeadlessText(null), false);
 });
 
+test('VERSION 常量定义与 --version 命令行输出', async () => {
+  const { VERSION } = await import('./version.mjs');
+  assert.equal(VERSION, '1.0.0', 'VERSION 应为 1.0.0');
+
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const execFileAsync = promisify(execFile);
+  const recallPath = join(process.cwd(), 'skills/weicoz-session-recall/bin/recall.mjs');
+  const { stdout } = await execFileAsync(process.execPath, [recallPath, '--version']);
+  assert.match(stdout, /weicoz-session-recall v1\.0\.0/);
+});
+
 

@@ -1,0 +1,24 @@
+{
+  "name": "weicoz-session-recall",
+  "version": "1.0.0",
+  "description": "跨 Harness 历史会话回顾与索引工具（支持 DSH / Codex / Claude Code / Antigravity / Kimi Code）",
+  "type": "module",
+  "main": "./bin/recall.mjs",
+  "bin": {
+    "recall": "./bin/recall.mjs",
+    "digest": "./bin/digest.mjs"
+  },
+  "scripts": {
+    "test": "node --test bin/lib/session-source.test.mjs"
+  },
+  "keywords": [
+    "session-recall",
+    "dsh",
+    "codex",
+    "claude-code",
+    "antigravity",
+    "kimi-code"
+  ],
+  "author": "weicoz",
+  "license": "MIT"
+}

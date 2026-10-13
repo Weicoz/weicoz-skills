@@ -16,6 +16,7 @@
 //   recall.mjs <关键词...> --limit=10   # 展示条数（默认 5）
 //   recall.mjs --status                 # 索引规模 + 待采集数量（按 harness 分）
 //   recall.mjs --status --list          # 外加待采集会话明细
+//   recall.mjs --version / -v           # 显示版本号
 //   recall.mjs --no-collect             # 只读，跳过自动采集
 import { spawn } from 'node:child_process';
 import { openSync } from 'node:fs';
@@ -26,12 +27,21 @@ import { fileURLToPath } from 'node:url';
 import { resumeCommand, scanAll, sourceLabel } from './lib/harness.mjs';
 import { currentProjectKey } from './lib/session-source.mjs';
 import { DATA_DIR, detailPath, isLockActive, loadState, localTime } from './lib/store.mjs';
+import { VERSION } from './lib/version.mjs';
+
+export { VERSION };
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DIGEST = join(HERE, 'digest.mjs');
 
 const args = process.argv.slice(2);
 const has = (n) => args.includes(n);
+
+if (has('--version') || has('-v')) {
+  console.log(`weicoz-session-recall v${VERSION}`);
+  process.exit(0);
+}
+
 const kvOpt = (n) => {
   const p = args.find((a) => a.startsWith(`--${n}=`));
   return p ? p.slice(n.length + 3) : '';
@@ -108,6 +118,7 @@ function countLine(records) {
 async function reportStatus(state) {
   const recs = Object.values(state.sessions || {}).filter((r) => r.ok && !r.orphan && !r.headless);
   const projects = new Set(recs.map((r) => r.project));
+  console.log(`weicoz-session-recall v${VERSION}`);
   console.log(`索引：${recs.length} 个会话（${countLine(recs) || '空'}），覆盖 ${projects.size} 个项目；最近更新 ${localTime(state.updatedAt) || '（从未）'}`);
   const pending = (await scanAll({ known: state.sessions || {} })).filter((e) => !e.cached);
   if (!pending.length) {

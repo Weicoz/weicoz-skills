@@ -29,12 +29,19 @@ import {
   DETAIL_DIR, INDEX_FILE, PROJECTS_FILE, STATE_FILE, acquireLock, detailPath, loadProjects,
   loadState, localTime, readJson, releaseLock, renderDetail, renderIndex, touchProject, writeAtomic,
 } from './lib/store.mjs';
+import { VERSION } from './lib/version.mjs';
 
 // 落盘批次：每处理 N 个会话就把状态和索引写一次，任务中断也不丢已完成部分
 const FLUSH_EVERY = Number(process.env.SESSION_RECALL_FLUSH || 5);
 
 const argvList = process.argv.slice(2);
 const flag = (n) => argvList.includes(n);
+
+if (flag('--version') || flag('-v')) {
+  console.log(`weicoz-session-recall v${VERSION}`);
+  process.exit(0);
+}
+
 const opt = (n, d) => {
   const i = argvList.indexOf(n);
   return i >= 0 && argvList[i + 1] ? argvList[i + 1] : d;

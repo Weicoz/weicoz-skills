@@ -1,10 +1,11 @@
 ---
 name: weicoz-session-recall
+version: 1.0.0
 description: 检索本机所有 harness（DSH / Codex / Claude Code / Antigravity / Kimi Code）的历史会话，回答"我以前做过什么"，定位会话窗口、摘要与产出物，并给出打开原会话的方式。当用户问"上次那个 X 怎么做的""我之前搞过 Y""找找处理过 Z 的会话""那时候的交接记录/产出物在哪"，或需要回顾某项目的来龙去脉、接续旧决策时使用。调用时会顺手把新会话补进索引，不需要用户手动维护。
 whenToUse: 用户想找历史会话、回顾之前的工作成果或决策、确认某个需求当时是怎么落地的，或问"索引里还有多少没摘要"。
 ---
 
-# 会话回顾（weicoz-session-recall）
+# 会话回顾（weicoz-session-recall）v1.0.0
 
 把本机所有 harness 里"说过话"的历史会话做成一份可检索的索引：每个会话一段中文摘要 + 关键词 + 状态 + 产出物。数据在 `~/.local/state/weicoz-session-recall/`，**与当前所在目录、当前用哪个 harness 无关**——在 DSH、Codex、Claude Code、Antigravity 还是 Kimi Code 里调用，看到的都是同一份索引，五个 harness 的会话一起检索。
 
