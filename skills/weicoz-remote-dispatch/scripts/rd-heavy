@@ -25,6 +25,12 @@ while :; do
       exit $?
     fi
     holder=$(cat "$slot/pid" 2>/dev/null)
+    # The supervising wrapper may exit while its observed descendants remain.
+    # Only the owning supervisor may release a slot with a retained receipt.
+    if [ -e "$slot/process-receipt.json" ]; then
+      i=$((i + 1))
+      continue
+    fi
     if [ -n "$holder" ]; then
       probe_error=$(LC_ALL=C kill -0 "$holder" 2>&1)
       # Permission denied cannot prove a shared slot's holder has exited.
