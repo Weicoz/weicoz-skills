@@ -78,51 +78,21 @@ function guiHint(rec) {
   return `在 DSH 侧栏把工作区切到「${label}」，再从对话列表按标题找（列表按最近活动排序，较老的需展开「其余 N 个会话」）`;
 }
 
-/** 自动采集：无变更直接返回；有待采会话一律后台异步拉起，前台绝不阻塞；已有任务运行时防并发跳过。 */
-async function collect(state) {
-  if (noCollect) return { pending: 0, mode: 'off' };
-  const all = await scanAll({ known: state.sessions || {}, only: SOURCE_ARG || null });
-  const fresh = all.filter((e) => !e.cached);
-  if (!fresh.length) return { pending: 0, mode: 'none' };
-  // 还在写入的会话不采：摘要生成完就过时，而且它往往正是你此刻正在用的那个会话。
-  // 这一条是"调用即采集"能从十几秒回到一秒的关键。
-  const active = fresh.filter((e) => e.active);
-  const quiet = fresh.filter((e) => !e.active);
-  if (!quiet.length) return { pending: 0, mode: 'none', active: active.length, bySourceLine: '', bySource: {} };
-
-  const bySource = {};
-  for (const q of quiet) {
-    const k = q.source || 'dsh';
-    bySource[k] = (bySource[k] || 0) + 1;
-  }
-  const bySourceLine = Object.entries(bySource)
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, n]) => `${sourceLabel(k)} ${n}`)
-    .join(' / ');
-
-  // 防并发：检查后台是否已有存活的采集进程在运行，避免多次调用并发重复拉起
+/** 自动采集：无感后台异步派生，前台零阻塞；已有采集任务时直接跳过。 */
+async function triggerBackgroundDigest() {
+  if (noCollect) return { mode: 'off' };
+  // 锁检查前置：后台已有存活的采集进程时直接复用，不重复拉起
   if (await isLockActive()) {
-    return {
-      pending: quiet.length,
-      mode: 'running',
-      active: active.length,
-      bySource,
-      bySourceLine,
-    };
+    return { mode: 'running' };
   }
-
-  // 一律全后台异步拉起，前台绝不阻塞，优先给用户秒级返回结果
-  const fd = openSync(join(DATA_DIR, 'digest.log'), 'a');
-  const child = spawn(process.execPath, [DIGEST, ...DIGEST_ARGS], { detached: true, stdio: ['ignore', fd, fd] });
-  child.unref();
-  return {
-    pending: quiet.length,
-    mode: 'background',
-    pid: child.pid,
-    active: active.length,
-    bySource,
-    bySourceLine,
-  };
+  try {
+    const fd = openSync(join(DATA_DIR, 'digest.log'), 'a');
+    const child = spawn(process.execPath, [DIGEST, ...DIGEST_ARGS], { detached: true, stdio: ['ignore', fd, fd] });
+    child.unref();
+    return { mode: 'background', pid: child.pid };
+  } catch {
+    return { mode: 'failed' };
+  }
 }
 
 function countLine(records) {
@@ -151,7 +121,7 @@ async function reportStatus(state) {
         console.log(`  [${sourceLabel(p.source)}] ${localTime(p.mtimeMs)}  ${p.isNew ? '新' : '变'}  ${Math.round((p.bytes || 0) / 1024)}K  ${p.key}`);
       }
     }
-    console.log('再调用一次 skill（不带 --no-collect）即可自动补上。');
+    console.log('后台将自动完成增量采集，无需手动等待。');
   }
   return recs.length;
 }
@@ -159,24 +129,17 @@ async function reportStatus(state) {
 async function main() {
   const state = await loadState();
 
-  if (wantStatus && noCollect) { await reportStatus(state); return; }
+  if (wantStatus) {
+    await reportStatus(state);
+    return;
+  }
 
-  const collectResult = await collect(state);
-  const fresh = state;
-
-  if (wantStatus) { await reportStatus(fresh); return; }
-
-  const recs = Object.values(fresh.sessions || {}).filter((r) => r.ok && !r.orphan && !r.headless);
+  const recs = Object.values(state.sessions || {}).filter((r) => r.ok && !r.orphan && !r.headless);
   if (!recs.length) {
     console.log('还没有任何会话摘要。');
-    if (collectResult.pending) {
-      const hint = collectResult.mode === 'running' ? '后台已有采集任务在运行' : '后台已启动会话采集任务';
-      const harnessText = collectResult.bySourceLine ? `（${collectResult.bySourceLine}）` : '';
-      console.log(`提示：${hint}，当前有 ${collectResult.pending} 个会话正在采集${harnessText}。`);
-      console.log('请等待后台采集完成后再重新查找，无需阻塞等待，也不用在采集中反复重复执行。');
-      console.log('（可通过 recall.mjs --status 查看采集进度）');
-    } else if (collectResult.mode === 'off') {
-      console.log('（--no-collect 模式，未触发采集）');
+    if (!noCollect) {
+      await triggerBackgroundDigest();
+      console.log('后台已启动首次会话采集任务（日志 ~/.local/state/weicoz-session-recall/digest.log）。');
     }
     process.exitCode = terms.length ? 1 : 0;
     return;
@@ -215,15 +178,11 @@ async function main() {
 
   if (!ranked.length) {
     console.log(`没有会话同时命中：${terms.join(' ')}　${scopeNote}`);
-    if (collectResult.pending) {
-      const hint = collectResult.mode === 'running' ? '后台已有采集任务在运行' : '后台已启动会话采集任务';
-      const harnessText = collectResult.bySourceLine ? `（${collectResult.bySourceLine}）` : '';
-      console.log(`\n提示：${hint}，当前有 ${collectResult.pending} 个会话正在采集${harnessText}。`);
-      console.log('未找到结果可能是目标会话尚未采集完成；请等待后台采集完成后再重新查找，无需阻塞等待，也不用在采集中反复重复执行。');
-      console.log('（可通过 recall.mjs --status 查看采集进度）');
-    } else {
-      console.log('建议：换更短或更独特的词（项目名、客户名、文件名、技术名）；确认要跨全部项目时加 --all。');
+    console.log('建议：换更短或更独特的词（项目名、客户名、文件名、技术名）；确认要跨全部项目时加 --all。');
+    if (await isLockActive()) {
+      console.log('\n（注：后台正在静默采集新会话，完成后自动进入索引）');
     }
+    await triggerBackgroundDigest();
     return;
   }
 
@@ -247,6 +206,7 @@ async function main() {
     if (wantDetail) {
       console.log('--- 详情原文 ---');
       console.log(await readFile(file, 'utf8'));
+      await triggerBackgroundDigest();
       return;
     }
     console.log(`（只命中一个，直接读：${file}）`);
@@ -254,15 +214,8 @@ async function main() {
     console.log('多个候选时先看摘要分辨，再打开最像的那个详情；每条结果末尾都写着回到那次会话的方式。');
   }
 
-  const harnessText = collectResult.bySourceLine ? `（${collectResult.bySourceLine}）` : '';
-  if (collectResult.mode === 'background') {
-    console.log(`\n注：后台正在采集 ${collectResult.pending} 个会话${harnessText}（日志 ~/.local/state/weicoz-session-recall/digest.log），采集完成后重新检索结果会更全，无需手动等待。`);
-  } else if (collectResult.mode === 'running') {
-    console.log(`\n注：后台已有采集任务在运行，当前有 ${collectResult.pending} 个会话正在采集${harnessText}，完成后重新检索结果会更全，无需手动等待。`);
-  }
-  if (collectResult.active) {
-    console.log(`\n注：另有 ${collectResult.active} 个会话正在进行中（活跃写入中，暂不采集），等它安静下来后下次会自动补上。`);
-  }
+  // 检索结果输出完毕后，静默触发一次增量采集（有存活任务时会自动防并发跳过）
+  await triggerBackgroundDigest();
 }
 
 main().catch((e) => { console.error('检索失败:', e.message); process.exitCode = 1; });
