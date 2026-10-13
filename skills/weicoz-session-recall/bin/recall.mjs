@@ -39,6 +39,7 @@ const kvOpt = (n) => {
 const terms = args.filter((a) => !a.startsWith('--')).map((t) => t.toLowerCase());
 const wantStatus = has('--status');
 const wantDetail = has('--detail');
+const wantJson = has('--json');
 const noCollect = has('--no-collect');
 const wantList = has('--list');
 const LIMIT = Number(kvOpt('limit')) || 5;
@@ -177,6 +178,11 @@ async function main() {
     .sort((a, b) => b.total - a.total || (b.rec.lastTime || 0) - (a.rec.lastTime || 0));
 
   if (!ranked.length) {
+    if (wantJson) {
+      console.log(JSON.stringify([], null, 2));
+      await triggerBackgroundDigest();
+      return;
+    }
     console.log(`没有会话同时命中：${terms.join(' ')}　${scopeNote}`);
     console.log('建议：换更短或更独特的词（项目名、客户名、文件名、技术名）；确认要跨全部项目时加 --all。');
     if (await isLockActive()) {
@@ -187,6 +193,30 @@ async function main() {
   }
 
   const top = ranked.slice(0, LIMIT);
+
+  if (wantJson) {
+    const jsonItems = top.map(({ rec, total, hits }) => ({
+      id: rec.id,
+      source: rec.source || 'dsh',
+      sourceLabel: sourceLabel(rec.source || rec.key),
+      project: rec.project,
+      projectLabel: rec.projectLabel || rec.project,
+      title: rec.title || '（无标题）',
+      summary: rec.summary || '',
+      artifacts: rec.artifacts || [],
+      status: rec.status || '—',
+      lastTime: rec.lastTime,
+      lastTimeFormatted: localTime(rec.lastTime),
+      score: total,
+      hits: hits,
+      detailPath: detailPath(rec.project, rec.id, rec.lastTime),
+      resumeCommand: resumeCommand(rec) || guiHint(rec),
+    }));
+    console.log(JSON.stringify(jsonItems, null, 2));
+    await triggerBackgroundDigest();
+    return;
+  }
+
   console.log(`命中 ${ranked.length} 个会话，展示前 ${top.length} 个（按匹配度）${scopeNote}\n`);
   for (const { rec, total, hits } of top) {
     console.log(`▸ ${localTime(rec.lastTime)}  [${sourceLabel(rec.source || rec.key)}]  ${rec.status || '—'}  [${total} 分]  ${rec.projectLabel || rec.project}`);
