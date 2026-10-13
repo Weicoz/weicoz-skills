@@ -173,6 +173,16 @@ class Config:
         key = f"{kind}:{name}"
         return dict(self.cp[key]) if self.cp.has_section(key) else None
 
+    def report_interval(self):
+        value = os.environ.get("RD_REPORT_INTERVAL_SECONDS") or self.cp.get("monitor", "report_interval_seconds", fallback="900")
+        try:
+            interval = int(value)
+        except (ValueError, TypeError):
+            die("RD_REPORT_INTERVAL_SECONDS / [monitor] report_interval_seconds must be a positive integer (seconds)", 4)
+        if interval <= 0:
+            die("RD_REPORT_INTERVAL_SECONDS / [monitor] report_interval_seconds must be a positive integer (seconds)", 4)
+        return interval
+
     def host(self, name):
         sec = self._section("host", name)
         if sec is None:
@@ -825,13 +835,14 @@ def cmd_wait(a, cfg):
 
 def cmd_watch(a, cfg):
     """Wake the initiating harness for one shared progress check or a completion."""
-    if a.timeout <= 0:
+    timeout = a.timeout if a.timeout is not None else cfg.report_interval()
+    if timeout <= 0:
         die("watch timeout must be positive", 4)
     uid = require_user()
     recs = [load_job(job) for job in dict.fromkeys(a.jobs)]
     if any(rec.get("user_id") != uid for rec in recs):
         die("watch only accepts jobs belonging to RD_USER_ID", 4)
-    deadline = time.monotonic() + a.timeout
+    deadline = time.monotonic() + timeout
     while True:
         states = job_states(cfg, recs)
         finished = [rec["job"] for rec in recs if states.get(rec["job"], {}).get("state") in ("done", "dead", "missing")]
@@ -1086,7 +1097,7 @@ def main():
 
     p = sub.add_parser("watch", help="initiator-side shared progress wake-up (0 completed, 1 alert, 2 progress due)")
     p.add_argument("jobs", nargs="+", help="explicit jobs monitored by this initiator")
-    p.add_argument("--timeout", type=int, default=900, help="seconds until the initiator's next shared check (default 15 minutes)")
+    p.add_argument("--timeout", type=int, help="override this wait in seconds; otherwise use RD_REPORT_INTERVAL_SECONDS, [monitor] report_interval_seconds, or 900")
     p.set_defaults(fn=cmd_watch)
 
     p = sub.add_parser("logs", help="show the tail of a job's output")

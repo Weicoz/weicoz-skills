@@ -56,7 +56,7 @@ class WatchTests(unittest.TestCase):
         self.records = {name: {"job": name, "user_id": "employee_a", "host": "fixture", "project": name}
                         for name in ("first", "second")}
 
-    def watch(self, states, ticks=(0, 0), timeout=900, jobs=None):
+    def watch(self, states, ticks=(0, 0), timeout=900, jobs=None, cfg=None):
         output = io.StringIO()
         with patch.object(rd, "require_user", return_value="employee_a"), \
              patch.object(rd, "load_job", side_effect=self.records.__getitem__), \
@@ -65,7 +65,7 @@ class WatchTests(unittest.TestCase):
              patch.object(rd.time, "sleep") as sleep, \
              contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()), \
              self.assertRaises(SystemExit) as result:
-            rd.cmd_watch(argparse.Namespace(jobs=jobs or list(self.records), timeout=timeout), None)
+            rd.cmd_watch(argparse.Namespace(jobs=jobs or list(self.records), timeout=timeout), cfg)
         payload = json.loads(output.getvalue()) if output.getvalue() else None
         return result.exception.code, payload, checks, sleep
 
@@ -118,6 +118,47 @@ class WatchTests(unittest.TestCase):
         self.assertEqual(code, 4)
         self.assertIsNone(event)
         checks.assert_not_called()
+
+    def test_configured_interval_is_used_when_no_single_wait_override(self):
+        cfg = object.__new__(rd.Config)
+        cfg.cp = rd.configparser.ConfigParser()
+        cfg.cp.read_dict({"monitor": {"report_interval_seconds": "60"}})
+        with patch.dict(os.environ, {"RD_REPORT_INTERVAL_SECONDS": ""}):
+            code, event, _, _ = self.watch([{"first": {"state": "running"}}],
+                                           ticks=(0, 60), timeout=None, jobs=["first"], cfg=cfg)
+        self.assertEqual((code, event["event"]), (2, "progress_due"))
+
+    def test_single_wait_override_precedes_interval_configuration(self):
+        cfg = object.__new__(rd.Config)
+        with patch.object(cfg, "report_interval", side_effect=AssertionError("must not read interval config")) as interval:
+            code, event, _, _ = self.watch([{"first": {"state": "running"}}],
+                                           ticks=(0, 60), timeout=60, jobs=["first"], cfg=cfg)
+        self.assertEqual((code, event["event"]), (2, "progress_due"))
+        interval.assert_not_called()
+
+
+class MonitorConfigTests(unittest.TestCase):
+    def setUp(self):
+        self.cfg = object.__new__(rd.Config)
+        self.cfg.cp = rd.configparser.ConfigParser()
+
+    def test_interval_defaults_and_environment_overrides_local_config(self):
+        with patch.dict(os.environ, {"RD_REPORT_INTERVAL_SECONDS": ""}):
+            self.assertEqual(self.cfg.report_interval(), 900)
+            self.cfg.cp.read_dict({"monitor": {"report_interval_seconds": "300"}})
+            self.assertEqual(self.cfg.report_interval(), 300)
+        with patch.dict(os.environ, {"RD_REPORT_INTERVAL_SECONDS": "600"}):
+            self.assertEqual(self.cfg.report_interval(), 600)
+
+    def test_bad_environment_or_config_intervals_stop_cleanly(self):
+        for value in ("0", "-5", "abc", "1.5"):
+            for source in ("environment", "config"):
+                with self.subTest(value=value, source=source):
+                    self.cfg.cp.read_dict({"monitor": {"report_interval_seconds": value if source == "config" else "900"}})
+                    with patch.dict(os.environ, {"RD_REPORT_INTERVAL_SECONDS": value if source == "environment" else ""}), \
+                         contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+                        self.cfg.report_interval()
+                    self.assertEqual(error.exception.code, 4)
 
 
 class ProfileTests(FixtureBase, unittest.TestCase):
