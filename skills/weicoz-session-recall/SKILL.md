@@ -100,6 +100,39 @@ node $BIN/recall.mjs --status --list    # 外加待采集会话明细
 
 在另一台机器上装这套东西只有三步：把 `weicoz-session-recall/` 放到 `~/.agents/skills/`（同时给 `~/.codex/skills/`、`~/.claude/skills/`、`~/.gemini/config/skills/`、`~/.kimi-code/skills/` 建同名软链，各 harness 就都能调用）、跑一次 `bin/digest.mjs` 建立索引、再照上面建一条自动化任务。
 
+## DSH Web 界面插件集成（图形化悬浮摘要与 ID 直达）
+
+在 DSH Web 图形化界面中，可搭配安装两个配套 DSH 插件，与本 skill 形成完整的会话回顾与跳转闭环：
+
+### 1. `dsh-session-recall`（侧栏悬浮摘要卡片与智能重命名）
+- **仓库地址**：[Weicoz/dsh-session-recall](https://github.com/Weicoz/dsh-session-recall)（本地源码：`/Users/weicoz/File/git/dsh-session-recall`）
+- **核心功能**：
+  - **悬停即读**：在 DSH 侧栏会话列表中悬停任意会话，悬浮卡片直接展示由本 skill 采集的中文摘要与更新时间；
+  - **点击看全文**：点击摘要块弹出完整摘要详情窗口（包含会话标题、关联项目、完整摘要与时间）；
+  - **模型一键重命名**：弹窗底部提供「用摘要更新会话标题」按钮，调用宿主 LLM 服务根据摘要自动提炼 12~24 字精准标题并就地更新侧栏会话标题（模型不可用时退回摘要首句）。
+- **安装与生效**：
+  ```bash
+  # 方式 A：通过插件管理器装载本地 bundle
+  plugin_manager install_bundle /Users/weicoz/File/git/dsh-session-recall
+
+  # 方式 B：从 GitHub 仓库安装
+  dsh plugin --profile web add https://github.com/Weicoz/dsh-session-recall
+  ```
+  > [!NOTE]
+  > 宿主端代码（`lib/host.js`）修改后必须**重启 `dsh web`**（Node ESM 模块缓存持有）；前端页面调整仅需刷新浏览器生效。
+
+### 2. `dsh-session-jump`（按会话 ID / 关键词直达会话）
+- **仓库地址**：[Weicoz/dsh-session-jump](https://github.com/Weicoz/dsh-session-jump)（本地源码：`/Users/weicoz/File/git/dsh-session-jump`）
+- **核心功能**：
+  - **按 ID 精准直达**：解决 DSH 内置搜索中 `session_id` 属于 `UNINDEXED` 字段导致无法按 ID 检索的痛点；
+  - **多模式兼容**：支持输入完整 UUID、前 8 位短 ID、带有 `session-` 前缀的 ID，或项目路径与标题关键词快速过滤并一键切换；
+  - **一键复制 ID**：在当前会话标题栏工具区新增「复制会话 ID」按钮，方便在命令行或其它 harness 中联动检索。
+- **安装与使用**：
+  ```bash
+  dsh plugin --profile web add https://github.com/Weicoz/dsh-session-jump
+  ```
+  - **使用方式**：安装并刷新页面后，点击 DSH Web 左下角「设置」→「会话直达」面板，粘贴本 skill 检索出的会话 ID 即可一键跳转至对应历史会话。
+
 ## 交接口径
 
 用户往往不是要"看文档"，而是要**接着那段工作往下做**。复述时优先讲：当时的目标、关键决策与理由、产出了什么、留下什么没做完。索引里的"状态"列（已完成 / 进行中 / 中断 / 仅咨询）就是这个用途的入口。
