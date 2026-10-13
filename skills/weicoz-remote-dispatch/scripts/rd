@@ -823,6 +823,33 @@ def cmd_wait(a, cfg):
         time.sleep(a.interval)
 
 
+def cmd_watch(a, cfg):
+    """Wake the initiating harness for one shared progress check or a completion."""
+    if a.timeout <= 0:
+        die("watch timeout must be positive", 4)
+    uid = require_user()
+    recs = [load_job(job) for job in dict.fromkeys(a.jobs)]
+    if any(rec.get("user_id") != uid for rec in recs):
+        die("watch only accepts jobs belonging to RD_USER_ID", 4)
+    deadline = time.monotonic() + a.timeout
+    while True:
+        states = job_states(cfg, recs)
+        finished = [rec["job"] for rec in recs if states.get(rec["job"], {}).get("state") in ("done", "dead", "missing")]
+        unavailable = any(states.get(rec["job"], {}).get("state", "unreachable") == "unreachable" for rec in recs)
+        now = time.monotonic()
+        event = "task_finished" if finished else "monitor_error" if unavailable else "progress_due" if now >= deadline else None
+        if event:
+            jobs = [{key: rec[key] for key in ("job", "host", "project", "branch") if key in rec} for rec in recs]
+            for rec, snapshot in zip(recs, jobs):
+                state = states.get(rec["job"], {})
+                snapshot.update({key: state[key] for key in ("state", "exit", "round", "timed_out", "push_rc") if key in state})
+                snapshot.setdefault("state", "unreachable")
+            print(json.dumps({"event": event, "finished": finished, "jobs": jobs}, ensure_ascii=False), flush=True)
+            failed = unavailable or any(states[job].get("exit") != "0" for job in finished)
+            sys.exit(1 if failed else 0 if finished else 2)
+        time.sleep(min(30, deadline - now))
+
+
 def cmd_logs(a, cfg):
     rec = load_job(a.job)
     host = job_host(cfg, rec)
@@ -1056,6 +1083,11 @@ def main():
     p.add_argument("--timeout", type=int)
     p.add_argument("--interval", type=int, default=30)
     p.set_defaults(fn=cmd_wait)
+
+    p = sub.add_parser("watch", help="initiator-side shared progress wake-up (0 completed, 1 alert, 2 progress due)")
+    p.add_argument("jobs", nargs="+", help="explicit jobs monitored by this initiator")
+    p.add_argument("--timeout", type=int, default=900, help="seconds until the initiator's next shared check (default 15 minutes)")
+    p.set_defaults(fn=cmd_watch)
 
     p = sub.add_parser("logs", help="show the tail of a job's output")
     p.add_argument("job")

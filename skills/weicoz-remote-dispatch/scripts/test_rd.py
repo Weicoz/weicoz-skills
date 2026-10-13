@@ -51,6 +51,75 @@ class FixtureBase:
         return manifest, job
 
 
+class WatchTests(unittest.TestCase):
+    def setUp(self):
+        self.records = {name: {"job": name, "user_id": "employee_a", "host": "fixture", "project": name}
+                        for name in ("first", "second")}
+
+    def watch(self, states, ticks=(0, 0), timeout=900, jobs=None):
+        output = io.StringIO()
+        with patch.object(rd, "require_user", return_value="employee_a"), \
+             patch.object(rd, "load_job", side_effect=self.records.__getitem__), \
+             patch.object(rd, "job_states", side_effect=states) as checks, \
+             patch.object(rd.time, "monotonic", side_effect=ticks), \
+             patch.object(rd.time, "sleep") as sleep, \
+             contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()), \
+             self.assertRaises(SystemExit) as result:
+            rd.cmd_watch(argparse.Namespace(jobs=jobs or list(self.records), timeout=timeout), None)
+        payload = json.loads(output.getvalue()) if output.getvalue() else None
+        return result.exception.code, payload, checks, sleep
+
+    def test_one_initiator_deadline_checks_multiple_jobs_and_wakes_at_fifteen_minutes(self):
+        pending = {name: {"state": "running"} for name in self.records}
+        code, event, checks, sleep = self.watch([pending] * 3, ticks=(0, 0, 899, 900))
+        self.assertEqual(code, 2)
+        self.assertEqual(event["event"], "progress_due")
+        self.assertEqual([x["job"] for x in event["jobs"]], ["first", "second"])
+        self.assertEqual(checks.call_count, 3)
+        for call in checks.call_args_list:
+            self.assertEqual(call.args[1], list(self.records.values()))
+        self.assertEqual([x.args[0] for x in sleep.call_args_list], [30, 1])
+
+    def test_completion_wakes_initiator_early_and_preserves_pending_jobs_without_raw_logs(self):
+        states = {"first": {"state": "done", "exit": "0", "last": "PRIVATE_LOG_MARKER"},
+                  "second": {"state": "running", "last": "PRIVATE_LOG_MARKER"}}
+        code, event, checks, sleep = self.watch([states])
+        self.assertEqual(code, 0)
+        self.assertEqual(event["event"], "task_finished")
+        self.assertEqual(event["finished"], ["first"])
+        self.assertEqual(event["jobs"][1]["state"], "running")
+        self.assertNotIn("PRIVATE_LOG_MARKER", json.dumps(event))
+        sleep.assert_not_called()
+
+    def test_failure_and_unreachable_wake_as_alerts_without_claiming_completion(self):
+        for status, expected in [(dict(state="done", exit="124"), "task_finished"),
+                                 (dict(state="unreachable"), "monitor_error")]:
+            with self.subTest(status=status):
+                code, event, _, _ = self.watch([{"first": status}], jobs=["first"])
+                self.assertEqual(code, 1)
+                self.assertEqual(event["event"], expected)
+                self.assertEqual(event["finished"], ["first"] if status["state"] == "done" else [])
+
+    def test_early_wake_can_reuse_remaining_shared_interval(self):
+        code, event, _, sleep = self.watch([{"second": {"state": "running"}}] * 2,
+                                          ticks=(0, 0, 240), timeout=240, jobs=["second"])
+        self.assertEqual((code, event["event"]), (2, "progress_due"))
+        sleep.assert_called_once_with(30)
+
+    def test_other_employee_is_rejected_before_any_remote_check(self):
+        self.records["second"]["user_id"] = "employee_b"
+        code, event, checks, _ = self.watch([])
+        self.assertEqual(code, 4)
+        self.assertIsNone(event)
+        checks.assert_not_called()
+
+    def test_invalid_timeout_is_rejected_before_any_remote_check(self):
+        code, event, checks, _ = self.watch([], timeout=0)
+        self.assertEqual(code, 4)
+        self.assertIsNone(event)
+        checks.assert_not_called()
+
+
 class ProfileTests(FixtureBase, unittest.TestCase):
     def test_permission_config_serialization_preserves_nested_settings(self):
         data = {"model": "fixture-a", "agents": {"reviewer": {"description": "中文代理", "config_file": "agents/reviewer.toml"}},
