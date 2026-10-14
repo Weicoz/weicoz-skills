@@ -1,0 +1,50 @@
+# weicoz-feishu-receipt-base —— 私有配置模板
+#
+# 用法：
+#   mkdir -p ~/.config/weicoz-feishu-receipt-base
+#   cp config.example.yaml ~/.config/weicoz-feishu-receipt-base/config.yaml
+#   chmod 600 ~/.config/weicoz-feishu-receipt-base/config.yaml
+#   # 然后把下面的 <…> 全部换成真实值
+#
+# 也可以放在别处，用环境变量指过去：
+#   export WEICOZ_RECEIPT_CONFIG=/path/to/config.yaml
+#
+# ⚠️ 本模板里的名字、token、比例**全部是示例值**，不是真实配置。
+#    真实配置只应存在 ~/.config/ 下：不要提交进 git、不要粘进对话、不要随 skill 分发。
+
+# ── 飞书 Base 凭证与表 ID ─────────────────────────────
+base:
+  receipt:                        # 收款业务 Base
+    token: <Base token>           # Base 链接 /base/ 后面那串
+    project_table: <table_id>     # 项目收款表（财务收款表）
+    flow_table: <table_id>        # 资金流水表
+    assignment_table: <table_id>  # 项目开发分配（绩效子表）
+  salary:                         # 工资 Base（通常与收款 Base 不是同一个）
+    token: <Base token>
+    table: <table_id>
+    perf_field: 绩效奖金          # 要写入的字段名
+    time_field: 时间              # 月份字段，格式 YYYYMM
+    name_field: 姓名
+
+# ── 绩效规则（只给本人看，员工不可见）─────────────────
+performance:
+  ratio_default_pct: 1            # 项目绩效 = 当月实收 × 该比例% × 权重%
+  standard_project_pct: 0         # 标准项目是否计绩效；0 = 不计
+  # 全公司分成**不配在这里**：人员与比例直接维护在飞书「项目开发分配」表里，
+  # 做法是加几行「项目留空」的记录 —— 权重填 100，绩效比例填本人比例。
+  overrides: []                   # 特别指定：某个项目额外让某人拿分成
+  # 写法示例：
+  #   - project: <项目名>
+  #     person: <成员姓名>
+  #     rate_pct: 2
+  #     note: <为什么要给>
+
+# ── 挂账快照（每次对完账就更新这一段）─────────────────
+outstanding:
+  rule: 空 ≠ 不欠；历史行没回填过待返数据时，回填前先问本人要清单，不要自行推断。
+  pending_rebates:                # 已确认欠着、还没付出去的返点 / 转款
+    - <项目名>：<欠谁、欠多少、已付多少>
+  unconfirmed:                    # 还没拍板的归类
+    - <项目名>：<待确认的问题>
+  open_receivables:               # 还没收回来的尾款
+    - <项目名> <金额>

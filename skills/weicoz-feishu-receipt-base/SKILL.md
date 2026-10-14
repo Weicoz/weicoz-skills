@@ -1,164 +1,303 @@
 ---
 name: weicoz-feishu-receipt-base
-description: 用 lark-cli 处理飞书多维表财务收款入账。Use when user sends 银行转账短信、农行转入通知、客户付款消息、要求写入或预览“财务收款表/项目收款表”和“资金流水表”，或需要根据付款公司、时间、金额匹配项目并生成飞书 Base 写入方案。
+description: 用 lark-cli 处理飞书多维表财务收款入账与开发绩效核算。Use when user sends 银行转账短信、农行转入通知、客户付款消息，或提到渠道返点、待返渠道款、待返莞云、转款莞云、结欠/未付的返点，或要求写入、预览、对账“财务收款表/项目收款表”“资金流水表”“项目开发分配”，或需要根据付款公司、时间、金额匹配项目、核算开发绩效并生成飞书 Base 写入方案。
 ---
 
 # weicoz-feishu-receipt-base
 
-把银行转账短信转成飞书 Base 入账动作。默认先预览，只有用户明确要求写入或确认后才执行写操作。
+把银行转账短信转成飞书 Base 入账动作，并按月核算开发人员绩效。
+默认先预览，只有用户明确要求写入或确认后才执行写操作。
 
-## 固定表
+## 前提检查
 
-Base token: `$WEICOZ_FEISHU_RECEIPT_BASE_TOKEN`
-
-项目收款表 / 财务收款表:
-- Table ID: `$WEICOZ_FEISHU_RECEIPT_PROJECT_TABLE_ID`
-- URL view: `$WEICOZ_FEISHU_RECEIPT_PROJECT_VIEW_ID`
-- 关键字段: `项目`, `客户/渠道公司`, `实收款`, `待收款项`, `业务`, `转款莞云/其他`, `返点渠道`, `变动关联`, `成交时间`, `备注`, `收款总额/项目金额`, `已收款项`
-- 公式字段不要写: `实收款`, `待收款项`, `成交时间-提取年月`
-
-资金流水表:
-- Table ID: `$WEICOZ_FEISHU_RECEIPT_LEDGER_TABLE_ID`
-- URL view: `$WEICOZ_FEISHU_RECEIPT_LEDGER_VIEW_ID`
-- 关键字段: `备注`, `原文`, `交易对象`, `变动日期`, `业务`, `资金变动`, `变动类型`, `项目收款表`
-- 公式字段不要写: `变动日期-提取年月`
-
-## 工具前置
-
-先确认 `lark-cli` 可用和登录态有效:
+每次开工先确认工具可用：
 
 ```bash
-which lark-cli
-lark-cli auth status
+which lark-cli && lark-cli auth status
 ```
 
-必要时复查字段:
+`lark-cli` 不在 PATH、或登录态失效时先停下告知用户，不要凭记忆往下推。
+
+## 第 0 步：读私有配置（每次都做，不许跳）
+
+本 skill 本体**不含任何凭证、比例、人名与金额**，可以直接分享给员工。
+运行需要的一切环境参数都在 skill 目录之外的私有配置文件里。
+
+### 标准位置
+
+| 路径 | 说明 |
+|---|---|
+| `~/.config/weicoz-feishu-receipt-base/config.yaml` | **标准位置**，默认就读这个 |
+| `$WEICOZ_RECEIPT_CONFIG` | 环境变量；设了就优先用它 |
+| `<skill 目录>/config.example.yaml` | 结构模板，**只做对照，不是配置** |
+
+### 怎么读
+
+先定位文件，再用 read 工具读它：
 
 ```bash
-lark-cli base +field-list --as user --base-token "$WEICOZ_FEISHU_RECEIPT_BASE_TOKEN" --table-id "$WEICOZ_FEISHU_RECEIPT_PROJECT_TABLE_ID"
-lark-cli base +field-list --as user --base-token "$WEICOZ_FEISHU_RECEIPT_BASE_TOKEN" --table-id "$WEICOZ_FEISHU_RECEIPT_LEDGER_TABLE_ID"
+CONFIG="${WEICOZ_RECEIPT_CONFIG:-$HOME/.config/weicoz-feishu-receipt-base/config.yaml}"
+ls -l "$CONFIG"          # 不存在就先创建，别继续
 ```
+
+用 **read 工具**读 `$CONFIG` 的全文（不要 `cat` 到终端 —— 敏感值会进终端历史与日志）。
+每次开工都重读一遍，不要沿用上一轮缓存的值。
+
+### 读出来后怎么用
+
+| 配置键 | 用在哪儿 |
+|---|---|
+| `base.receipt.token` | 收款相关命令的 `--base-token` |
+| `base.receipt.project_table` | 项目收款表的 `--table-id` |
+| `base.receipt.flow_table` | 资金流水表的 `--table-id` |
+| `base.receipt.assignment_table` | 项目开发分配表的 `--table-id` |
+| `base.salary.token` / `base.salary.table` | 写工资表时的 `--base-token` / `--table-id` |
+| `base.salary.perf_field` | 要写入的字段名（绩效奖金） |
+| `base.salary.time_field` / `name_field` | 定位月份行、核对姓名的字段 |
+| `performance.ratio_default_pct` | 分配表 `绩效比例(%)` 的默认值 |
+| `performance.standard_project_pct` | 标准项目的绩效比例（通常 0） |
+| （全公司分成不在配置里） | 人员与比例直接维护在分配表「项目留空」的行上，见「开发绩效核算」 |
+| `performance.overrides` | 用户特别指定某人额外拿分成的项目 |
+| `outstanding.*` | 挂账快照（欠谁、欠多少、哪些待确认、哪些待收） |
+
+### 配置缺失或读不到
+
+**不要猜 token、不要从别处翻找、不要凭记忆写死** —— 先停，告诉用户需要先创建配置。
+
+首次搭建（或过太久忘了某段怎么填）时，照 skill 目录里的 `config.example.yaml` 复制一份再改，它和真实配置**结构完全一致**，只是值是占位的：
+
+```bash
+mkdir -p ~/.config/weicoz-feishu-receipt-base
+cp <skill 目录>/config.example.yaml ~/.config/weicoz-feishu-receipt-base/config.yaml
+chmod 600 ~/.config/weicoz-feishu-receipt-base/config.yaml
+```
+
+`config.example.yaml` 里的名字与比例**全是示例值**，只用来对照结构，不要照抄进真实配置。
+
+## 保密要求（硬约束，优先级最高）
+
+配置文件和飞书表里含个人与公司敏感信息。违反以下任何一条都算事故：
+
+1. **绝不**把配置内容写进 skill 文件、脚本、注释、commit message、日志或对话回复 —— 包括 Base token、table id、分成比例、人名配比、挂账金额。
+2. 生成任何**可能被员工看到**的产物（文档、说明、代码、导出的 skill 副本）时，只讲**标准规则与流程**，不讲具体比例、不讲谁套用了哪条规则。
+3. 举例一律用占位符（`<项目>`、`<渠道方>`、`<比例>`），不要用「真实项目名 + 真实比例」的组合。
+4. 本 skill 目录会被同步、备份，**默认按公开对待**。私密内容只能待在 `~/.config/` 下的配置里。
+5. 破坏性操作（删表、改字段类型、批量覆盖）前必须先拿到用户明确的"做"。
+
+## 固定表（只看结构；token / table id 一律从配置读）
+
+**项目收款表 / 财务收款表** —— 配置键 `base.receipt.project_table`
+- 可写字段：`项目`, `客户/渠道公司`, `收款总额/项目金额`, `已收款项`, `返点渠道`, `待返渠道款`, `转款莞云/其他`, `待返莞云/其他`, `业务`, `变动关联`, `成交时间`, `备注`
+- 公式字段不要写：`实收款`, `待收款项`, `成交时间-提取年月`
+- 公式口径：`实收款` = 已收款项 − 返点渠道 − 转款莞云/其他（最终落袋，未付的返点也先扣）；`待收款项` = 收款总额/项目金额 − 已收款项
+
+**资金流水表** —— 配置键 `base.receipt.flow_table`
+- 关键字段：`备注`, `原文`, `交易对象`, `变动日期`, `业务`, `资金变动`, `变动类型`, `项目收款表`
+- `变动类型` 选项：`转款莞云` `款项入账` `返点渠道` `薪资发放` `结算款` `其他`
+- 公式字段不要写：`变动日期-提取年月`
+
+**项目开发分配** —— 配置键 `base.receipt.assignment_table`（绩效子表，一人一行，见下文）
+
+**工资表** —— 另一个 Base，配置键 `base.salary.*`
+- 关键字段：`姓名`(select), `时间`(text, `YYYYMM`), `绩效奖金`(number)
+- 其余为薪资公式字段，不要写
 
 ## 短信解析
 
-从银行短信抽取:
+从银行短信抽取：
+
 - `payer`: 付款方公司或个人
 - `paid_at`: 转账时间；短信无年份时默认当前年份
 - `amount`: 转入金额，正数
-- `bank_tail`: 收款账户尾号，如 `<尾号>`
+- `bank_tail`: 收款账户尾号，如 `3303`
 - `raw_text`: 完整短信原文
 - 忽略余额、尊称、账户问候语
 
-农行常见格式:
+农行常见格式：
 
 ```text
-【中国农业银行】尊敬的客户：<付款方>于<月日时分>向贵公司的农行账户（尾号<尾号>）完成转入交易，金额为<金额>，余额为<余额>。
+【中国农业银行】尊敬的客户：<付款方>于06月22日11:27向贵公司的农行账户（尾号3303）完成转入交易，金额为20000.00，余额为303250.95。
 ```
 
-解析结果:
-- `payer=<付款方>`
-- `paid_at=<当前年份>-06-22 11:27`
-- `amount=20000`
-- `bank_tail=<尾号>`
+解析结果：`payer=<付款方>`、`paid_at=<当年>-06-22 11:27`、`amount=20000`、`bank_tail=3303`。
+凭证截图（工行/农行转账汇款回单）同理，`原文` 存凭证全文。
 
-## 入账规则 v1
+## 返点与分账口径（必读）
+
+项目收款表里「返给渠道」和「转给莞云」是**两笔不同的钱**，每一笔都要分「应返/应转」和「还欠多少」：
+
+| 列 | 记什么 |
+|---|---|
+| `返点渠道` | 这个项目**总共该返给渠道**多少（全额，不是已付额） |
+| `待返渠道款` | 其中**还没付出去**的部分；已付清填 `0`，不要留空 |
+| `转款莞云/其他` | 这个项目**总共该转给莞云或第三方**多少 |
+| `待返莞云/其他` | 其中还没转出去的部分；已结清填 `0` |
+
+- `实收款` 公式会把未付的返点也扣掉，这是**刻意口径**，别为了好看把未付部分从 `返点渠道` 里摘掉。
+- 只要某一笔返点/转款还没付完，`备注` 里必须写明欠谁、欠多少。
+- 同一项目返点分次发生时，`返点渠道` 累计全额，`待返渠道款` 只记当前未付余额。
+
+### 三类钱别混
+
+- **渠道返点** = 给介绍业务的渠道方的分成 → 项目表 `返点渠道`，流水表 `变动类型=返点渠道`
+- **转款莞云/其他** = 转给莞云公司或代收主体 → 项目表 `转款莞云/其他`，流水表 `变动类型=转款莞云`
+- **结算款** = 给供应商/技术方的钱 → 只在流水表 `变动类型=结算款`，**不要**写进项目表 `返点渠道`
+
+分不清某笔是渠道还是技术方时，**先问用户**，不要自己归类。
+
+## 入账规则
 
 1. 必建或准备建资金流水。
 2. 再按付款方匹配项目收款表。
-3. 唯一匹配时，关联该项目并更新项目已收款项。
+3. 唯一匹配时，关联该项目并更新项目已收款项。本期若产生渠道返点或要转莞云，**同步更新 `返点渠道` / `待返渠道款` / `转款莞云/其他` / `待返莞云/其他`**，并在 `备注` 写明欠谁、欠多少。
 4. 多匹配时，只准备资金流水，问用户确认项目。
 5. 未匹配时，准备新建项目收款记录，项目名用 `新项目-待补`。
+6. 涉及分账而用户没说清金额或对象时，**先问一句再写**，不要替用户归类。
 
-资金流水默认字段:
+资金流水默认字段：
+
 - `交易对象` = `payer`
 - `变动日期` = `paid_at`
 - `资金变动` = `amount`
 - `变动类型` = `款项入账`
 - `原文` = `raw_text`
-- `备注`:
-  - 已识别项目: `农行短信 MM/DD HH:mm 转入｜<项目名>`
-  - 未识别项目: `农行短信 MM/DD HH:mm 转入｜新记录（项目待补）`
+- `备注` = `农行短信 MM/DD HH:mm 转入｜<项目名>`（未识别则 `｜新记录（项目待补）`）
 
-新建项目收款默认字段:
-- `客户/渠道公司` = `payer`
-- `成交时间` = `paid_at` 当天
-- `已收款项` = `amount`
-- `收款总额/项目金额` = `amount`
-- `项目` = `新项目-待补`
-- `备注` = `农行短信转入，项目待补`
+新建项目收款默认字段：`客户/渠道公司`=payer、`成交时间`=paid_at 当天、`已收款项`=`收款总额/项目金额`=amount、`项目`=`新项目-待补`、`备注`=`农行短信转入，项目待补`。
 
 ## 匹配项目
 
-优先用 `record-list` 读取小字段集合，再本地匹配，避免拉无关字段:
-
 ```bash
-lark-cli base +record-list --as user --base-token "$WEICOZ_FEISHU_RECEIPT_BASE_TOKEN" --table-id "$WEICOZ_FEISHU_RECEIPT_PROJECT_TABLE_ID" --format json --limit 200 --field-id '客户/渠道公司' --field-id '项目' --field-id '已收款项' --field-id '收款总额/项目金额' --field-id '备注'
+lark-cli base +record-list --base-token "$RECEIPT" --table-id "$PROJECT_TBL" --format json --limit 200 \
+  --field-id '客户/渠道公司' --field-id '项目' --field-id '已收款项' --field-id '收款总额/项目金额' --field-id '备注'
 ```
 
-匹配顺序:
-1. `客户/渠道公司` 精确等于付款方。
-2. 去掉括号、空格、常见后缀差异后再近似匹配。
-3. 结合项目备注和金额判断是否像旧项目尾款。
+匹配顺序：① `客户/渠道公司` 精确等于付款方；② 去掉括号、空格、常见后缀差异后近似；③ 结合备注与金额判断是否像旧项目尾款。
 
 不要仅凭相似公司名自动更新项目。多条候选或金额归因不清时，问用户一句确认。
 
+## 开发绩效核算（按月）
+
+### 数据流
+
+```text
+资金流水表（当月到账、返点/转款支出）
+      ↓ 公式自动汇总
+项目开发分配（项目 × 人 × 权重 → 返点及转款扣减 → 当月实收 → 绩效金额）
+      ↓ 人工同步（两个 Base，飞书公式跨不了 Base）
+工资表.绩效奖金（按 时间 = YYYYMM 匹配）
+```
+
+### 分配表字段
+
+`项目`(link→项目收款表，双向) / `开发人员`(select) / `权重(%)`(number) / `绩效比例(%)`(number) /
+`生效月份`(text `YYYY-MM`) / `备注`(text) / 三个公式列：`返点及转款扣减`、`当月实收`、`绩效金额`。
+
+规则：同一项目**所有行权重合计 = 100**；`绩效比例(%)` 默认取 `performance.ratio_default_pct`，
+标准项目取 `performance.standard_project_pct`（通常 0，即不计绩效）。
+
+### 三个公式（可直接复用）
+
+`ISBLANK([项目])` 为真 = 全公司行（项目留空），为假 = 普通项目行。两列口径**一致**：
+都是「应付全额」（已付的 + 还欠的），所以 `当月到账 − 返点及转款扣减 = 当月实收` 一眼对得上。
+
+```text
+返点及转款扣减 =
+IF(ISBLANK([项目]),
+  ABS(SUM([资金流水表].FILTER(CurrentValue.[变动日期-提取年月]=[生效月份]
+    &&(CurrentValue.[变动类型]="返点渠道"||CurrentValue.[变动类型]="转款莞云")).[资金变动]))
+  +SUM([项目收款表].[待返渠道款])+SUM([项目收款表].[待返莞云/其他]),
+  ABS(SUM([资金流水表].FILTER(CurrentValue.[项目收款表]=[项目]
+    &&CurrentValue.[变动日期-提取年月]=[生效月份]
+    &&(CurrentValue.[变动类型]="返点渠道"||CurrentValue.[变动类型]="转款莞云")).[资金变动]))
+  +MAX(0,FIRST([项目].[返点渠道])+FIRST([项目].[转款莞云/其他])
+    -ABS(SUM([资金流水表].FILTER(CurrentValue.[项目收款表]=[项目]
+      &&(CurrentValue.[变动类型]="返点渠道"||CurrentValue.[变动类型]="转款莞云")).[资金变动]))))
+
+当月实收 =
+IF(ISBLANK([项目]),
+  SUM([资金流水表].FILTER(CurrentValue.[变动日期-提取年月]=[生效月份]
+    &&CurrentValue.[变动类型]="款项入账"
+    &&NOT(ISBLANK(CurrentValue.[项目收款表]))).[资金变动])-[返点及转款扣减],
+  SUM([资金流水表].FILTER(CurrentValue.[项目收款表]=[项目]
+    &&CurrentValue.[变动日期-提取年月]=[生效月份]
+    &&CurrentValue.[变动类型]="款项入账").[资金变动])-[返点及转款扣减])
+
+绩效金额 = [当月实收]*[绩效比例(%)]/100*[权重(%)]/100
+```
+
+要点：
+
+- 全公司行按 `生效月份` 汇总**所有**流水；项目行按 link 字段限定到本项目。
+- 全公司行的未付部分取 `SUM(项目收款表.[待返渠道款]) + SUM(待返莞云/其他)`，与项目行逐项相加一致。
+- 全公司行的「当月到账」只算**有关联项目**的入账（`NOT(ISBLANK(CurrentValue.[项目收款表]))`）。
+- 校验口诀：`Σ各项目当月实收` 应当等于全公司行的当月实收。
+
+**当月实收 = 当月到账 − 该笔业务要付出去的返点/转款（已付 + 还欠）** —— 绩效按实收计提，不按到账。
+
+维护者内部口径、公式实现坑与已知边界见 [README.md](README.md)。
+
+### 公司级行（「项目」留空的行）
+
+分配表里还有一类 **「项目」留空** 的记录，用于按公司级口径计提的分成项：
+`开发人员=<本人>`、`权重(%)=100`、`绩效比例(%)=<该行适用比例>`、`生效月份=当月`。
+
+两类行用 `ISBLANK([项目])` 分流：
+
+- **项目行**：当月实收 = 该项目当月到账 − 该项目应返/应转（含还没付出去的）
+- **公司级行**：当月实收 = 全公司当月到账 − 全公司应返/应转全额
+
+**适用人员与比例属于私有约定，不在本 skill 与本目录中出现**（内部说明见 [README.md](README.md)）。
+被问到时只讲「存在公司级分成规则」，不透露人员与比例、不举例、不否认存在。
+
+### 每月执行顺序
+
+1. 读配置。
+2. 核对当月有到账的项目是否都在分配表里（一人一行），缺的补上。
+3. 等公式重算后读表，自检：每个项目权重合计 = 100；`当月实收` ≤ `当月到账`。
+4. 按 `开发人员` 汇总 `绩效金额`，再加上全公司分成的计算结果。
+5. 写入工资表 `绩效奖金`（按 `时间` 列 = `YYYYMM` 精确定位行）。
+6. 把明细与合计回报用户。
+
 ## 写入命令模板
 
-写入前先展示将要写入的字段。用户确认后执行。
+写入前先展示将要写入的字段，用户确认后执行。JSON 体一律是
+`{"create_records":[{字段:值}, …]}` / `{"update_records":{"rec_xxx":{字段:值}}}`，
+**不是** `{"fields":[…],"rows":[[…]]}`（那种写法报 `invalid_argument`）。
 
-创建资金流水:
-
-```bash
-lark-cli base +record-batch-create --as user --base-token "$WEICOZ_FEISHU_RECEIPT_BASE_TOKEN" --table-id "$WEICOZ_FEISHU_RECEIPT_LEDGER_TABLE_ID" --json '{"fields":["交易对象","变动日期","资金变动","变动类型","原文","备注","项目收款表"],"rows":[["<payer>","<YYYY-MM-DD HH:mm:ss>",<amount>,["款项入账"],"<raw_text>","<remark>",[{"id":"<project_record_id>"}]]]}'
-```
-
-未匹配项目时，`项目收款表` 用空数组 `[]`，或先新建项目后再关联。
-
-新建项目收款:
+创建资金流水：
 
 ```bash
-lark-cli base +record-batch-create --as user --base-token "$WEICOZ_FEISHU_RECEIPT_BASE_TOKEN" --table-id "$WEICOZ_FEISHU_RECEIPT_PROJECT_TABLE_ID" --json '{"fields":["客户/渠道公司","成交时间","已收款项","收款总额/项目金额","项目","备注"],"rows":[["<payer>","<YYYY-MM-DD HH:mm:ss>",<amount>,<amount>,"新项目-待补","农行短信转入，项目待补"]]}'
+cd <工作目录> && lark-cli base +record-batch-create --base-token "$RECEIPT" --table-id "$FLOW_TBL" --json @./tmp_flow.json
+# {"create_records":[{"交易对象":"<payer>","变动日期":"<YYYY-MM-DD HH:mm:ss>","资金变动":<amount>,
+#   "变动类型":"款项入账","原文":"<raw_text>","备注":"<remark>","项目收款表":[{"id":"<project_record_id>"}]}]}
 ```
 
-更新现有项目已收款项:
+未匹配项目时 `项目收款表` 传 `[]`，或先新建项目再关联。新建项目收款、更新已收款项、补关联同理，
+表 id 换成 `$PROJECT_TBL` / `$FLOW_TBL`，字段名照上文。每次写完删掉临时 json（`rm -f ./tmp_*.json`）。
 
-```bash
-lark-cli base +record-batch-update --as user --base-token "$WEICOZ_FEISHU_RECEIPT_BASE_TOKEN" --table-id "$WEICOZ_FEISHU_RECEIPT_PROJECT_TABLE_ID" --json '{"record_id_list":["<project_record_id>"],"patch":{"已收款项":<old_received_plus_amount>}}'
-```
+## lark-cli 实操坑（都实际踩过）
 
-必要时补关联:
-
-```bash
-lark-cli base +record-batch-update --as user --base-token "$WEICOZ_FEISHU_RECEIPT_BASE_TOKEN" --table-id "$WEICOZ_FEISHU_RECEIPT_LEDGER_TABLE_ID" --json '{"record_id_list":["<flow_record_id>"],"patch":{"项目收款表":[{"id":"<project_record_id>"}]}}'
-```
+- `--json @file` 的文件**必须是当前目录下的相对路径**。传 `@/tmp/x.json` 报
+  `--file must be a relative path within the current directory`；`--json -` 读 stdin 也不支持。
+  稳的做法：`cd` 到工作目录，把 JSON 写到 `./tmp_x.json`，用 `--json @./tmp_x.json`。
+- 真写之前先加 `--dry-run`：回显 request body，`ok:true, dry_run:true` 说明字段名合法。
+- 单次批量写上限 200 条。
+- **select 单选字段的选项必须先存在**，否则整批失败。加选项走
+  `+field-update --field-id <字段名> --json '{"name":"业务","type":"select","multiple":false,"options":[…]}` --yes`：
+  这是**全量 PUT 不是 patch**，原有选项要全部带上并保留其 `id`。（`+field-edit` 不存在。）
+- **link 字段不能从其他类型转换过来**，也不能转成别的类型 —— 建表时就得定好，错了只能重建表。
+- `+record-list` **不返回 record_id**，要 id 用 `+record-search`（`data.record_id_list` 与 `data.data` 逐行对应）。
+- `+record-list` 返回的二维数组**列序 = "字段最近使用顺序"**，会随编辑漂移，不要硬编码；先 `+record-get` 一条记录的 `field_id_list` 校准。
+- `+record-list` 的数值**有时是字符串**（`"5000"`），本地筛选前先 `float()` 兜底，否则漏行。
+- **公式字段异步重算**：写完 `已收款项`/`返点渠道` 后立刻读是旧值，等 3–8 秒再读确认。
+- 跨表聚合用 `[表名].FILTER(CurrentValue.[字段]=[本表字段]).[列]`；不要在 FILTER 里再套 FILTER。
+- base 子命令统一 `--base-token`（没有 `--app-token`）；身份默认 user；`--limit` 范围 1–200。
+- 改字段用 `+field-update`（high-risk，要 `--yes`）；formula 字段改名时 expression 要一并带上（全量 PUT）。
 
 ## 输出给用户
 
-收到短信后，先输出:
-- 解析结果: 付款方、时间、金额、银行尾号
-- 匹配判断: 唯一匹配 / 多候选 / 未匹配
-- 准备写入: 资金流水字段、项目收款字段或更新字段
-- 需要确认: 只有歧义或写入前确认
+收到短信/凭证后先输出：解析结果（付款方、时间、金额、尾号）→ 匹配判断（唯一/多候选/未匹配）→
+准备写入的字段 → 需要确认的点（只在有歧义或写入前）。
 
-写入后，输出:
-- 创建或更新的表
-- 记录 ID
-- 未补字段，如 `项目`, `业务`, `收款总额/项目金额`
-
-## 脱敏样例
-
-短信:
-
-```text
-【中国农业银行】尊敬的客户：示例付款方有限公司于<月日时分>向贵公司的农行账户（尾号<尾号>）完成转入交易，金额为<金额>，余额为<余额>。
-```
-
-解析:
-- `payer=示例付款方有限公司`
-- `paid_at=<YYYY-MM-DD HH:mm>`
-- `amount=<金额>`
-- `bank_tail=<尾号>`
-
-默认预览:
-- 资金流水: `款项入账`, `交易对象=示例付款方有限公司`, `资金变动=<金额>`, `备注=农行短信 <月日时分> 转入｜新记录（项目待补）`
-- 项目收款: 若未匹配旧项目，则新建 `新项目-待补`
+写入后输出：创建或更新的表、记录 ID、未补字段（如 `项目`、`业务`、`收款总额/项目金额`）。

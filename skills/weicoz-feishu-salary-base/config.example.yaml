@@ -1,0 +1,70 @@
+# weicoz-feishu-salary-base —— 私有配置模板
+#
+# 用法：
+#   mkdir -p ~/.config/weicoz-feishu-salary-base
+#   cp config.example.yaml ~/.config/weicoz-feishu-salary-base/config.yaml
+#   chmod 600 ~/.config/weicoz-feishu-salary-base/config.yaml
+#   # 然后把下面的 <…> 全部换成真实值
+#
+# 也可以放在别处，用环境变量指过去：
+#   export WEICOZ_SALARY_CONFIG=/path/to/config.yaml
+#
+# ⚠️ 本模板里的 token、table id、人名、金额**全部是示例值**，不是真实配置。
+#    真实配置只应存在 ~/.config/ 下：不要提交进 git、不要粘进对话、不要随 skill 分发。
+#
+# 结构说明：fields 分三组 —— time/name/text 是定位列，writable 是可写输入列，
+# formula 是公式列。field_ids / name_options / formulas 都用
+# `lark-cli base +field-list` 读出来后填，用来兜底定位与校验写入合法性。
+
+base:
+  token: <Base token>       # 工资 Base；Base 链接 /base/ 后面那串
+  table: <table_id>         # 工资表
+
+fields:
+  # 定位用的列
+  time: 时间                # text，格式 YYYYMM
+  name: 姓名                # select
+  text: 文本                # text，写入主键，通常 YYYYMM-姓名
+
+  # 可写输入列（其余一律当公式列，不要手填）
+  writable:
+    - 基本薪资
+    - 应缴社保
+    - 个税
+    - 应上天数
+    - 实上天数
+    - 请假小时
+    - 加班天数
+    - 绩效奖金
+    - 补贴
+
+  # 公式列：只读，等飞书算
+  formula:
+    - 基本实发薪资
+    - 加班奖金
+    - 实发薪资
+
+# 字段 ID：`lark-cli base +field-list` 里的 id。字段改名时用它兜底定位，不要按列序猜。
+field_ids:
+  <字段名>: <fldxxxxxx>
+
+# 姓名 select 的合法选项：写入与核算只涉及这些人，不在表里的人要先加选项，否则报错
+name_options:
+  - <在职姓名>
+
+departed_names:            # 已离职：不再产生新记录，select 选项保留（历史行还在用）
+  - <离职姓名>
+
+# 表内公式的原始定义：本地估算必须跟它对齐，否则估算值对不上实发
+formulas:
+  基本实发薪资: 基本薪资 * 实上天数 / 应上天数
+  加班奖金: 加班天数 * <单价>
+  实发薪资: 基本实发薪资 + 加班奖金 + 绩效奖金 + 补贴 - 应缴社保 - 个税
+
+payroll:
+  overtime_day_rate: 20     # 要与「加班奖金 = 加班天数 × N」里的 N 一致，否则本地估算会错
+  attendance_default: full  # 默认全勤：请假 0、加班 0、实上天数 = 应上天数
+  days_basis: workday       # 应上天数口径：workday = 普通工作日；statutory = 法定应出勤
+
+notify:
+  receiver: self            # self = 取 `lark-cli auth status` 里的 userOpenId
