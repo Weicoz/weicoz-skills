@@ -225,6 +225,11 @@ def allow_task_git(runtime, job_dir):
     previous = config.pop("sandbox_workspace_write", {})
     filesystem = {str(common): "write", str(directory): "write"}
     filesystem[str((root.parent.parent / "locks").resolve())] = "write"
+    reports = Path(job_dir) / "reports"
+    if reports.is_symlink():
+        raise ValueError("本任务报告目录不得是符号链接。")
+    if reports.is_dir():
+        filesystem[str(reports.resolve())] = "write"
     for extra in previous.get("writable_roots", []):
         filesystem[extra] = "write"
     if previous.get("exclude_tmpdir_env_var"):

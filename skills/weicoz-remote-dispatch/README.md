@@ -93,12 +93,28 @@ RD_CONFIRMED_VERSION='填入已审阅的完整指纹'
 "$RD_BIN" fetch <job>
 ```
 
+新任务可以绑定当前发起会话，执行方完成本轮工作后回传结果，后续修复或复检由发起方决定并续派到原会话：
+
+```bash
+"$RD_BIN" run --agent codex --host mini --prompt-file task.md --initiator-session <当前会话ID>
+"$RD_BIN" status <job> --details --initiator-session <当前会话ID>
+"$RD_BIN" result <job> --initiator-session <当前会话ID>
+"$RD_BIN" ack <job> --round 1 --receipt-id <回执ID> --initiator-session <当前会话ID>
+"$RD_BIN" inbox --initiator-session <当前会话ID>
+# 发起方确认下一轮指令后再续派，接收方不会自动追加工作。
+"$RD_BIN" resume <job> --prompt-file followup.md --initiator-session <当前会话ID>
+```
+
+参数优先于 `RD_INITIATOR_SESSION`，其次使用宿主实际提供的 `CODEX_THREAD_ID`。缺少ID时不声称绑定或跨会话送达。`ack` 只确认收取，退出码0与执行方报告的检查通过均不代替发起方验收。详细协议、执行方进度报告和断线缓存见 [会话交付](references/handoff.md)。旧任务原命令保持兼容，不自动改正在执行的任务或配置。
+
 发起方在本机按统一周期检查尚未完成的任务，默认 15 分钟、可以配置，再向当前会话汇报实际进展；远端不承担定时上报责任。后台监控多个 job 可以共用一次有界等待：
 
 ```bash
 "$RD_BIN" watch <job1> [<job2> ...]
 # 单次等待10分钟
 "$RD_BIN" watch <job1> [<job2> ...] --timeout 600
+# 短期不可达时继续只读观察，保留本次截止时间。
+"$RD_BIN" watch <job1> [<job2> ...] --keep-on-disconnect
 ```
 
 默认周期按环境变量 `RD_REPORT_INTERVAL_SECONDS` → 本机配置 `[monitor] report_interval_seconds` → 900 秒选择，必须为正整数。例如环境变量设为 `600`，或在 `config.ini` 的 `[monitor]` 写 `report_interval_seconds = 600`，表示10分钟。显式 `--timeout` 优先覆盖单次等待，用于本次定时或提前提醒后的剩余时间；不改变登记的基本周期。

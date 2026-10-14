@@ -16,6 +16,8 @@ import time
 
 if "profiles" not in globals():
     import rd_profiles as profiles
+if "messages" not in globals():
+    import rd_messages as messages
 
 
 def ps_quote(value):
@@ -33,8 +35,9 @@ def request(host, operation, data=None, payload=None, output=None, timeout=60):
     message = dict(data or {}, operation=operation, workdir=host["workdir"],
                    shared_workdir=host.get("shared_workdir", host["workdir"]),
                    path=host["path"], worker_code=(here / "rd_native.py").read_text(encoding="utf-8"),
-                   profile_code=(here / "rd_profiles.py").read_text(encoding="utf-8"))
-    boot = "import json,sys,types; q=json.loads(sys.stdin.buffer.readline()); p=types.ModuleType('rd_profiles'); exec(q['profile_code'],p.__dict__); n={'__name__':'rd_remote','profiles':p}; exec(q['worker_code'],n); n['serve'](q)"
+                   profile_code=(here / "rd_profiles.py").read_text(encoding="utf-8"),
+                   messages_code=(here / "rd_messages.py").read_text(encoding="utf-8"))
+    boot = "import json,sys,types; q=json.loads(sys.stdin.buffer.readline()); p=types.ModuleType('rd_profiles'); exec(q['profile_code'],p.__dict__); m=types.ModuleType('rd_messages'); exec(q['messages_code'],m.__dict__); n={'__name__':'rd_remote','profiles':p,'messages':m}; exec(q['worker_code'],n); n['serve'](q)"
     prefix = "$env:PATH=[Environment]::ExpandEnvironmentVariables(" + ps_quote(host["path"]) + ")+';'+$env:PATH; " if host["path"] else ""
     script = prefix + "$OutputEncoding=[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); & " + ps_quote(host["python"]) + " '-c' " + ps_quote(boot) + "; exit $LASTEXITCODE"
     cmd = ["ssh", *shlex.split(host["ssh_opts"]), host["ssh"], " ".join(powershell(script))]
@@ -165,8 +168,16 @@ def job_state(root, job):
     rounds = len(list(directory.glob("run.r*.json")))
     logs = directory / ("stdout.r" + str(rounds) + ".log")
     tail = logs.read_bytes()[-4096:].decode("utf-8", errors="replace").splitlines()[-1:] if logs.exists() else []
+    head, dirty, head_source = read("head"), read("dirty"), "recorded"
+    wt = root / "wt" / job
+    if state == "running" and wt.is_dir():
+        current = git(wt, "rev-parse", "HEAD", check=False)
+        if current.returncode == 0:
+            head, head_source = current.stdout.strip(), "live"
+            dirty = str(len(git(wt, "status", "--porcelain", check=False).stdout.splitlines()))
     return {"job": job, "state": state, "exit": read("exit_code"), "timed_out": "yes" if (directory / "timed_out").exists() else "",
-            "push_rc": read("push_rc"), "head": read("head"), "dirty": read("dirty"), "round": str(rounds),
+            "push_rc": read("push_rc"), "head": head, "dirty": dirty, "round": str(rounds),
+            "head_source": head_source, "observed_at": messages.utc_now(),
             "setup": "done" if (directory / "setup.done").exists() else "pending" if (directory / "setup.ps1").exists() else "", "last": tail[0] if tail else ""}
 
 
@@ -228,6 +239,8 @@ def run_job(spec_file):
     env.update(RD_USER_ID=spec["user_id"], RD_JOB=spec["job"], RD_WT=str(wt), RD_JOB_DIR=str(directory),
                RD_LOCK_DIR=spec["lock_dir"], RD_MAX_HEAVY=str(spec["max_heavy"]), RD_ROUND=str(spec["round"]),
                PATH=spec["bin"] + os.pathsep + env.get("PATH", ""))
+    if spec.get("handoff_version"):
+        env["RD_REPORTER"] = str(directory / "rd_messages.py")
     os.chdir(wt)
     setup = directory / "setup.ps1"
     if setup.exists() and not (directory / "setup.done").exists():
@@ -265,6 +278,12 @@ def run_job(spec_file):
             pushed = git(wt, "push", "origin", "HEAD:refs/heads/" + spec["branch"], check=False)
             (directory / "push.log").write_text(pushed.stdout + pushed.stderr, encoding="utf-8")
             (directory / "push_rc").write_text(str(pushed.returncode), encoding="utf-8")
+        if spec.get("handoff_version"):
+            (directory / ("exit.r" + str(spec["round"]))).write_text(str(rc), encoding="utf-8")
+            try:
+                messages.finish(directory, spec["job"], spec["round"], rc)
+            except (ValueError, OSError):
+                (directory / ("report.r" + str(spec["round"]) + ".log")).write_text("结果回执生成失败；原执行退出码保留。", encoding="utf-8")
         (directory / "exit_code").write_text(str(rc), encoding="utf-8")
 
 
@@ -346,6 +365,13 @@ def handle(q, incoming):
         return {"root": str(root)}
     if op == "state":
         return {job: job_state(root, job) for job in q["jobs"]}
+    if op == "report-read":
+        number = messages.round_id(q["round"])
+        if q["kind"] not in ("progress", "result"):
+            raise ValueError("无效回执类型。")
+        path = checked_path(root, "jobs/" + messages.job_id(q["job"]) + "/reports/" + q["kind"] + ".r" + str(number) + ".json")
+        data = messages.read_json(path)
+        return messages.validate_report(data, q["job"], number, q["kind"]) if data is not None else None
     if op in ("logs", "sessions"):
         directory = checked_path(root, "jobs/" + q["job"])
         if op == "sessions":
@@ -381,11 +407,14 @@ def handle(q, incoming):
             (directory / "rd_native.py").write_text(q["worker_code"], encoding="utf-8")
             if spec.get("profile"):
                 (directory / "profile.json").write_text(json.dumps(spec["profile"]), encoding="utf-8")
+        message_code = q.get("messages_code") or Path(messages.__file__).read_text(encoding="utf-8")
+        (directory / "rd_messages.py").write_text(message_code, encoding="utf-8")
         (directory / ("prompt.r" + str(spec["round"]) + ".md")).write_text(q["prompt"] or "", encoding="utf-8")
         bin_dir = root / "bin"
         bin_dir.mkdir(parents=True, exist_ok=True)
         (bin_dir / "rd_native.py").write_text(q["worker_code"], encoding="utf-8")
         (bin_dir / "rd_profiles.py").write_text(q["profile_code"], encoding="utf-8")
+        (bin_dir / "rd_messages.py").write_text(message_code, encoding="utf-8")
         (bin_dir / "rd-heavy.cmd").write_text('@"' + sys.executable + '" "' + str(bin_dir / "rd_native.py") + '" --heavy %*\r\n', encoding="utf-8")
         spec_file = directory / ("run.r" + str(spec["round"]) + ".json")
         spec_file.write_text(json.dumps(spec), encoding="utf-8")
