@@ -180,7 +180,7 @@ rd resume <job> --prompt-file <续跑说明>
 rd fetch <job>
 ```
 
-结果落在本机的 `rd/<分支>`，不会动你当前的分支。之后照常审查 `git diff`、跑相关测试，通过再 `git merge --ff-only rd/<分支>`。代理的汇报和退出码 0 都只是线索，不等于验收通过。
+结果落在本机的 `rd/<分支>`，不会动你当前的分支。本机审查 `git diff`、核对验收项；验收需要的测试默认派回执行机跑（`rd run --cmd '<测试命令>' --ref rd/<分支> --heavy`，或 `rd run --test`），不占用本机资源。通过后再合并：单任务用 `git merge --ff-only rd/<分支>`；多票整合时合入本机 integration 分支（无冲突的合并不触发提交钩子）。有冲突不在本机手工解决，用 `rd resume` 让原会话在执行机合入 integration 最新提交、重跑钩子后再取回。代理的汇报和退出码 0 都只是线索，不等于验收通过。
 
 `rd status` 里出现下面两种提示时要处理：
 
