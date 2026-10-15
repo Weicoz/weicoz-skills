@@ -1,6 +1,6 @@
 ---
 name: weicoz-session-hub
-description: 用一个总控会话协调多个独立的编码代理会话：总控派任务、补充指令、收汇报并验收，每个子会话用户也能直接对话。默认用 Herdr pane 跑 Claude Code、Codex、Kimi 等代理（DSH 等未识别代理按普通 pane 运行），总控读 pane 输出验收，任何宿主都可当总控；Herdr 不可用、用户点名要会话消息，或子会话是云端／Remote Control 会话时，改用 Claude Code 的 ListAgents／SendMessage。用户说“多会话工作台”“开几个会话并行干、由一个会话汇总”“总控／主控会话”“给另一个会话发消息”“让那个会话做完告诉我”“用 Herdr pane 跑几个代理”“汇总几个会话的进度”时使用。单次委派一个子任务用宿主子代理或派单技能；多 worktree 开发与集成用 weicoz-multi-worktree-dev-v3；这两种情况不用本技能。
+description: 用一个总控会话协调多个独立的编码代理会话：总控派任务、补充指令、收汇报并验收，每个子会话用户也能直接对话。默认用 Herdr pane 跑 Claude Code、Codex、Kimi 等代理（DSH 等不能用 agent start 启动的代理先按普通命令启动），总控读 pane 输出验收，任何宿主都可当总控；Herdr 不可用、用户点名要会话消息，或子会话是云端／Remote Control 会话时，改用 Claude Code 的 ListAgents／SendMessage。用户说“多会话工作台”“开几个会话并行干、由一个会话汇总”“总控／主控会话”“给另一个会话发消息”“让那个会话做完告诉我”“用 Herdr pane 跑几个代理”“汇总几个会话的进度”时使用。单次委派一个子任务用宿主子代理或派单技能；多 worktree 开发与集成用 weicoz-multi-worktree-dev-v3；这两种情况不用本技能。
 ---
 
 # 会话总控台
@@ -13,7 +13,7 @@ description: 用一个总控会话协调多个独立的编码代理会话：总�
 
 | 路线 | 总控宿主 | 子会话 | 汇报方式 |
 |---|---|---|---|
-| 一（默认）. Herdr pane | 任何能执行 `herdr` 命令的宿主 | `herdr agent` 类型清单里的代理走代理命令；其他代理（如 DSH）走普通 pane | 总控读 pane 输出，并回读产物 |
+| 一（默认）. Herdr pane | 任何能执行 `herdr` 命令的宿主 | `herdr agent` 类型清单里的代理走代理命令；其他代理（如 DSH）先按普通命令启动 | 总控读 pane 输出，并回读产物；Claude 子会话可加 SendMessage 回报（见“混用”） |
 | 二. 会话消息 | 仅 Claude Code（需有 `ListAgents`、`SendMessage` 工具） | 本机 Claude Code 会话、后台任务、云端会话、Remote Control 会话 | 本机会话用 `SendMessage` 回复总控；云端会话不能回发（`ListAgents` 工具说明原文），结果另取 |
 
 默认走路线一。只有以下情况改走路线二：Herdr 不可用（未安装，或总控不在 Herdr pane 内且用户不改在 Herdr 里开总控）；用户点名要用会话消息；子会话是云端、Remote Control 或用户已在别处开好的 Claude Code 会话。路线二只在 Claude Code 里可用，没有 `ListAgents` 工具时不能走。
@@ -46,11 +46,24 @@ description: 用一个总控会话协调多个独立的编码代理会话：总�
    - 返回 `timeout` 或 `agent_prompt_stalled`：不能证明消息没送到，不得重发。先 `herdr agent get <名字>` 和 `herdr agent read <名字>` 确认状态，再 `herdr agent wait <名字> --timeout <毫秒>` 继续等。编码类长任务基本都会超时，这是常态。
 3. **读结果**：`herdr agent read <名字> --source recent-unwrapped --lines 200`。状态 `idle` 或 `done` 表示可以接收输入，`unknown` 不能证明完成。
 
-### 未识别代理与普通命令（如 DSH、测试、服务）
+### 不能用 agent start 启动的代理与普通命令（如 DSH、测试、服务）
+
+`--kind` 清单之外的代理，启动后 Herdr 可能仍能识别：DSH 运行后在 `herdr agent list` 中显示为 `dsh-tui`。出现在 `agent list` 里的，先用 `herdr agent rename <pane_id> <名字>` 命名，再按上一节的代理命令派单、等待和读取（DSH 的派单链路未实测，首次使用先发一条短指令验证）。不被识别的，按下面的普通命令方式处理。
+
 
 1. **启动**：`herdr pane run <pane_id> "<启动命令>"`。
 2. **派单**：`herdr pane run <pane_id> "<派单说明>"`（发送文本并回车）。派单说明较长或含换行时，先写入文件，再让代理读该文件。
 3. **等待与读取**：`herdr pane wait-output <pane_id> --match "[汇报]" --timeout <毫秒>`，`herdr pane read <pane_id> --source recent-unwrapped`。这条路径拿不到 idle、done 等状态，验收只能靠汇报标记和回读产物。
+
+### 混用：Herdr 启动和监看，SendMessage 回报（总控和子会话都是 Claude Code 时推荐）
+
+2026-10-15 实测可行：在 Herdr pane 里用 `agent start --kind claude` 起的会话，会出现在总控的 `ListAgents` 里；总控 `SendMessage` 给它后，空闲的子会话被唤醒执行，再用 `SendMessage` 把结果发回总控。好处是既能用 Herdr 看状态、发现审批卡住，又能拿到完整的结构化汇报，不用读屏幕。
+
+1. 按上文开 pane、`herdr agent start <名字> --kind claude --pane <pane_id>`。
+2. 调 `ListAgents` 找新会话。**两边名字不同**：Herdr 名是你起的（如 `hub-probe`），`ListAgents` 名由会话自己生成（如 `ai-content-ops-9b`）。按“刚启动”认出后，让子会话第一条回报带上 `$HERDR_PANE_ID`，核对映射。
+3. 派单走 `SendMessage`，可加 `notify_when_idle: true`；汇报要求见模板中的路线二本机会话。
+4. 监看走 Herdr：`herdr agent get` 看状态，`blocked` 时读出界面交给用户。
+5. 子会话和总控的权限模式不同时，消息会先被扣给对方用户审批；这时改用 `herdr agent prompt` 派单。
 
 ### 通用
 
@@ -104,5 +117,6 @@ description: 用一个总控会话协调多个独立的编码代理会话：总�
 - 让云端会话“做完回复我”：它回发不了，总控只会白等。
 - 两个会话同时改一个文件或同一分支：后写的覆盖先写的。先分好写入者再派单。
 - Herdr 派单超时后重发：同一张单可能被执行两次。
-- 用 `--kind dsh` 之类不在清单里的类型起代理：直接报错，改走普通 pane。
+- 用 `--kind dsh` 之类不在清单里的类型起代理：直接报错，改为普通命令启动。
+- 混用时拿 Herdr 名去 `SendMessage`：两边名字不同，必须用 `ListAgents` 打印的名字。
 - 把总控被拒的命令派给权限更宽的子会话去跑：这是绕过用户的权限决定。
