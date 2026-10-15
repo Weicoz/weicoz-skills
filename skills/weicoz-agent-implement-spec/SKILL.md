@@ -13,6 +13,7 @@ description: 将整份规格及其关联票据委派给编码代理实现，默�
 
 - 本机执行：每票一个独立 worktree／分支和一次 CLI 会话。
 - 用户授权远端时：每票一次 `rd run`，`--ref <integration 分支>`、`--branch <票据分支>`，随单 `--include` 规格外的必要文件（如技能原文副本、清单）；完成后 `rd fetch`，在本机审查、合入 integration，再从合并后的提交派下一批。
+- 远端执行时的分工：票据实现提交在执行机完成；合入 integration 在发起方本机做（无冲突的 `git merge` 不触发提交钩子、几乎不占资源，integration 只保留一份）；有冲突时交回原票实现会话，在执行机合入 integration 最新提交并重跑钩子后再取回；发起方验收与阶段节点的测试用 `rd run --cmd`／`--test` 在执行机按 `rd-heavy` 排队运行，本机只读改动、核对验收项。
 - 并行度按执行机实测负载与用户指定上限；并行票先分配迁移编号、共享文件等归属，写进各自提示词。
 
 原因（2026-10-16 实测）：远端员工配置的沙箱只放行任务 worktree 等目录，任务内的编排代理无法写继承的 `CODEX_HOME`，嵌套 `codex exec` 报 `failed to initialize in-process app-server client: Operation not permitted`，无法启动实现会话。由发起方编排还能把派单、合并与验收放在同一处，额度上编排与验收用发起方宿主，写代码用实现代理。
