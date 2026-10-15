@@ -477,11 +477,20 @@ def git(args, repo, check=True, env=None):
     return run(["git", "-C", repo, *args], check=check, env=env)
 
 
-def local_repo():
-    p = run(["git", "rev-parse", "--show-toplevel"], check=False)
+def get_dir(args):
+    return getattr(args, "dir", None) or getattr(args, "top_dir", None)
+
+
+def local_repo(custom_path=None):
+    cmd = ["git"]
+    if custom_path:
+        cmd.extend(["-C", str(custom_path)])
+    cmd.extend(["rev-parse", "--show-toplevel"])
+    p = run(cmd, check=False)
     if p.returncode != 0:
-        die("run this inside the git repository you want to dispatch from")
-    return p.stdout.strip()
+        target = f"'{custom_path}'" if custom_path else "current directory"
+        die(f"run this inside the git repository you want to dispatch from, or pass -C/--dir (got: {target})")
+    return str(Path(p.stdout.strip()).resolve())
 
 
 def project_name(repo):
@@ -754,7 +763,7 @@ def launch(host, rec, round_no, cmd_text, prompt_text, timeout):
 
 def cmd_run(a, cfg):
     uid = require_user()
-    repo = local_repo()
+    repo = local_repo(get_dir(a))
     project, origin_url = project_name(repo)
     proj = cfg.project(a.project or project)
     project = a.project or project
@@ -792,6 +801,10 @@ def cmd_run(a, cfg):
 
     host = cfg.host(a.host) if a.force_host and a.host not in (None, "auto") else pick_host(cfg, a.host, a.tag)
     host = scoped_host(host, uid)
+    if getattr(a, "workdir", None):
+        custom_root = a.workdir.rstrip("/\\")
+        host["workdir"] = custom_root + ("/users/" + uid if uid else "")
+        host["shared_workdir"] = custom_root
     if host["platform"] == "windows" and a.test:
         a.cmd = proj.get("test_windows", a.cmd)
     profile = None
@@ -1200,7 +1213,9 @@ def cmd_doctor(a, cfg):
             checks.append("( " + CODEX_CHECK + ' ) >/dev/null 2>&1 && ok "Codex profile runtime" || bad "Python 3.11+ / Codex isolation features"')
     url = None
     if host["sync"] == "origin":
-        p = run(["git", "rev-parse", "--show-toplevel"], check=False)
+        target_dir = get_dir(a)
+        cmd = ["git", "-C", target_dir, "rev-parse", "--show-toplevel"] if target_dir else ["git", "rev-parse", "--show-toplevel"]
+        p = run(cmd, check=False)
         if p.returncode == 0:
             project, origin_url = project_name(p.stdout.strip())
             url = cfg.project(project).get("origin_url") or origin_url
@@ -1225,8 +1240,17 @@ def main():
     if os.name == "nt":
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
+        if hasattr(sys.stdin, "reconfigure"):
+            try:
+                sys.stdin.reconfigure(encoding="utf-8")
+            except Exception:
+                pass
     ap = argparse.ArgumentParser(prog="rd", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("-C", "--dir", dest="top_dir", help="本地仓库目录（默认为当前工作目录）")
     sub = ap.add_subparsers(dest="command", required=True)
+
+    repo_parser = argparse.ArgumentParser(add_help=False)
+    repo_parser.add_argument("-C", "--dir", dest="dir", help="本地仓库目录（默认为当前工作目录）")
 
     sub.add_parser("hosts", help="probe every configured machine").set_defaults(fn=cmd_hosts)
 
@@ -1237,12 +1261,12 @@ def main():
     p.add_argument("--confirm-version", help="用户审阅的本地完整配置指纹，来自 profile check")
     p.set_defaults(fn=cmd_profile)
 
-    p = sub.add_parser("doctor", help="check that a machine has what a job needs")
+    p = sub.add_parser("doctor", parents=[repo_parser], help="check that a machine has what a job needs")
     p.add_argument("host")
     p.add_argument("--agent", action="append", help="require this agent (repeatable)")
     p.set_defaults(fn=cmd_doctor)
 
-    p = sub.add_parser("run", help="dispatch an agent session or a command")
+    p = sub.add_parser("run", parents=[repo_parser], help="dispatch an agent session or a command")
     p.add_argument("--agent", help=f"agent to run ({', '.join(AGENTS)}, or one from the config)")
     p.add_argument("--prompt-file", help="prompt for the agent ('-' reads stdin)")
     p.add_argument("--cmd", help="shell command to run instead of an agent")
@@ -1256,6 +1280,7 @@ def main():
     p.add_argument("--branch", help="branch the job works on (default rd/<name>-<time>)")
     p.add_argument("--name", help="short label used in the job id")
     p.add_argument("--project", help="project name (default: name of the origin repository)")
+    p.add_argument("--workdir", help="临时覆盖目标机的工作根目录（默认读取 host 配置的 workdir）")
     p.add_argument("--include", action="append", default=[], help="extra untracked path to copy (repeatable)")
     p.add_argument("--model")
     p.add_argument("--effort")

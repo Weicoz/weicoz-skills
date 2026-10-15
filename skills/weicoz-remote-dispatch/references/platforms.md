@@ -61,4 +61,17 @@ rd profile check win
 
 不得把 PowerShell 编码测试或 macOS 上的 worker 协议测试报告成真实 Windows 实跑。仓库测试使用临时本地 worker 和假 Codex，不发模型 API 请求。当前实际验证范围以本次交付报告为准。
 
+## Windows 作为发起方（Initiator）
+
+当本机（派单控制端）为 Windows 时，需特别注意命令行环境与系统别名：
+
+1. **PowerShell 别名陷阱**：Windows PowerShell 和 PowerShell 7 默认将 `rd` 绑定为 `Remove-Item` 别名。如果在 PowerShell 中直接执行 `rd run ...`，会触发文件删除命令！
+   - **安全方案**：使用 `python scripts/rd <command>`，或调用包装脚本 `rd.cmd`、`rd-remote.cmd`、`rd-remote.ps1`，或在当前会话移除别名 `Remove-Item Alias:rd -Force`。
+2. **CMD 内置命令陷阱**：CMD 内置了 `rd`（`rmdir`）命令。请使用 `python scripts\rd` 或 `rd-remote.cmd`。
+3. **本地仓库与目录自定义**：
+   - 默认使用当前终端所在目录（`cwd`）。
+   - 支持通过 `-C <路径>` 或 `--dir <路径>` 指定 Windows 绝对路径（例如 `-C D:\Projects\myrepo`）。
+   - 支持通过 `--workdir <路径>` 覆盖远端的目标存储路径。
+4. **状态与配置目录**：自动映射至 `%USERPROFILE%\.config\remote-dispatch\config.ini` 与 `%USERPROFILE%\.local\state\remote-dispatch`，支持环境变量 `RD_CONFIG` 和 `RD_STATE` 自定义。
+
 实现依据：[Microsoft OpenSSH 配置](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh-server-configuration)、[Python subprocess Windows flags](https://docs.python.org/3/library/subprocess.html#subprocess.CREATE_BREAKAWAY_FROM_JOB)、[OpenSSH 维护者关于后台进程与 SSH 管道的记录](https://github.com/PowerShell/Win32-OpenSSH/issues/2452)。

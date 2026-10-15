@@ -44,7 +44,7 @@ rd profile sync mini --confirm-user-id zhangsan --confirm-version <完整指纹>
 
 授权只覆盖用户同意的那件事。同意把这次测试放到远端跑，不等于之后的任务也都放过去；用户说“以后都派到远端”这类话时才当作持续有效。
 
-所有操作通过 `scripts/rd`（下文简称 `rd`）。POSIX 普通命令派单要求本机 Python 3.8+、git、ssh；员工 Codex 配置和 Windows worker 要求 Python 3.11+，目标机还需 git、Codex CLI 和单独配置的认证来源。
+所有操作通过 `scripts/rd`（下文简称 `rd`）。POSIX 普通命令派单要求本机 Python 3.8+、git、ssh；员工 Codex 配置和 Windows worker 要求 Python 3.11+，目标机还需 git、Codex CLI 和单独配置的认证来源。**当发起方（本机）为 Windows 时**：PowerShell 预设了 `rd` 为 `Remove-Item` 别名，CMD 预设了 `rd` 为 `rmdir` 内置命令；在 Windows 发起派单时，必须通过 `python scripts/rd` 或配套包装脚本 `rd.cmd` / `rd-remote.cmd` / `rd-remote.ps1` 执行，严禁在 PowerShell 或 CMD 中直接裸敲 `rd`，防止误删本地目录。
 
 ## 它是怎么工作的
 
@@ -101,6 +101,8 @@ rd run --cmd '<命令>' --heavy      # 任意命令；--heavy 表示它很吃内
 
 常用选项：
 
+- `-C <路径>`、`--dir <路径>`：指定本地项目仓库目录。默认使用当前工作目录，支持传入任意自定义项目路径。
+- `--workdir <路径>`：临时覆盖目标机的工作根目录。默认读取 `config.ini` 中的 `workdir`（POSIX 默认 `~/remote-dispatch`，Windows 默认 `C:/rd`）。
 - `--host <机器名>`：指定机器。不写就自动选空闲会话最多、负载最低的一台。
 - `--model`、`--effort`：换模型和推理强度，只对支持的代理有效。
 - `--timeout <秒>`：到点杀掉，默认一小时。

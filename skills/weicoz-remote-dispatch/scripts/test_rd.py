@@ -635,6 +635,44 @@ print(json.dumps({"session_id":"fixture-session"}))
         with patch.dict(os.environ, {"RD_USER_ID": "employee_b"}), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             rd.job_host(self.cfg, rec)
 
+    def test_local_repo_with_custom_dir_and_precedence(self):
+        repo_dir = self.root / "custom_repo"
+        repo_dir.mkdir()
+        rd.run(["git", "init", "-q", str(repo_dir)])
+        resolved = rd.local_repo(repo_dir)
+        self.assertEqual(resolved, str(repo_dir.resolve()))
+
+        # Non-repo dir raises SystemExit
+        non_repo = self.root / "not_a_repo"
+        non_repo.mkdir()
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            rd.local_repo(non_repo)
+
+        # get_dir precedence: sub dir over top dir
+        ns = argparse.Namespace(dir="/sub", top_dir="/top")
+        self.assertEqual(rd.get_dir(ns), "/sub")
+        ns2 = argparse.Namespace(dir=None, top_dir="/top")
+        self.assertEqual(rd.get_dir(ns2), "/top")
+
+    def test_run_with_custom_workdir_override(self):
+        repo = self.root / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-qm", "base"], check=True)
+        custom_remote = self.root / "custom_remote"
+        args = argparse.Namespace(agent=None, prompt_file=None, cmd="echo test", test=False, heavy=False,
+            host="fixture", force_host=True, tag=[], ref="HEAD", wip=False, branch=None, name="fixture",
+            project=None, include=[], model=None, effort=None, timeout=15, initiator_session="fixture-origin",
+            workdir=str(custom_remote), dir=str(repo))
+        with patch.object(rd, "local_repo", return_value=str(repo)), \
+             patch.object(rd, "scp_path", side_effect=lambda h, rel: str(Path(h["workdir"]) / rel)), \
+             contextlib.redirect_stdout(io.StringIO()):
+            rd.cmd_run(args, self.cfg)
+            rec = rd.all_jobs()[0]
+            self.assertEqual(rec["worker_root"], str(custom_remote / "users" / "employee_a"))
+            self.assertEqual(rec["shared_root"], str(custom_remote))
+
 
 if __name__ == "__main__":
     unittest.main()
+
