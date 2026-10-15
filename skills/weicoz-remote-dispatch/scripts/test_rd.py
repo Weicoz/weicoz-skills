@@ -137,6 +137,22 @@ class WatchTests(unittest.TestCase):
         interval.assert_not_called()
 
 
+class AssessSwapTests(unittest.TestCase):
+    def info(self, swap):
+        return {"reachable": True, "os": "Darwin", "ncpu": "10", "load1": "1",
+                "memfree": "50", "disk": "100", "swap": swap}
+
+    def test_swap_over_threshold_blocks(self):
+        why = rd.assess(dict(rd.DEFAULTS), self.info("16384.00M"))
+        self.assertTrue(any(w.startswith("swap 16.0 GB") for w in why), why)
+
+    def test_swap_under_threshold_passes(self):
+        self.assertEqual(rd.assess(dict(rd.DEFAULTS), self.info("1043.94M")), [])
+
+    def test_swap_unknown_does_not_block(self):
+        self.assertEqual(rd.assess(dict(rd.DEFAULTS), self.info("")), [])
+
+
 class MonitorConfigTests(unittest.TestCase):
     def setUp(self):
         self.cfg = object.__new__(rd.Config)

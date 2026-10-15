@@ -45,6 +45,7 @@ DEFAULTS = {
     "max_load_per_core": "1.5",
     "min_free_mem_pct": "10",
     "min_free_disk_gb": "10",
+    "max_swap_used_gb": "15",
     "timeout": "3600",
 }
 
@@ -414,6 +415,10 @@ def assess(host, info):
     disk = num(info.get("disk"))
     if disk is not None and disk < float(host["min_free_disk_gb"]):
         why.append(f"only {disk:.0f} GB disk free")
+    swap = info.get("swap")
+    swap_mb = num(swap[:-1]) if isinstance(swap, str) and swap.upper().endswith("M") else num(swap)
+    if swap_mb is not None and swap_mb / 1024 > float(host["max_swap_used_gb"]):
+        why.append(f"swap {swap_mb / 1024:.1f} GB used")
     if info.get("os") == "Windows":
         cpu = num(info.get("cpu_pct"))
         if cpu is None:
