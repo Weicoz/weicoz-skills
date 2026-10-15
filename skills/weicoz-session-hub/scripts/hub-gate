@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""会话总控准入检查：判断本机是否还能新开会话或派重活。
+"""会话总控准入检查：判断本机是否还能新开会话或派重活。支持 macOS、Linux、Windows。
 
-四项任一不达标即不放行（退出码 3）；全部达标退出码 0；无法采集退出码 2。
+四项任一不达标即不放行（退出码 3）；全部达标退出码 0；有指标无法采集退出码 2。
 阈值与 weicoz-remote-dispatch 的 rd 默认值一致，可用环境变量覆盖：
-  SESSION_HUB_MAX_LOAD_PER_CORE  默认 1.5
+  SESSION_HUB_MAX_LOAD_PER_CORE  默认 1.5（macOS、Linux：1 分钟负载 ÷ 核数）
+  SESSION_HUB_MAX_CPU_PCT        默认 85（Windows 没有负载均值，改用 CPU 采样利用率）
   SESSION_HUB_MIN_FREE_MEM_PCT   默认 10
   SESSION_HUB_MIN_FREE_DISK_GB   默认 10
-  SESSION_HUB_MAX_SWAP_USED_GB   默认 15
+  SESSION_HUB_MAX_SWAP_USED_GB   默认 15（Windows 为页面文件已用量）
   SESSION_HUB_DISK_PATH          默认当前目录
+Windows 运行：python scripts\\hub-gate
 """
 import os
 import platform
@@ -15,6 +17,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
 
 def env_float(name, default):
@@ -27,22 +30,69 @@ def env_float(name, default):
 
 def run(cmd):
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=10).stdout
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=15).stdout
     except (OSError, subprocess.TimeoutExpired):
         return ""
 
 
+def parse_mb(text):
+    """取输出中第一个数字（MB），取不到返回 None。"""
+    m = re.search(r"[\d.]+", text or "")
+    return float(m.group(0)) if m else None
+
+
+def probe_windows():
+    import ctypes
+    from ctypes import wintypes
+
+    class Memory(ctypes.Structure):
+        _fields_ = [("length", wintypes.DWORD), ("load", wintypes.DWORD)] + [
+            (k, ctypes.c_ulonglong) for k in ("total", "available", "page_total", "page_available",
+                                              "virtual_total", "virtual_available", "extended")]
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    metrics = {"cpu_pct": None, "mem_free_pct": None, "swap_gb": None}
+    memory = Memory()
+    memory.length = ctypes.sizeof(memory)
+    if kernel.GlobalMemoryStatusEx(ctypes.byref(memory)) and memory.total:
+        metrics["mem_free_pct"] = memory.available * 100 / memory.total
+
+    def cpu_times():
+        idle, kern, user = wintypes.FILETIME(), wintypes.FILETIME(), wintypes.FILETIME()
+        if not kernel.GetSystemTimes(ctypes.byref(idle), ctypes.byref(kern), ctypes.byref(user)):
+            return None
+        val = lambda t: (t.dwHighDateTime << 32) | t.dwLowDateTime
+        return val(idle), val(kern) + val(user)  # 内核时间已包含空闲时间
+
+    first = cpu_times()
+    time.sleep(0.5)
+    second = cpu_times()
+    if first and second and second[1] > first[1]:
+        busy = 1 - (second[0] - first[0]) / (second[1] - first[1])
+        metrics["cpu_pct"] = max(0.0, min(100.0, busy * 100))
+
+    out = run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
+               "(Get-CimInstance Win32_PageFileUsage | Measure-Object CurrentUsage -Sum).Sum"])
+    mb = parse_mb(out)
+    # 输出为空可能是没有页面文件，也可能是 PowerShell 不可用，无法区分，按未确认处理
+    if mb is not None:
+        metrics["swap_gb"] = mb / 1024
+    return metrics
+
+
 def probe():
-    """返回 (load1, ncpu, mem_free_pct, swap_used_gb)，取不到的项为 None。"""
-    load1 = os.getloadavg()[0] if hasattr(os, "getloadavg") else None
-    ncpu = os.cpu_count()
-    mem = swap = None
+    """返回指标字典；取不到的项为 None。"""
     system = platform.system()
+    if system == "Windows":
+        return {"kind": "cpu", **probe_windows()}
+    metrics = {"kind": "load", "load1": None, "ncpu": os.cpu_count(), "mem_free_pct": None, "swap_gb": None}
+    if hasattr(os, "getloadavg"):
+        metrics["load1"] = os.getloadavg()[0]
     if system == "Darwin":
         m = re.search(r"free percentage:\s*(\d+)", run(["memory_pressure"]))
-        mem = float(m.group(1)) if m else None
+        metrics["mem_free_pct"] = float(m.group(1)) if m else None
         m = re.search(r"used = ([\d.]+)M", run(["sysctl", "-n", "vm.swapusage"]))
-        swap = float(m.group(1)) / 1024 if m else None
+        metrics["swap_gb"] = float(m.group(1)) / 1024 if m else None
     elif system == "Linux":
         info = {}
         try:
@@ -53,22 +103,24 @@ def probe():
         except OSError:
             pass
         if info.get("MemTotal"):
-            mem = info.get("MemAvailable", 0) * 100 / info["MemTotal"]
+            metrics["mem_free_pct"] = info.get("MemAvailable", 0) * 100 / info["MemTotal"]
         if "SwapTotal" in info:
-            swap = (info["SwapTotal"] - info.get("SwapFree", 0)) / 1024 / 1024
-    return load1, ncpu, mem, swap
+            metrics["swap_gb"] = (info["SwapTotal"] - info.get("SwapFree", 0)) / 1024 / 1024
+    return metrics
 
 
-def main():
-    max_load = env_float("SESSION_HUB_MAX_LOAD_PER_CORE", 1.5)
-    min_mem = env_float("SESSION_HUB_MIN_FREE_MEM_PCT", 10)
-    min_disk = env_float("SESSION_HUB_MIN_FREE_DISK_GB", 10)
-    max_swap = env_float("SESSION_HUB_MAX_SWAP_USED_GB", 15)
-    disk_path = os.environ.get("SESSION_HUB_DISK_PATH") or os.getcwd()
+def thresholds():
+    return {
+        "load": env_float("SESSION_HUB_MAX_LOAD_PER_CORE", 1.5),
+        "cpu": env_float("SESSION_HUB_MAX_CPU_PCT", 85),
+        "mem": env_float("SESSION_HUB_MIN_FREE_MEM_PCT", 10),
+        "disk": env_float("SESSION_HUB_MIN_FREE_DISK_GB", 10),
+        "swap": env_float("SESSION_HUB_MAX_SWAP_USED_GB", 15),
+    }
 
-    load1, ncpu, mem, swap = probe()
-    disk = shutil.disk_usage(disk_path).free / 1024 ** 3
 
+def evaluate(m, disk_gb, disk_path, t):
+    """纯判定：返回 (输出行, 退出码)。"""
     rows, blocked, unknown = [], [], []
 
     def check(name, ok, text):
@@ -76,33 +128,47 @@ def main():
         if not ok:
             blocked.append(name)
 
-    if load1 is None or not ncpu:
+    if m["kind"] == "cpu":
+        if m.get("cpu_pct") is None:
+            unknown.append("CPU 利用率")
+        else:
+            check("CPU 利用率", m["cpu_pct"] <= t["cpu"],
+                  f"采样 {m['cpu_pct']:.1f}%，上限 {t['cpu']:.0f}%（Windows 无负载均值，改用 CPU 采样）")
+    elif m.get("load1") is None or not m.get("ncpu"):
         unknown.append("每核负载")
     else:
-        per = load1 / ncpu
-        check("每核负载", per <= max_load,
-              f"1 分钟负载 {load1:.2f} ÷ {ncpu} 核 = {per:.2f}，阈值 {max_load}（大于 1 表示有进程排队等 CPU）")
-    if mem is None:
+        per = m["load1"] / m["ncpu"]
+        check("每核负载", per <= t["load"],
+              f"1 分钟负载 {m['load1']:.2f} ÷ {m['ncpu']} 核 = {per:.2f}，阈值 {t['load']}（大于 1 表示有进程排队等 CPU）")
+    if m.get("mem_free_pct") is None:
         unknown.append("空闲内存")
     else:
-        check("空闲内存", mem >= min_mem, f"{mem:.0f}%，下限 {min_mem:.0f}%")
-    check("可用磁盘", disk >= min_disk, f"{disk:.1f} GB（{disk_path}），下限 {min_disk:.0f} GB")
-    if swap is None:
-        unknown.append("已用交换")
+        check("空闲内存", m["mem_free_pct"] >= t["mem"], f"{m['mem_free_pct']:.0f}%，下限 {t['mem']:.0f}%")
+    check("可用磁盘", disk_gb >= t["disk"], f"{disk_gb:.1f} GB（{disk_path}），下限 {t['disk']:.0f} GB")
+    swap_name = "页面文件已用" if m["kind"] == "cpu" else "已用交换"
+    if m.get("swap_gb") is None:
+        unknown.append(swap_name)
     else:
-        check("已用交换", swap <= max_swap, f"{swap:.1f} GB，上限 {max_swap:.0f} GB")
+        check(swap_name, m["swap_gb"] <= t["swap"], f"{m['swap_gb']:.1f} GB，上限 {t['swap']:.0f} GB")
 
-    print("\n".join(rows))
-    for name in unknown:
-        print(f"未确认  {name}：本平台无法采集，请人工检查")
+    rows += [f"未确认  {name}：无法采集，请人工检查" for name in unknown]
     if blocked:
-        print(f"结论：不放行（{'、'.join(blocked)}超标）。默认不新开会话，告诉用户原因；用户明确要求强制时才开。")
-        return 3
+        rows.append(f"结论：不放行（{'、'.join(blocked)}超标）。默认不新开会话，告诉用户原因；用户明确要求强制时才开。")
+        return rows, 3
     if unknown:
-        print("结论：未确认（部分指标无法采集），由用户决定是否继续。")
-        return 2
-    print("结论：放行。")
-    return 0
+        rows.append("结论：未确认（部分指标无法采集），由用户决定是否继续。")
+        return rows, 2
+    rows.append("结论：放行。")
+    return rows, 0
+
+
+def main():
+    t = thresholds()
+    disk_path = os.environ.get("SESSION_HUB_DISK_PATH") or os.getcwd()
+    disk_gb = shutil.disk_usage(disk_path).free / 1024 ** 3
+    rows, code = evaluate(probe(), disk_gb, disk_path, t)
+    print("\n".join(rows))
+    return code
 
 
 if __name__ == "__main__":

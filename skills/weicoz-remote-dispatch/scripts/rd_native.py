@@ -115,6 +115,17 @@ def stop_tree(pid):
         os.killpg(int(pid), 15)
 
 
+def win_pagefile_used():
+    """页面文件已用量，格式与 POSIX 探针一致（如 "2048M"）；取不到返回 "?"，不当作 0。"""
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                              "(Get-CimInstance Win32_PageFileUsage | Measure-Object CurrentUsage -Sum).Sum"],
+                             capture_output=True, text=True, timeout=15).stdout.strip()
+        return f"{int(float(out))}M" if out else "?"
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return "?"
+
+
 def win_metrics(root, shared):
     from ctypes import wintypes
     class Memory(ctypes.Structure):
@@ -140,7 +151,7 @@ def win_metrics(root, shared):
     running = sum(1 for j in jobs if (j / "pid").exists() and not (j / "exit_code").exists() and alive((j / "pid").read_text(encoding="utf-8")))
     heavy = sum(1 for p in shared.glob("locks/heavy.*/pid") if alive(p.read_text(encoding="utf-8")))
     return {"os": "Windows", "ncpu": str(os.cpu_count() or 1), "cpu_pct": str(round(cpu, 1)),
-            "memfree": str(round(memory.available * 100 / memory.total, 1)), "swap": "?",
+            "memfree": str(round(memory.available * 100 / memory.total, 1)), "swap": win_pagefile_used(),
             "disk": str(int(shutil.disk_usage(root if root.exists() else Path.home()).free / 1024 ** 3)),
             "running": str(running), "heavy": str(heavy)}
 

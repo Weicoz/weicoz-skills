@@ -152,6 +152,17 @@ class AssessSwapTests(unittest.TestCase):
     def test_swap_unknown_does_not_block(self):
         self.assertEqual(rd.assess(dict(rd.DEFAULTS), self.info("")), [])
 
+    def test_windows_pagefile_probe(self):
+        done = lambda out: subprocess.CompletedProcess([], 0, stdout=out, stderr="")
+        with patch.object(native.subprocess, "run", return_value=done("16384\r\n")):
+            self.assertEqual(native.win_pagefile_used(), "16384M")
+        with patch.object(native.subprocess, "run", return_value=done("")):
+            self.assertEqual(native.win_pagefile_used(), "?")
+        with patch.object(native.subprocess, "run", side_effect=OSError("no powershell")):
+            self.assertEqual(native.win_pagefile_used(), "?")
+        info = dict(self.info("16384M"), os="Windows", cpu_pct="20")
+        self.assertTrue(any(w.startswith("swap 16.0 GB") for w in rd.assess(dict(rd.DEFAULTS), info)))
+
 
 class MonitorConfigTests(unittest.TestCase):
     def setUp(self):

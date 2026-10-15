@@ -27,12 +27,13 @@ description: 用一个总控会话协调多个独立的编码代理会话：总�
 3. **准入检查**：每次新开会话或派重活前，运行本技能目录下的 `scripts/hub-gate`。它检查四项，任一不达标即不放行：每核负载（1 分钟负载 ÷ 核数）超过 1.5、空闲内存低于 10%、可用磁盘低于 10 GB、已用交换超过 15 GB。阈值与 `weicoz-remote-dispatch` 的 `rd` 默认值一致，可用 `SESSION_HUB_*` 环境变量覆盖。
    - 退出码 0 放行；3 不放行，默认不新开会话，把脚本输出的算法和结论原样告诉用户，用户明确要求强制时才开；2 表示有指标无法采集，由用户决定。
    - 偏高时附上占用最高的进程。没有会话数上限，只看这四项。
-   - 脚本不可用（如 Windows）时，按同样四项人工检查并写出算法。
+   - Windows 没有负载均值，脚本改用 CPU 采样利用率（上限 85%，与 `rd` 的 `max_cpu_pct` 一致，`SESSION_HUB_MAX_CPU_PCT` 可覆盖），交换取页面文件已用量。Windows 上用 `python scripts\hub-gate` 运行（无法直接执行无扩展名脚本）。
+   - 脚本无法运行时，按同样四项人工检查并写出算法。
 4. **授权不扩大**：子会话只继承本次已授权的范围。提交、推送、部署、付费、对外发送照旧要用户授权，派单时写明。
 
 ## 路线一（默认）：Herdr pane
 
-先确认 `test "${HERDR_ENV:-}" = 1`，再读 `herdr --skill` 和 `herdr agent`、`herdr pane` 的帮助。命令语法以已安装版本为准。不得为探查语法而省略参数运行会修改布局的命令，也不得运行裸 `herdr`。
+先确认 `test "${HERDR_ENV:-}" = 1`（Windows PowerShell：`$env:HERDR_ENV -eq "1"`），再读 `herdr --skill` 和 `herdr agent`、`herdr pane` 的帮助。命令语法以已安装版本为准。不得为探查语法而省略参数运行会修改布局的命令，也不得运行裸 `herdr`。
 
 ### 开 pane
 
@@ -46,13 +47,10 @@ description: 用一个总控会话协调多个独立的编码代理会话：总�
 
 - **格式**：`hub|<总控 pane ID>|<工作线>|<状态>|<ListAgents 名，可省>`。状态只用：已派单、待验收、已验收、已打回、受阻。标签支持中文和长文本（2026-10-15 实测），但不要在字段内用 `|`。
 - **何时写**：`agent start` 或 `pane run` 成功后立即 `herdr pane rename <pane_id> "<标签>"`；派单、收到汇报、验收、打回时更新状态字段。
-- **恢复**：总控换会话或上下文被压缩后，先 `herdr pane list`（不带 `--workspace`，可列出全部工作区），筛出以 `hub|<总控 pane ID>|` 开头的标签，即为全部在途工作线。可用：
-  ```bash
-  herdr pane list | python3 -c "import json,sys;[print(p['pane_id'],p.get('label')) for p in json.load(sys.stdin)['result']['panes'] if (p.get('label') or '').startswith('hub|')]"
-  ```
+- **恢复**：总控换会话或上下文被压缩后，先 `herdr pane list`（不带 `--workspace`，可列出全部工作区），筛出以 `hub|<总控 pane ID>|` 开头的标签，即为全部在途工作线。用本技能的 `scripts/hub-ls [前缀]` 列出（Windows：`python scripts\hub-ls`），每行给出 pane ID、代理状态、工作线、登记状态和会话名。
   总控换了 pane 时，筛 `hub|` 前缀，把列表给用户确认后再接管，并把标签里的总控 ID 改成新的。
 - **范围**：完成判据和派单原文不放进标签，写在派单说明文件里，恢复时按工作线名找回。远端 `rd` 任务由 `rd status` 登记，云端会话写进分支或 PR，都不用 pane 标签。
-- **未验证**：Herdr 服务端重启后标签是否保留，尚未实测。
+- **Herdr 重启后**（2026-10-15 在 Mac mini 上停止并重启一个独立会话实测）：标签、布局和 pane ID 都恢复，但 pane 里的进程全部结束，只剩新 shell。所以恢复时，标签为“已派单”或“待验收”的线，必须用 `hub-ls` 的代理状态或 `herdr pane process-info --pane <pane_id>` 核对代理是否还在运行；不在的改为“受阻”，在原 pane 里用代理自己的续跑命令接回原会话（例如 Codex 的 resume、Claude Code 的 `--resume`），已写入文件和提交的成果不受影响。
 
 ### 已识别代理（`herdr agent` 类型清单里有的，如 claude、codex、kimi）
 
@@ -84,6 +82,8 @@ description: 用一个总控会话协调多个独立的编码代理会话：总�
 5. 子会话和总控的权限模式不同时，消息会先被扣给对方用户审批；这时改用 `herdr agent prompt` 派单。
 
 ### 通用
+
+- **Windows**：命令本身相同，变量写法不同。PowerShell 中 `$HERDR_PANE_ID`、`$HERDR_WORKSPACE_ID` 写成 `$env:HERDR_PANE_ID`、`$env:HERDR_WORKSPACE_ID`；`--cwd "$PWD"` 可直接使用。本技能的脚本都用 `python scripts\<脚本名>` 调用。
 
 - **用户接管**：用户可以随时进 pane 直接输入。总控再派单前，先读一遍最新输出，避免与用户的指令冲突。
 - **显式指定目标**：部分命令省略目标时会落到 UI 焦点所在的 pane，那可能是用户的 pane。必须显式传 pane ID、代理名或 `--current`。
