@@ -1,11 +1,23 @@
 ---
 name: weicoz-agent-implement-spec
-description: 将整份规格及其关联票据委派给编码代理，按当前 implement-spec 技能编排依赖图、就绪票据、独立 worktree 和 integration 分支，监控整体审查与验收。用于“让代理实现整份 spec”“把规格的所有票做完”等整规格委派；单票实现使用 weicoz-agent-implement。
+description: 将整份规格及其关联票据委派给编码代理实现，默认由本机发起会话担任编排器，按当前 implement-spec 技能编排依赖图、就绪票据、独立 worktree 和 integration 分支，每票派一个实现会话（本机或经 weicoz-remote-dispatch 派到远端），由发起方合并、审查与验收。用于“让代理实现整份 spec”“把规格的所有票做完”等整规格委派；单票实现使用 weicoz-agent-implement。
 ---
 
 # 整规格委派实现
 
-派单方把整份规格交给一个编排执行方，负责监控和最终验收；编排执行方按 `implement-spec` 调度实现与合并代理。不要把 spec 当一张大票套用 `implement`，也不要只把所有票同时发出去。
+按 `implement-spec` 调度实现与合并。不要把 spec 当一张大票套用 `implement`，也不要只把所有票同时发出去。
+
+## 编排者：默认由本机发起会话担任
+
+默认编排器是本机当前的发起会话（用户正在对话的宿主代理），不是另派一个编排代理。发起方自己维护任务 DAG 与 frontier、本机 integration worktree、票据状态和进度记录，是 integration 的唯一写入者；每张就绪票单独派一个实现会话（默认 Codex，按 `weicoz-agent-implement` 的提示词与验收要求）：
+
+- 本机执行：每票一个独立 worktree／分支和一次 CLI 会话。
+- 用户授权远端时：每票一次 `rd run`，`--ref <integration 分支>`、`--branch <票据分支>`，随单 `--include` 规格外的必要文件（如技能原文副本、清单）；完成后 `rd fetch`，在本机审查、合入 integration，再从合并后的提交派下一批。
+- 并行度按执行机实测负载与用户指定上限；并行票先分配迁移编号、共享文件等归属，写进各自提示词。
+
+原因（2026-10-16 实测）：远端员工配置的沙箱只放行任务 worktree 等目录，任务内的编排代理无法写继承的 `CODEX_HOME`，嵌套 `codex exec` 报 `failed to initialize in-process app-server client: Operation not permitted`，无法启动实现会话。由发起方编排还能把派单、合并与验收放在同一处，额度上编排与验收用发起方宿主，写代码用实现代理。
+
+只有用户明确要求把编排交给另一个代理，且已核实该执行环境能创建并恢复实现会话（可写会话配置目录、可启动子代理或 CLI）时，才使用下文“给编排执行方的提示词”委派编排；否则不得为此放宽远端权限配置。
 
 ## 读取与任务边界
 
@@ -23,7 +35,7 @@ description: 将整份规格及其关联票据委派给编码代理，按当前 
 
 用户或项目明确要求只读、不提交、不合并或禁止临时分支时，遵守更具体限制，不以默认值覆盖。本地 Git 授权不包含 push、远程 PR、部署、发布、付费或跨设备执行；这些动作按已有的对应授权执行。用户明确要求在指定仓库提交并推送时，执行该已授权范围，不再次确认，也不扩展到其他仓库。
 
-## 给编排执行方的提示词
+## 给编排执行方的提示词（仅在用户要求委派编排时）
 
 首行点名 **implement-spec**，并给出规格与票据来源：
 
