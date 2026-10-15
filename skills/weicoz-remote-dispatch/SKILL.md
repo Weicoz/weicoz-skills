@@ -5,7 +5,7 @@ description: 把编码代理会话（Codex、dsh、Kimi Code、Claude Code 或�
 
 # Remote Dispatch
 
-把任务派到指定机器，并按员工固定 ID 选择独立配置。员工使用指南见 [README.md](README.md)；准备配置、路径映射和同步时读 [员工配置](references/user-profiles.md)。
+把任务派到指定机器，并按员工固定 ID 选择独立配置。需要同时协调多条工作线（本机交互会话和远端任务混合）并在一处汇总时，由 `weicoz-session-hub` 当总控，本技能负责其中的远端任务。员工使用指南见 [README.md](README.md)；准备配置、路径映射和同步时读 [员工配置](references/user-profiles.md)。
 
 ## 发起方与接收方
 
