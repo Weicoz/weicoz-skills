@@ -56,7 +56,6 @@ def rewrite(data, source, target, replacements):
 def portable_codex(text, platform, source=None, target=None):
     config = tomllib.loads(text)
     unavailable = []
-    sections = list(re.finditer(r'(?m)^\[[^\n]+\]\s*$', text))
     edits = []
     if platform != 'darwin':
         notify_match = re.search(r'(?m)^notify\s*=\s*\[.*\]\s*$', text)
@@ -80,6 +79,7 @@ def portable_codex(text, platform, source=None, target=None):
                         text = text[:notify_match.start()] + 'notify = ' + json.dumps(inner) + text[notify_match.end():]
                 except Exception:
                     pass
+        sections = list(re.finditer(r'(?m)^\[[^\n]+\]\s*$', text))
         for i, section in enumerate(sections):
             try:
                 table = tomllib.loads(section.group()).get('mcp_servers', {})
