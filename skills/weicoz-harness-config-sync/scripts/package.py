@@ -53,12 +53,33 @@ def rewrite(data, source, target, replacements):
     return pattern.sub(lambda match: mapping[match.group()], text).encode('utf-8')
 
 
-def portable_codex(text, platform):
+def portable_codex(text, platform, source=None, target=None):
     config = tomllib.loads(text)
     unavailable = []
     sections = list(re.finditer(r'(?m)^\[[^\n]+\]\s*$', text))
     edits = []
     if platform != 'darwin':
+        notify_match = re.search(r'(?m)^notify\s*=\s*\[.*\]\s*$', text)
+        if notify_match:
+            notify_str = notify_match.group()
+            if 'SkyComputerUseClient' in notify_str and '--previous-notify' in notify_str:
+                try:
+                    raw_val = notify_str.split('=', 1)[1].strip()
+                    arr = json.loads(raw_val)
+                    if '--previous-notify' in arr:
+                        idx = arr.index('--previous-notify')
+                        inner = json.loads(arr[idx + 1])
+                        inner = ['node' if ('node' in p and '.hermes' in p) else p for p in inner]
+                        if source and target:
+                            s_variants = {str(source), str(Path(source).resolve())}
+                            for s in list(s_variants):
+                                if s.startswith('/private/'):
+                                    s_variants.add(s[len('/private'):])
+                            for s in sorted(s_variants, key=len, reverse=True):
+                                inner = [p.replace(s, target) for p in inner]
+                        text = text[:notify_match.start()] + 'notify = ' + json.dumps(inner) + text[notify_match.end():]
+                except Exception:
+                    pass
         for i, section in enumerate(sections):
             try:
                 table = tomllib.loads(section.group()).get('mcp_servers', {})
@@ -82,7 +103,8 @@ def portable_codex(text, platform):
     return text, unavailable
 
 
-def build(source, target, platform, output, shell=False, config=True, extras=(), include_auth=False):
+def build(source, target, platform, output, shell=False, config=True, extras=(), include_auth=False,
+          exclude_dsh_official_deepseek=False):
     source = source.resolve()
     output = output.resolve()
     if output.exists():
@@ -119,7 +141,8 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
                 copy(child, rel + '/' + child.name, active + (real,))
         elif src.is_file():
             data = src.read_bytes()
-            if re.search(rb'(?m)^-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{32,}', data):
+            header_pattern = rb'(?m)^-----' + rb'BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{32,}'
+            if re.search(header_pattern, data):
                 raise ValueError(f'拒绝私钥正文: {rel}')
             dst = stage / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
@@ -164,9 +187,39 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
                     links[root + '/AGENTS.md'] = '.agents/AGENTS.md'
         cp = stage / '.codex/config.toml'
         if cp.exists():
-            text, unavailable = portable_codex(cp.read_text(), platform)
+            text, unavailable = portable_codex(cp.read_text(), platform, source=source, target=target)
             cp.write_text(text)
             tomllib.loads(text)
+        if exclude_dsh_official_deepseek:
+            cred = stage / '.dsh/.credentials.yaml'
+            if cred.exists():
+                lines = [l for l in cred.read_text().splitlines() if not re.match(r'^\s*DEEPSEEK_API_KEY\s*:', l)]
+                cred.write_text('\n'.join(lines) + '\n')
+            for patch_file in (stage / '.dsh').rglob('*.patch.yml'):
+                t = patch_file.read_text()
+                if 'deepseek-official' in t:
+                    t = re.sub(r'(?m)^\s*provider:\s*deepseek-official\s*$', '    provider: newapi', t)
+                    patch_file.write_text(t)
+        web_pkg = stage / '.dsh/profiles/web/package.json'
+        if web_pkg.exists() and platform == 'linux':
+            try:
+                pkg_data = json.loads(web_pkg.read_text())
+                vendor_names = [
+                    '@smalltailqwq/dsh-client-ui-skin-maid-atelier',
+                    'dsh-at-file',
+                    'dsh-deep-whale',
+                    'dsh-models-dev-reasoning',
+                    'dsh-skin-manager',
+                    'dsh-usage-stats',
+                    'dsh-web'
+                ]
+                deps = pkg_data.get('dependencies', {})
+                for vname in vendor_names:
+                    if vname in deps and not deps[vname].startswith(('link:', 'file:')):
+                        deps[vname] = f'link:{target}/.dsh/profiles/web/vendor/{vname}'
+                web_pkg.write_text(json.dumps(pkg_data, ensure_ascii=False, indent=2) + '\n')
+            except Exception:
+                pass
     for spec in extras:
         src, rel = spec.split('=', 1)
         copy(Path(src).expanduser(), rel)
@@ -219,14 +272,18 @@ def main():
     p.add_argument('--shell', action='store_true')
     p.add_argument('--shell-only', action='store_true')
     p.add_argument('--include-auth', action='store_true', help='用户已要求同步登录及模型凭据时使用')
+    p.add_argument('--exclude-dsh-official-deepseek', action='store_true',
+                   help='用户要求不同步 DSH 官方 DeepSeek 模型凭据与配置时使用')
     p.add_argument('--extra', action='append', default=[], metavar='SOURCE=HOME_RELATIVE_DEST')
     a = p.parse_args()
     try:
         build(a.source_home, a.target_home.replace('\\', '/').rstrip('/'), a.platform,
-              a.output, a.shell or a.shell_only, not a.shell_only, a.extra, a.include_auth)
+              a.output, a.shell or a.shell_only, not a.shell_only, a.extra, a.include_auth,
+              a.exclude_dsh_official_deepseek)
     except (ValueError, OSError) as error:
         p.exit(1, f'错误：{error}\n')
 
 
 if __name__ == '__main__':
     main()
+

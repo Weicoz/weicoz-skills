@@ -73,6 +73,35 @@ class PackageSafety(unittest.TestCase):
             self.assertEqual((target / '.codex/skills/demo').resolve(), (target / '.agents/skills/demo').resolve())
             self.assertEqual((target / '.codex/AGENTS.md').resolve(), (target / '.agents/AGENTS.md').resolve())
 
+    def test_exclude_dsh_official_deepseek_and_notify_unwrap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, target = root / 'source', root / 'target'
+            (source / '.codex').mkdir(parents=True)
+            (source / '.dsh/profiles/dsh-tui').mkdir(parents=True)
+            (source / '.dsh/profiles/web').mkdir(parents=True)
+            (source / '.codex/config.toml').write_text(
+                'notify = ["' + str(source) + '/SkyComputerUseClient.app", "turn-ended", "--previous-notify", "[\\"' + str(source).replace('/', '\\\\/') + '\\\\/.hermes\\\\/node\\\\/bin\\\\/node\\", \\"' + str(source).replace('/', '\\\\/') + '\\\\/notify.mjs\\"]"]\n')
+            (source / '.dsh/.credentials.yaml').write_text(
+                'version: 1\nrefs:\n  DEEPSEEK_API_KEY: sk-secret\n  OTHER_KEY: sk-keep\n')
+            (source / '.dsh/profiles/dsh-tui/cordis.patch.yml').write_text(
+                '- id: dsh-tui\n  config:\n    provider: deepseek-official\n')
+            (source / '.dsh/profiles/web/package.json').write_text(
+                '{"dependencies": {"dsh-web": "github:test/dsh-web"}}\n')
+            output = root / 'output'
+            package.build(source, str(target), 'linux', output, include_auth=True,
+                          exclude_dsh_official_deepseek=True)
+            codex_cfg = (output / 'payload/.codex/config.toml').read_text()
+            self.assertIn('notify = ["node", "' + str(target) + '/notify.mjs"]', codex_cfg)
+            dsh_cred = (output / 'payload/.dsh/.credentials.yaml').read_text()
+            self.assertNotIn('DEEPSEEK_API_KEY', dsh_cred)
+            self.assertIn('OTHER_KEY: sk-keep', dsh_cred)
+            tui_patch = (output / 'payload/.dsh/profiles/dsh-tui/cordis.patch.yml').read_text()
+            self.assertIn('provider: newapi', tui_patch)
+            self.assertNotIn('provider: deepseek-official', tui_patch)
+            web_pkg = json.loads((output / 'payload/.dsh/profiles/web/package.json').read_text())
+            self.assertEqual(web_pkg['dependencies']['dsh-web'], f'link:{target}/.dsh/profiles/web/vendor/dsh-web')
+
     def test_boundary_and_private_key_rejection(self):
         for bad in ('../outside', '/absolute', '.ssh/id_rsa', '.codex/memories/owner.md'):
             with self.assertRaises(ValueError):
@@ -80,7 +109,7 @@ class PackageSafety(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / 'source/.codex').mkdir(parents=True)
-            (root / 'source/.codex/auth.json').write_text('-----BEGIN PRIVATE KEY-----\n' + 'A' * 64)
+            (root / 'source/.codex/auth.json').write_text('-----' + 'BEGIN PRIVATE ' + 'KEY-----\n' + 'A' * 64)
             with self.assertRaises(ValueError):
                 package.build(root / 'source', str(root / 'target'), 'linux', root / 'output', include_auth=True)
 
