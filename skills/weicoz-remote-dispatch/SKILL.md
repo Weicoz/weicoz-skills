@@ -176,7 +176,13 @@ rd resume <job> --prompt-file <续跑说明>
 
 会话编号从日志里自动取。取不到时用 `--session <编号>` 指定。续跑说明里写清楚上一轮为什么中断、改动都还在、接着做什么。
 
+先用 `rd result <job> --summary`读取有界摘要和原件路径。新runner从本轮Codex日志区分模型路由、上下文、认证、传输及限流故障；日志不全时工作迹象记未知，不冒零工作。默认同类且未见工作执行的模型故障只允许一次原会话续跑；`RD_MAX_SAME_FAILURE_RESUMES`优先于`[recovery] max_same_failure_resumes`，只接受非负整数。预算只限制发起方续跑，不改模型CLI内部策略，也不覆盖资源和身份检查。
+
+纯上下文故障可以显式 `rd resume <job> --new-context --prompt-file <剩余工作说明>`：保留job、工作树、员工配置、模型及旧回执，记录前任会话；新receiver等待真实thread.started后绑定。路由、认证、网络故障不能靠换上下文绕过；修复后用`--retry-after-repair <恢复证据说明>`登记依据再续跑。普通`resume`仍复用原会话，工具不自动重派或循环换上下文。
+
 ### 5. 取回并验收
+
+日常结果读取用 `rd result <job> --summary`，保留原完整JSON接口供按需核验；结构化证据和散列见[交付回执](references/handoff.md)。执行退出、执行方检查、发起方验收及送达分别记录，不能由一个exit码替代。
 
 ```bash
 rd fetch <job>
@@ -230,6 +236,8 @@ rd clean <job> --delete-branch   # 同时删除任务分支（远端，以及 or
 - 旧版只有 Codex 的启动与续跑实跑。新版员工隔离和平台适配必须分别验收；本地模拟、Linux 容器和真实 Windows 设备分开报告。其他代理模板未完成员工适配，不派单。模板说明见 `references/agents.md`。
 
 ## 共享重任务锁兼容
+
+合票后需要回收已授权的自有中间缓存时，按[缓存保留与回收](references/cache-retention.md)运行随job提供的`rd_cache.py`。它默认只计划；应用前核实际关闭回执、合入关系、文件使用和保留产物，不删除worktree或job。
 
 `rd-heavy` 不自动回收带 `process-receipt.json` 的槽。监督器退出后仍有未知或存活后代时，必须保留回执和锁；包装器 PID 消失不证明整个任务结束。只有所属监督器／派单方确认本次自有工具已结束后才能释放，不删除他人的保留槽。与监督器共用锁目录的旧 helper 必须核对这项兼容；更新前保留副本，仅同步已授权的 helper。
 

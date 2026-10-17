@@ -292,7 +292,7 @@ def run_job(spec_file):
         if spec.get("handoff_version"):
             (directory / ("exit.r" + str(spec["round"]))).write_text(str(rc), encoding="utf-8")
             try:
-                messages.finish(directory, spec["job"], spec["round"], rc)
+                messages.finish(directory, spec["job"], spec["round"], rc, agent=spec.get("agent"))
             except (ValueError, OSError):
                 (directory / ("report.r" + str(spec["round"]) + ".log")).write_text("结果回执生成失败；原执行退出码保留。", encoding="utf-8")
         (directory / "exit_code").write_text(str(rc), encoding="utf-8")
@@ -386,6 +386,9 @@ def handle(q, incoming):
     if op in ("logs", "sessions"):
         directory = checked_path(root, "jobs/" + q["job"])
         if op == "sessions":
+            if q.get("round") is not None:
+                path = checked_path(directory, "stdout.r" + str(messages.round_id(q["round"])) + ".log")
+                return path.read_bytes()[:200000].decode("utf-8", errors="replace") if path.exists() else ""
             return "".join(p.read_bytes()[:200000].decode("utf-8", errors="replace") for p in sorted(directory.glob("stdout.r*.log")))
         path = checked_path(directory, q["file"])
         return "\n".join(path.read_bytes()[-1024 * 1024:].decode("utf-8", errors="replace").splitlines()[-q["lines"]:]) if path.exists() else "(日志尚未生成)"

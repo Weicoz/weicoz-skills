@@ -8,7 +8,7 @@
 rd run --agent codex --host mini --initiator-session <当前会话ID> --prompt-file task.md
 rd status <job> --details --initiator-session <当前会话ID>
 rd watch <job> --keep-on-disconnect
-rd result <job> --initiator-session <当前会话ID>
+rd result <job> --summary --initiator-session <当前会话ID>
 rd ack <job> --round 1 --receipt-id <result返回的receipt_id> --initiator-session <当前会话ID>
 # 发起方读完结果并决定修复或复检后，继续原接收会话。
 rd resume <job> --prompt-file followup.md --initiator-session <当前会话ID>
@@ -37,6 +37,14 @@ Windows使用该机器当前Python与 `$env:RD_REPORTER`。无Python的POSIX普�
 回执为UTF-8 JSON，最大64KiB，原子写入、权限0600；包含job、round、phase、summary、artifacts、updated_at。结果另外包含 outcome (`completed/partial/blocked/failed`)、checks (`passed/failed/partial/not_run/not_reported`)。只引用本任务证据，摘要不含密码、私钥或敏感正文。
 
 runner收尾补 executor_exit、finished_at。代理未写结构化结果时，从Codex最后回复生成有界摘要，checks仍为not_reported；普通命令的stdout保留为日志引用。非零退出不能被执行方completed声明掩盖。
+
+## 证据索引与有界读取
+
+用`rd-report`对应的Python入口增加`--source-fingerprint <SHA256>`、`--artifact <本任务路径>`或`--evidence-file <JSON>`。产物文件实际读取散列与大小；缺失标`missing`，符号链接、越界或读取中变化标`unverified`。目录仅记录存在，不冒充目录内容已哈希。原`artifacts`路径列表保持兼容。
+
+`evidence`只接受`source_fingerprint`、`checks`、`artifacts`和布尔`cleanup_confirmed`。分项检查为`{name,status,artifact?}`，status沿用检查状态；产物为`{path,state,sha256?,bytes?,kind?}`，state为`present/missing/unverified`。索引最大64KiB；大原件留私有目录，不把完整源码散列表和日志反复打印进上下文。
+
+`rd result --summary`最多返回600字摘要、来源指纹、分项状态计数、缺失／未核产物数量、模型故障分类和本机完整回执路径。默认完整JSON接口不变。所有执行方证据仍待发起方验收，不能把`present`或回收自述等同独立核验。
 
 发起方结果另含 initiator_session、receiver_session、receipt_id、captured_at、head/dirty 和 needs_initiator_review。检查状态来自执行方报告，不是调度器独立验收。`delivery_state=pending/received` 只表示收取，原始执行/检查失败仍保留。
 

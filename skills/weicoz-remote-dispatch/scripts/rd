@@ -188,6 +188,16 @@ class Config:
             die("RD_REPORT_INTERVAL_SECONDS / [monitor] report_interval_seconds must be a positive integer (seconds)", 4)
         return interval
 
+    def recovery_limit(self):
+        value = os.environ.get("RD_MAX_SAME_FAILURE_RESUMES") or self.cp.get("recovery", "max_same_failure_resumes", fallback="1")
+        try:
+            limit = int(value)
+        except (ValueError, TypeError):
+            die("RD_MAX_SAME_FAILURE_RESUMES 必须是非负整数。", 4)
+        if limit < 0:
+            die("RD_MAX_SAME_FAILURE_RESUMES 必须是非负整数。", 4)
+        return limit
+
     def host(self, name):
         sec = self._section("host", name)
         if sec is None:
@@ -604,7 +614,11 @@ def cmd_result(a, cfg):
         receipt = collect_result(cfg, rec, snapshot)
     if receipt is None:
         die("结果尚未取得；用 rd status 查看运行或连接状态。", 2)
-    print(json.dumps(dict(receipt, delivery_state=delivery(rec, receipt)), ensure_ascii=False, indent=2))
+    result = dict(receipt, delivery_state=delivery(rec, receipt))
+    if getattr(a, "summary", False):
+        result = messages.result_summary(result)
+        result["receipt_path"] = str(result_path(rec, receipt["round"]))
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 def cmd_inbox(a, cfg):
@@ -661,7 +675,7 @@ def build_run_script(host, rec, round_no, timeout):
         command = 'python3 "$RD_JOB_DIR/rd_profiles.py" "$RD_JOB_DIR" "$RD_JOB_DIR/cmd.r$RD_ROUND.sh" ' + shlex.quote(host["codex_auth_file"])
     report_env, report_finish = "", ":"
     if rec.get("handoff_version"):
-        report_env = 'export RD_REPORTER="$RD_JOB_DIR/rd_messages.py"'
+        report_env = 'export RD_REPORTER="$RD_JOB_DIR/rd_messages.py" RD_AGENT=' + shlex.quote(rec.get("agent") or "")
         report_finish = ('printf "%s\\n" "$rc" > "$RD_JOB_DIR/exit.r$RD_ROUND"; '
                          'if command -v python3 >/dev/null 2>&1; then python3 "$RD_REPORTER" finish --exit "$rc" '
                          '>> "$RD_JOB_DIR/report.r$RD_ROUND.log" 2>&1; fi')
@@ -735,6 +749,8 @@ def launch(host, rec, round_no, cmd_text, prompt_text, timeout):
                            "检查状态为执行方报告，最终验收由发起方判断；密码、私钥和敏感正文不写回执。\n")
         with open(os.path.join(HERE, "rd_messages.py"), encoding="utf-8") as stream:
             put_file(host, f"jobs/{j}/rd_messages.py", stream.read(), "600")
+        with open(os.path.join(HERE, "rd_cache.py"), encoding="utf-8") as stream:
+            put_file(host, f"jobs/{j}/rd_cache.py", stream.read(), "600")
         put_file(host, f"jobs/{j}/reports/dispatch.r{round_no}.json", json.dumps(dict(job=j, round=round_no, initiator_session=rec.get("initiator_session"))), "600")
     if host["platform"] == "windows":
         spec = dict(rec, round=round_no, timeout=int(timeout), max_heavy=int(host["max_heavy"]),
@@ -1056,12 +1072,43 @@ def cmd_logs(a, cfg):
 
 def find_session(host, rec, agent):
     if host["platform"] == "windows":
-        output = native.request(host, "sessions", {"job": rec["job"]})
+        output = native.request(host, "sessions", {"job": rec["job"], "round": rec.get("rounds", 1)})
         matched = re.search(agent["session_regex"], output)
         return matched.group(1) if matched else None
-    r = ssh(host, f'head -c 200000 "$ROOT/jobs/{rec["job"]}"/stdout.r*.log 2>/dev/null', check=False)
+    number = messages.round_id(rec.get("rounds", 1))
+    r = ssh(host, f'head -c 200000 "$ROOT/jobs/{rec["job"]}/stdout.r{number}.log" 2>/dev/null', check=False)
     m = re.search(agent["session_regex"], r.stdout or "")
     return m.group(1) if m else None
+
+
+def check_recovery(rec, receipt, args, cfg):
+    failure = ((receipt or {}).get("report") or {}).get("runtime_failure")
+    new_context = getattr(args, "new_context", False)
+    repair = getattr(args, "retry_after_repair", None)
+    if repair is not None:
+        messages.identifier(repair, "恢复证据说明")
+    if new_context:
+        if not failure or failure.get("kind") != "context":
+            die("仅已识别的上下文故障可以 --new-context；路由、认证或网络故障须先修复。", 4)
+        history = rec.get("context_history", [])
+        if (history and history[-1].get("from_round") == rec["rounds"] - 1
+                and failure.get("work_observed") is False and not repair):
+            die("新上下文也未开始工作；保存回执并先修复启动条件，不重复新建。", 4)
+        return
+    if not failure or failure.get("work_observed") is not False or repair:
+        return
+    limit = cfg.recovery_limit() if cfg is not None else 1
+    count = 1
+    for number in range(rec["rounds"] - 1, 0, -1):
+        previous = messages.read_json(result_path(rec, number))
+        old = ((previous or {}).get("report") or {}).get("runtime_failure")
+        if not old or old.get("kind") != failure.get("kind") or old.get("work_observed") is not False:
+            break
+        count += 1
+        if count > limit:
+            break
+    if count > limit:
+        die("重复模型启动故障，已停止续跑；用 rd result --summary 查看分类。取得修复证据后才用 --retry-after-repair，纯上下文故障可以显式 --new-context。", 4)
 
 
 def cmd_resume(a, cfg):
@@ -1084,16 +1131,25 @@ def cmd_resume(a, cfg):
     if why and not a.force_host:
         die(f"{host['name']} cannot take the session now ({'; '.join(why)}).", 3)
     agent = rec.get("agent_config") or cfg.agent(rec["agent"])
-    session = a.session or find_session(host, rec, agent)
+    session = a.session or rec.get("receiver_session") or find_session(host, rec, agent)
     if not session:
         die("could not find the agent's session id in the logs; pass --session ID")
     known = rec.get("receiver_session") or (find_session(host, rec, agent) if rec.get("handoff_version") else None)
     if known and session != known:
         die("续派必须复用原接收会话；指定 --session 与原会话不匹配。", 4)
-    if rec.get("handoff_version"):
-        collect_result(cfg, rec, st)
-    rec["receiver_session"] = session
+    receipt = collect_result(cfg, rec, st) if rec.get("handoff_version") else None
+    check_recovery(rec, receipt, a, cfg)
     prompt = sys.stdin.read() if a.prompt_file == "-" else Path(a.prompt_file).read_text(encoding="utf-8")
+    if getattr(a, "new_context", False):
+        rec.setdefault("context_history", []).append(dict(receiver_session=session, from_round=rec["rounds"],
+                                                          receipt_id=receipt["receipt_id"], reason="context", at=messages.utc_now()))
+        session = None
+        prompt = ("原接收会话因上下文故障退役；沿用当前工作树、模型、员工配置和原授权，仅完成本轮剩余项。"
+                  "旧失败和回执保留，不重复已完成工作。\n\n" + prompt)
+    if getattr(a, "retry_after_repair", None):
+        rec.setdefault("recovery_repairs", []).append(dict(from_round=rec["rounds"],
+                                                           evidence=a.retry_after_repair, at=messages.utc_now()))
+    rec["receiver_session"] = session
     rec["rounds"] += 1
     if host["platform"] == "windows":
         rec["session"] = session
@@ -1102,7 +1158,7 @@ def cmd_resume(a, cfg):
     save_job(rec)
     launch(host, rec, rec["rounds"], agent_command(agent, a.model or rec.get("model"), a.effort or rec.get("effort"), session), prompt,
            a.timeout or host["timeout"])
-    print(f"resumed {rec['job']} (round {rec['rounds']}, session {session})")
+    print(f"resumed {rec['job']} (round {rec['rounds']}, session {session or 'pending new context'})")
 
 
 def cmd_fetch(a, cfg):
@@ -1319,6 +1375,7 @@ def main():
     p.add_argument("job")
     p.add_argument("--round", type=int)
     p.add_argument("--initiator-session")
+    p.add_argument("--summary", action="store_true", help="仅返回有界摘要及完整回执路径；保留原完整JSON接口")
     p.set_defaults(fn=cmd_result)
 
     p = sub.add_parser("inbox", help="列出当前发起会话待收取的结果")
@@ -1341,6 +1398,8 @@ def main():
     p.add_argument("--timeout", type=int)
     p.add_argument("--force-host", action="store_true")
     p.add_argument("--initiator-session")
+    p.add_argument("--new-context", action="store_true", help="仅上下文故障时显式接替原会话，保留任务与配置")
+    p.add_argument("--retry-after-repair", help="同类故障修复后续跑的证据说明；不绕过资源或身份检查")
     p.set_defaults(fn=cmd_resume)
 
     p = sub.add_parser("fetch", help="bring the job's commits back as rd/<branch>")
