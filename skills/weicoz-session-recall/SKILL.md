@@ -7,7 +7,7 @@ whenToUse: 用户想找历史会话、回顾之前的工作成果或决策、确
 
 # 会话回顾（weicoz-session-recall）v1.0.0
 
-把本机所有 harness 里"说过话"的历史会话做成一份可检索的索引：每个会话一段中文摘要 + 关键词 + 状态 + 产出物。数据在 `~/.local/state/weicoz-session-recall/`，**与当前所在目录、当前用哪个 harness 无关**——在 DSH、Codex、Claude Code、Antigravity 还是 Kimi Code 里调用，看到的都是同一份索引，五个 harness 的会话一起检索。
+把本机所有 harness 里"说过话"的历史会话做成一份可检索的索引：每个会话一段中文摘要 + 关键词 + 状态 + 产出物。底层由开源独立项目 **[agent-recall](https://github.com/Weicoz/agent-recall)**（`harness-recall`）统一驱动，数据在 `~/.local/state/weicoz-session-recall/`（或 `~/.local/state/agent-recall/`），**与当前所在目录、当前用哪个 harness 无关**——在 DSH、Codex、Claude Code、Antigravity 还是 Kimi Code 里调用，看到的都是同一份索引，五个 harness 的会话一起检索。
 
 ## 会话从哪来
 
@@ -24,15 +24,18 @@ whenToUse: 用户想找历史会话、回顾之前的工作成果或决策、确
 ## 怎么调用
 
 ```bash
-BIN=~/.agents/skills/weicoz-session-recall/bin
+# 方式 A（推荐）：直接使用系统全局 CLI（agent-recall）
+recall 竞拍 页面          # 检索：默认先看当前项目，没命中再跨全部项目
+recall 飞书 --all         # 明确跨全部项目检索
+recall 毛绒玩具 --project=ai_geo   # 限定某个项目（项目目录名子串）
+recall 飞书 --source=codex # 只看某个 harness（dsh / codex / claude / agy / kimi）
+recall 毛绒玩具 --detail  # 只命中一个时直接输出详情原文
+recall status             # 索引规模 + 待采集数量（按 harness 分）
+recall -i                 # 终端交互式 TUI 浏览与回车恢复
 
-node $BIN/recall.mjs 竞拍 页面          # 检索：默认先看当前项目，没命中再跨全部项目
-node $BIN/recall.mjs 飞书 --all         # 明确跨全部项目检索
-node $BIN/recall.mjs 毛绒玩具 --project=ai_geo   # 限定某个项目（项目目录名子串）
-node $BIN/recall.mjs 飞书 --source=codex # 只看某个 harness（dsh / codex / claude）
-node $BIN/recall.mjs 毛绒玩具 --detail  # 只命中一个时直接输出详情原文
-node $BIN/recall.mjs --status           # 索引规模 + 待采集数量（按 harness 分）
-node $BIN/recall.mjs --status --list    # 外加待采集会话明细
+# 方式 B：通过 Skill 脚本路径调用（自动代理至 agent-recall）
+BIN=~/.agents/skills/weicoz-session-recall/bin
+node $BIN/recall.mjs 竞拍 页面
 ```
 
 每个关键词独立计分：标题 6 > 关键词 5 > 产出物 4 > 摘要 3 > 提问原文 2 > 状态 1。
@@ -57,7 +60,8 @@ node $BIN/recall.mjs --status --list    # 外加待采集会话明细
 ### 阶段 2：程序执行多路召回（Programmatic Candidate Retrieval）
 由程序执行命中检索，初筛候选池（默认获取前 5~10 条）：
 ```bash
-node $BIN/recall.mjs <拆解后的关键词...> --limit=10 [--all] [--json]
+recall <拆解后的关键词...> --limit=10 [--all] [--json]
+# 或 node $BIN/recall.mjs <拆解后的关键词...> --limit=10 [--all] [--json]
 ```
 - **默认当前项目优先**：当前仓库有命中则优先展示；若无命中脚本已自动跨全部项目召回并在输出标明；
 - 程序毫秒级返回一组候选会话窗口（含 ID、时间、项目、来源 Harness、标题、中文摘要、产出物）；
