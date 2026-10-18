@@ -18,6 +18,8 @@ if "profiles" not in globals():
     import rd_profiles as profiles
 if "messages" not in globals():
     import rd_messages as messages
+if "health" not in globals():
+    import rd_health as health
 
 
 def ps_quote(value):
@@ -36,8 +38,9 @@ def request(host, operation, data=None, payload=None, output=None, timeout=60):
                    shared_workdir=host.get("shared_workdir", host["workdir"]),
                    path=host["path"], worker_code=(here / "rd_native.py").read_text(encoding="utf-8"),
                    profile_code=(here / "rd_profiles.py").read_text(encoding="utf-8"),
+                   health_code=(here / "rd_health.py").read_text(encoding="utf-8"),
                    messages_code=(here / "rd_messages.py").read_text(encoding="utf-8"))
-    boot = "import json,sys,types; q=json.loads(sys.stdin.buffer.readline()); p=types.ModuleType('rd_profiles'); exec(q['profile_code'],p.__dict__); m=types.ModuleType('rd_messages'); exec(q['messages_code'],m.__dict__); n={'__name__':'rd_remote','profiles':p,'messages':m}; exec(q['worker_code'],n); n['serve'](q)"
+    boot = "import json,sys,types; q=json.loads(sys.stdin.buffer.readline()); p=types.ModuleType('rd_profiles'); exec(q['profile_code'],p.__dict__); m=types.ModuleType('rd_messages'); exec(q['messages_code'],m.__dict__); h=types.ModuleType('rd_health'); exec(q['health_code'],h.__dict__); n={'__name__':'rd_remote','profiles':p,'messages':m,'health':h}; exec(q['worker_code'],n); n['serve'](q)"
     prefix = "$env:PATH=[Environment]::ExpandEnvironmentVariables(" + ps_quote(host["path"]) + ")+';'+$env:PATH; " if host["path"] else ""
     script = prefix + "$OutputEncoding=[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); & " + ps_quote(host["python"]) + " '-c' " + ps_quote(boot) + "; exit $LASTEXITCODE"
     cmd = ["ssh", *shlex.split(host["ssh_opts"]), host["ssh"], " ".join(powershell(script))]
@@ -182,7 +185,11 @@ def job_state(root, job):
     state = "missing" if not directory.exists() else "done" if read("exit_code") else "running" if alive(read("pid")) else "starting" if not read("pid") else "dead"
     rounds = len(list(directory.glob("run.r*.json")))
     logs = directory / ("stdout.r" + str(rounds) + ".log")
-    tail = logs.read_bytes()[-4096:].decode("utf-8", errors="replace").splitlines()[-1:] if logs.exists() else []
+    tail = []
+    if logs.exists():
+        with logs.open("rb") as stream:
+            stream.seek(max(0, stream.seek(0, 2) - 4096))
+            tail = stream.read(4096).decode("utf-8", errors="replace").splitlines()[-1:]
     head, dirty, head_source = read("head"), read("dirty"), "recorded"
     wt = root / "wt" / job
     if state == "running" and wt.is_dir():
@@ -193,7 +200,8 @@ def job_state(root, job):
     return {"job": job, "state": state, "exit": read("exit_code"), "timed_out": "yes" if (directory / "timed_out").exists() else "",
             "push_rc": read("push_rc"), "head": head, "dirty": dirty, "round": str(rounds),
             "head_source": head_source, "observed_at": messages.utc_now(),
-            "setup": "done" if (directory / "setup.done").exists() else "pending" if (directory / "setup.ps1").exists() else "", "last": tail[0] if tail else ""}
+            "setup": "done" if (directory / "setup.done").exists() else "pending" if (directory / "setup.ps1").exists() else "", "last": tail[0] if tail else "",
+            "network_sample": health.log_sample(directory, rounds)}
 
 
 def shell_command(script):
@@ -309,7 +317,14 @@ def handle(q, incoming):
         os.environ["PATH"] = os.path.expandvars(q["path"]) + os.pathsep + os.environ.get("PATH", "")
     op = q["operation"]
     if op == "probe":
-        return win_metrics(root, shared)
+        info = win_metrics(root, shared)
+        if q.get("env_file"):
+            values = json.loads(Path(os.path.expandvars(os.path.expanduser(q["env_file"]))).read_text(encoding="utf-8"))
+            if not isinstance(values, dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in values.items()):
+                raise ValueError("Windows env_file 必须是字符串键值的 JSON 文件。")
+            os.environ.update(values)
+        info["network"] = health.network_probe(q["network_options"], shared, q.get("user_id", ""), q.get("agent", "codex"))
+        return info
     if op == "doctor":
         tools = {k: shutil.which(k) for k in ("git", "codex", "powershell.exe")}
         flags = subprocess.run(shell_command("& 'codex' features list" if os.name == "nt" else "codex features list"), capture_output=True, text=True)
@@ -446,13 +461,16 @@ def handle(q, incoming):
             if spec.get("profile"):
                 (directory / "profile.json").write_text(json.dumps(spec["profile"]), encoding="utf-8")
         message_code = q.get("messages_code") or Path(messages.__file__).read_text(encoding="utf-8")
+        health_code = q.get("health_code") or Path(health.__file__).read_text(encoding="utf-8")
         (directory / "rd_messages.py").write_text(message_code, encoding="utf-8")
+        (directory / "rd_health.py").write_text(health_code, encoding="utf-8")
         (directory / ("prompt.r" + str(spec["round"]) + ".md")).write_text(q["prompt"] or "", encoding="utf-8")
         bin_dir = root / "bin"
         bin_dir.mkdir(parents=True, exist_ok=True)
         (bin_dir / "rd_native.py").write_text(q["worker_code"], encoding="utf-8")
         (bin_dir / "rd_profiles.py").write_text(q["profile_code"], encoding="utf-8")
         (bin_dir / "rd_messages.py").write_text(message_code, encoding="utf-8")
+        (bin_dir / "rd_health.py").write_text(health_code, encoding="utf-8")
         (bin_dir / "rd-heavy.cmd").write_text('@"' + sys.executable + '" "' + str(bin_dir / "rd_native.py") + '" --heavy %*\r\n', encoding="utf-8")
         spec_file = directory / ("run.r" + str(spec["round"]) + ".json")
         spec_file.write_text(json.dumps(spec), encoding="utf-8")

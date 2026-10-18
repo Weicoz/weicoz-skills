@@ -103,6 +103,23 @@ class DispatchTests(unittest.TestCase):
         rd.cmd_run(self.args(**kwargs), self.cfg)
         return rd.all_jobs()[-1]
 
+    def test_run_refuses_network_failure_before_registering_or_launching_job(self):
+        info = dict(reachable=True, memfree="50", disk="100", network={"ok": False, "error": "TLS handshake failed"})
+        for host in ("fixture", "auto"):
+            with self.subTest(host=host), patch.object(rd, "probe", return_value=info), \
+                 patch.object(rd, "launch") as launch, self.assertRaises(SystemExit) as result:
+                self.dispatch(host=host, force_host=False)
+            self.assertEqual(result.exception.code, 3)
+            launch.assert_not_called()
+            self.assertEqual(rd.all_jobs(), [])
+            self.assertFalse(self.worker.exists())
+
+    def test_force_named_host_keeps_existing_probe_bypass_semantics(self):
+        with patch.object(rd, "probe", side_effect=AssertionError("forced host must bypass probe")) as probe:
+            record = self.dispatch(force_host=True)
+        self.assertEqual(record["host"], "fixture")
+        probe.assert_not_called()
+
     def clean(self, record, **overrides):
         values = dict(job=record["job"], force=True, delete_branch=True, discard_reports=False, initiator_session=None)
         values.update(overrides)

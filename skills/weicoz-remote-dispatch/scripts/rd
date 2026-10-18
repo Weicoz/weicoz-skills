@@ -25,6 +25,7 @@ import time
 import rd_profiles as profiles
 import rd_native as native
 import rd_messages as messages
+import rd_health as health
 
 CONFIG = os.environ.get("RD_CONFIG") or os.path.expanduser("~/.config/remote-dispatch/config.ini")
 STATE = os.environ.get("RD_STATE") or os.path.expanduser("~/.local/state/remote-dispatch")
@@ -200,6 +201,10 @@ class Config:
             die("RD_MAX_SAME_FAILURE_RESUMES 必须是非负整数。", 4)
         return limit
 
+    def network_stall_seconds(self):
+        value = os.environ.get("RD_NETWORK_STALL_SECONDS") or self.cp.get("monitor", "network_stall_seconds", fallback="600")
+        return health.positive_seconds(value, "RD_NETWORK_STALL_SECONDS / [monitor] network_stall_seconds")
+
     def host(self, name):
         sec = self._section("host", name)
         if sec is None:
@@ -217,6 +222,7 @@ class Config:
         if not h.get("ssh"):
             die(f"[host:{name}] needs ssh = user@address")
         h["name"] = name
+        h["probe_agent"] = getattr(self, "probe_agent", "codex")
         return h
 
     def hosts(self):
@@ -391,15 +397,39 @@ mv "$ROOT/profiles/current.tmp" "$ROOT/profiles/current.json"
 # ---------------------------------------------------------------- probing
 
 def probe(host):
+    options = health.network_options(host)
+    if host.get("probe_profile_fingerprint"):
+        options["profile_fingerprint"] = host["probe_profile_fingerprint"]
+    uid = os.environ.get("RD_USER_ID", "")
+    if uid:
+        profiles.user_id(uid)
     if host["platform"] == "windows":
         try:
-            return dict(native.request(host, "probe", timeout=25), host=host["name"], reachable=True)
+            return dict(native.request(host, "probe", {"network_options": options, "user_id": uid,
+                        "agent": host.get("probe_agent", "codex"), "env_file": host.get("env_file", "")},
+                        timeout=25 + options["network_timeout_seconds"]), host=host["name"], reachable=True)
         except (ValueError, subprocess.TimeoutExpired):
             return {"host": host["name"], "reachable": False, "error": "Windows SSH、运行环境或资源探针失败"}
     r = ssh(host, PROBE, check=False, timeout=25)
     info = {"host": host["name"], "reachable": bool(r and r.returncode == 0)}
     if info["reachable"]:
         info.update(kv.split("=", 1) for kv in r.stdout.split() if "=" in kv)
+        source = Path(HERE, "rd_health.py").read_text(encoding="utf-8")
+        code = source + "\nimport sys\nprint(json.dumps(network_probe(json.loads(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4])))"
+        # 与任务启动使用相同的远端环境文件，保留其代理环境；不输出文件内容。
+        env_file = host.get("env_file", "")
+        env = ('set -a; . ' + shlex.quote(env_file) + '; set +a; ') if env_file else ""
+        if env_file.startswith("~/"):
+            env = 'set -a; . "$HOME"/' + shlex.quote(env_file[2:]) + '; set +a; '
+        script = env + "python3 -c " + shlex.quote(code) + " " + shlex.quote(json.dumps(options)) + ' "$SHARED_ROOT" ' + shlex.quote(uid) + " " + shlex.quote(host.get("probe_agent", "codex"))
+        result = ssh(host, script, check=False, timeout=options["network_timeout_seconds"] + 10)
+        try:
+            network = json.loads(result.stdout) if result and result.returncode == 0 else None
+            if not isinstance(network, dict) or not isinstance(network.get("ok"), bool):
+                raise ValueError()
+            info["network"] = network
+        except ValueError:
+            info["network"] = {"ok": False, "checks": [], "error": "network probe unavailable/timeout (requires python3 and curl)"}
     else:
         info["error"] = ((r.stderr if r else "timeout") or "").strip().splitlines()[-1:] or ["unreachable"]
         info["error"] = info["error"][0]
@@ -418,6 +448,10 @@ def assess(host, info):
     if not info["reachable"]:
         return [f"unreachable: {info['error']}"]
     why = []
+    network = info.get("network")
+    if network is not None and not network.get("ok"):
+        failures = [f"{item['kind']} {item['target']}: {item['error']}" for item in network.get("checks", []) if not item["ok"]]
+        why.append("network unavailable: " + ("; ".join(failures) or network.get("error", "probe failed")))
     load, ncpu = num(info.get("load1")), num(info.get("ncpu"))
     if load is not None and ncpu and load / ncpu > float(host["max_load_per_core"]):
         why.append(f"load {load:.1f} on {int(ncpu)} cores")
@@ -451,11 +485,13 @@ def fmt_probe(host, info, why):
     if not info["reachable"]:
         return f"{host['name']:<12} UNREACHABLE  {info['error']}"
     unk = lambda k, suf="": (info.get(k) or "?") + suf
-    verdict = "ok" if not why else "busy: " + "; ".join(why)
+    verdict = "ok" if not why else ("unavailable: " if info.get("network", {}).get("ok") is False else "busy: ") + "; ".join(why)
     cpu = "cpu " + unk("cpu_pct", "%") if info.get("os") == "Windows" else "load " + unk("load1") + "/" + unk("ncpu") + "c"
+    network = info.get("network", {})
+    net = ", ".join(f"{item['kind']} {item['target']}={'ok' if item['ok'] else item['error']}" for item in network.get("checks", [])) or network.get("error", "unknown")
     return (f"{host['name']:<12} {cpu}  mem-free {unk('memfree', '%')}  "
             f"swap {unk('swap')}  disk {unk('disk', 'G')}  sessions {unk('running')}  "
-            f"heavy {unk('heavy')}/{host['max_heavy']}  -> {verdict}")
+            f"heavy {unk('heavy')}/{host['max_heavy']}  network [{net}]  -> {verdict}")
 
 
 def pick_host(cfg, name, tags):
@@ -801,6 +837,7 @@ def cmd_run(a, cfg):
         a.heavy = a.heavy or proj.get("test_heavy", "true").lower() in ("1", "true", "yes")
     if bool(a.agent) == bool(a.cmd):
         die("give exactly one of --agent (with --prompt-file) or --cmd / --test")
+    cfg.probe_agent = a.agent or "command"
     prompt = None
     if a.agent:
         if a.agent != "codex":
@@ -970,7 +1007,8 @@ def remote_state(host, jobs):
             return native.request(host, "state", {"jobs": jobs}, timeout=30)
         except (ValueError, subprocess.TimeoutExpired):
             return {j: {"state": "unreachable"} for j in jobs}
-    script = "for J in " + " ".join(map(shlex.quote, jobs)) + r'''; do
+    sample_code = Path(HERE, "rd_health.py").read_text(encoding="utf-8") + "\nimport sys\nprint(json.dumps(log_sample(sys.argv[1], sys.argv[2])))"
+    script = "sample_code=" + shlex.quote(sample_code) + "\nfor J in " + " ".join(map(shlex.quote, jobs)) + r'''; do
   D="$ROOT/jobs/$J"; st=missing
   if [ -d "$D" ]; then
     st=starting
@@ -989,19 +1027,24 @@ def remote_state(host, jobs):
     fi
   fi
   setup=; [ -f "$D/setup.sh" ] && { [ -f "$D/setup.done" ] && setup=done || setup=pending; }
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$J" "$st" "$(cat "$D/exit_code" 2>/dev/null)" \
+  sample=$(python3 -c "$sample_code" "$D" "$n" 2>/dev/null)
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$J" "$st" "$(cat "$D/exit_code" 2>/dev/null)" \
     "$([ -f "$D/timed_out" ] && echo yes)" "$(cat "$D/push_rc" 2>/dev/null)" "$head" \
-    "$dirty" "$n" "$setup" "$last" "$head_source" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    "$dirty" "$n" "$setup" "$last" "$head_source" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$sample"
 done'''
     r = ssh(host, script, check=False, timeout=30)
     out = {}
     if not r or r.returncode != 0:
         return {j: {"state": "unreachable"} for j in jobs}
-    keys = ["job", "state", "exit", "timed_out", "push_rc", "head", "dirty", "round", "setup", "last", "head_source", "observed_at"]
+    keys = ["job", "state", "exit", "timed_out", "push_rc", "head", "dirty", "round", "setup", "last", "head_source", "observed_at", "network_sample"]
     for line in r.stdout.splitlines():
         parts = line.split("\t")
         if len(parts) == len(keys):
             out[parts[0]] = dict(zip(keys, parts))
+            try:
+                out[parts[0]]["network_sample"] = json.loads(parts[-1])
+            except ValueError:
+                out[parts[0]].pop("network_sample")
     return out
 
 
@@ -1087,6 +1130,41 @@ def cmd_wait(a, cfg):
         time.sleep(a.interval)
 
 
+def network_stalls(recs, states, threshold):
+    """跨 watch 唤醒保留计时；新进展、日志轮次变化/截断会重置。"""
+    stalled = []
+    now = time.time()
+    for rec in recs:
+        state = states.get(rec["job"], {})
+        sample = state.get("network_sample")
+        if state.get("state") != "running" or not sample:
+            continue
+        key = hashlib.sha256(json.dumps([rec.get(k) for k in ("host", "user_id", "worker_root", "job")]).encode()).hexdigest()
+        path = Path(STATE).resolve() / "network-watch" / (key + ".json")
+        old = messages.read_json(path) or {}
+        previous = old.get("sample", {})
+        reset = old.get("round") != state.get("round") or not previous
+        for name, stream in sample.items():
+            prior_size = previous.get(name, {}).get("size", 0)
+            # 窗口外的新数据可能包含进展，宁可重新计时，不据丢失的正文报警。
+            reset = reset or stream["size"] < prior_size or stream["base"] > prior_size or stream["progress"] > prior_size
+        reset = reset or any(old.get(key) != state.get(key) for key in ("head", "dirty"))
+        reconnect = any(stream["reconnect"] > stream["progress"] for stream in sample.values())
+        new_reconnect = any(stream["reconnect"] > previous.get(name, {}).get("size", 0) for name, stream in sample.items())
+        since = old.get("since")
+        if reset or since is None:
+            since = now if reconnect and new_reconnect else None
+        elif not reconnect:
+            since = None
+        else:
+            since = min(now, since)
+        messages.atomic_json(path, dict(sample=sample, round=state.get("round"), since=since,
+                                        head=state.get("head"), dirty=state.get("dirty")))
+        if since is not None and now - since >= threshold:
+            stalled.append(rec["job"])
+    return stalled
+
+
 def cmd_watch(a, cfg):
     """Wake the initiating harness for one shared progress check or a completion."""
     timeout = a.timeout if a.timeout is not None else cfg.report_interval()
@@ -1096,25 +1174,31 @@ def cmd_watch(a, cfg):
     recs = [load_job(job) for job in dict.fromkeys(a.jobs)]
     if any(rec.get("user_id") != uid for rec in recs):
         die("watch only accepts jobs belonging to RD_USER_ID", 4)
+    stall_seconds = cfg.network_stall_seconds() if cfg is not None and hasattr(cfg, "cp") else health.positive_seconds(
+        os.environ.get("RD_NETWORK_STALL_SECONDS") or 600, "RD_NETWORK_STALL_SECONDS")
     deadline = time.monotonic() + timeout
     while True:
         states = job_states(cfg, recs)
         finished = [rec["job"] for rec in recs if states.get(rec["job"], {}).get("state") in ("done", "dead", "missing")]
         unavailable = any(states.get(rec["job"], {}).get("state", "unreachable") == "unreachable" for rec in recs)
+        stalled = network_stalls(recs, states, stall_seconds)
         now = time.monotonic()
         keep = getattr(a, "keep_on_disconnect", False)
-        event = "task_finished" if finished else "monitor_error" if unavailable and not keep else "progress_due" if now >= deadline else None
+        event = "monitor_error" if stalled else "task_finished" if finished else "monitor_error" if unavailable and not keep else "progress_due" if now >= deadline else None
         if event:
             jobs = [{key: rec[key] for key in ("job", "host", "project", "branch") if key in rec} for rec in recs]
             for rec, snapshot in zip(recs, jobs):
                 state = states.get(rec["job"], {})
                 snapshot.update({key: state[key] for key in ("state", "exit", "round", "timed_out", "push_rc") if key in state})
                 snapshot.setdefault("state", "unreachable")
+                if rec["job"] in stalled:
+                    snapshot.update(monitor_reason="network_reconnect_stalled", network_stall_seconds=stall_seconds,
+                                    action="请检查远端外网、代理及模型服务连接；任务仍在运行，未自动停止。")
                 if rec.get("handoff_version"):
                     snapshot.update(initiator_session=rec.get("initiator_session"),
                                     result_ready=state.get("state") == "done", needs_initiator_review=True)
             print(json.dumps({"event": event, "finished": finished, "jobs": jobs}, ensure_ascii=False), flush=True)
-            failed = (unavailable and not keep) or any(states[job].get("exit") != "0" for job in finished)
+            failed = bool(stalled) or (unavailable and not keep) or any(states[job].get("exit") != "0" for job in finished)
             sys.exit(1 if failed else 0 if finished else 2)
         time.sleep(min(30, deadline - now))
 
@@ -1184,6 +1268,8 @@ def cmd_resume(a, cfg):
     if not rec.get("agent"):
         die("only agent jobs can be resumed; start a new job for commands")
     host = job_host(cfg, rec)
+    host["probe_agent"] = rec["agent"]
+    host["probe_profile_fingerprint"] = rec["profile"]["fingerprint"]
     st = remote_state(host, [rec["job"]]).get(rec["job"], {})
     if st.get("state") in ("running", "starting"):
         die("the job is still running; rd stop it first or wait")
