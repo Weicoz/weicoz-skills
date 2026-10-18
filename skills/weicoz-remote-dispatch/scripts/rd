@@ -8,6 +8,7 @@ Config:  $RD_CONFIG or ~/.config/remote-dispatch/config.ini
 State:   $RD_STATE  or ~/.local/state/remote-dispatch
 """
 import argparse
+import contextlib
 import concurrent.futures
 import configparser
 import hashlib
@@ -19,6 +20,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import tarfile
 import time
 import rd_profiles as profiles
 import rd_native as native
@@ -252,7 +254,7 @@ def scp_path(host, rel):
     return f"{host['ssh']}:{base + '/' if base else ''}{rel}"
 
 
-def ssh(host, script, check=True, stdin_data=None, stdin=None, timeout=None):
+def ssh(host, script, check=True, stdin_data=None, stdin=None, timeout=None, stdout=None):
     shared = dict(host, workdir=host.get("shared_workdir", host["workdir"]))
     pre = f'export PATH="{host["path"]}:$PATH"; ROOT={root_expr(host)}; SHARED_ROOT={root_expr(shared)}; '
     cmd = ["ssh", *shlex.split(host["ssh_opts"]), host["ssh"], "sh -c " + shlex.quote(pre + script)]
@@ -260,12 +262,12 @@ def ssh(host, script, check=True, stdin_data=None, stdin=None, timeout=None):
         if stdin is None and stdin_data is None:
             stdin = subprocess.DEVNULL
         p = subprocess.run(cmd, text=stdin_data is not None, input=stdin_data, stdin=stdin,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+                           stdout=stdout if stdout is not None else subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
     except subprocess.TimeoutExpired:
         if check:
             die(f"ssh to {host['name']} timed out")
         return None
-    out = p.stdout if isinstance(p.stdout, str) else p.stdout.decode(errors="replace")
+    out = "" if stdout is not None else p.stdout if isinstance(p.stdout, str) else p.stdout.decode(errors="replace")
     err = p.stderr if isinstance(p.stderr, str) else p.stderr.decode(errors="replace")
     if check and p.returncode != 0:
         die(f"[{host['name']}] remote step failed ({p.returncode}):\n{(err or out).strip()}")
@@ -713,12 +715,21 @@ def put_file(host, rel, content, mode="644"):
         stdin_data=content)
 
 
+def push_task_branch(repo, destination, branch, sha, env=None):
+    pushed = git(["push", "--porcelain", "--no-follow-tags", f"--force-with-lease=refs/heads/{branch}:",
+                  destination, f"{sha}:refs/heads/{branch}"], repo, env=env)
+    if not any(line.startswith("*\t") for line in pushed.stdout.splitlines()):
+        die(f"任务分支已存在：{branch}；保留原分支，请换用新的 --branch。")
+
+
 def native_init(host, rec, repo, sha, origin):
     data = {k: rec[k] for k in ("job", "bare", "branch", "sync")}
     if rec["sync"] == "origin":
         if not origin:
             die("Windows origin 同步需要仓库 origin。")
-        git(["push", "origin", f"{sha}:refs/heads/{rec['branch']}"], repo)
+        push_task_branch(repo, "origin", rec["branch"], sha)
+        rec["owns_origin_branch"] = True
+        save_job(rec)
         result = native.request(host, "init", dict(data, origin=origin), timeout=300)
     elif rec["sync"] == "direct":
         reference = "refs/rd-transfer/" + rec["job"]
@@ -799,12 +810,29 @@ def cmd_run(a, cfg):
         prompt = sys.stdin.read() if a.prompt_file == "-" else Path(a.prompt_file).read_text(encoding="utf-8")
         agent = cfg.agent(a.agent)
 
-    ref = a.ref
+    include_paths = []
+    missing = []
+    for value in a.include:
+        path = Path(os.path.abspath(os.path.join(repo, value)))
+        if not path.exists():
+            missing.append(f"{value} -> {path}")
+        try:
+            include_paths.append(str(path.relative_to(repo)))
+        except ValueError:
+            die(f"--include 路径必须位于仓库内：{value}（仓库根目录：{repo}）", 4)
+    if missing:
+        die("--include 缺少以下路径（相对仓库根目录解析）：\n  " + "\n  ".join(missing), 4)
+    sha = git(["rev-parse", "--verify", a.ref + "^{commit}"], repo).stdout.strip()
+    wip = b""
     if a.wip:
-        wip = git(["stash", "create"], repo).stdout.strip()
-        ref = wip or ref
-        print("wip: sending tracked uncommitted changes" if wip else "wip: working tree is clean, sending " + a.ref)
-    sha = git(["rev-parse", "--verify", ref + "^{commit}"], repo).stdout.strip()
+        diff = subprocess.run(["git", "-C", repo, "diff", "--no-ext-diff", "--no-textconv",
+                               "--binary", "--full-index", "--src-prefix=a/", "--dst-prefix=b/", sha, "--"], capture_output=True)
+        if diff.returncode:
+            die("--wip 无法生成工作树补丁：" + diff.stderr.decode(errors="replace"))
+        wip = diff.stdout
+        if not wip:
+            die(f"--wip：已跟踪文件相对 {a.ref} 没有改动；未跟踪文件请用 --include。未派单。", 4)
+        print(f"wip: sending tracked working-tree changes relative to {a.ref}; applied to remote index")
     dirty = git(["status", "--porcelain"], repo).stdout.strip()
     if dirty and not a.wip:
         print("note: uncommitted local changes are NOT sent (commit them, or use --wip / --include).")
@@ -815,95 +843,125 @@ def cmd_run(a, cfg):
     branch = a.branch or f"rd/{uid}/{name}-{stamp}"
     git(["check-ref-format", "--branch", branch], repo)
 
-    host = cfg.host(a.host) if a.force_host and a.host not in (None, "auto") else pick_host(cfg, a.host, a.tag)
-    host = scoped_host(host, uid)
-    if getattr(a, "workdir", None):
-        custom_root = a.workdir.rstrip("/\\")
-        host["workdir"] = custom_root + ("/users/" + uid if uid else "")
-        host["shared_workdir"] = custom_root
-    if host["platform"] == "windows" and a.test:
-        a.cmd = proj.get("test_windows", a.cmd)
-    profile = None
-    if a.agent:
-        local, _ = local_profile(uid)
-        profile = remote_profile(host, uid)
-        profile_report(host, uid, local, profile)
-        if profile is None:
-            die("此 ID 尚无远端配置；先询问是否同步、确认 ID，再执行 rd profile sync。未推送任务分支。", 4)
-        if any("{model_args}" not in agent.get(k, "") for k in ("start", "resume")):
-            die("Codex 启动与续跑模板必须保留 {model_args}，以执行员工配置隔离开关。", 4)
-        if host["platform"] == "windows":
-            if any(agent[k] != AGENTS["codex"][k] for k in ("start", "resume")):
-                die("Windows 使用内置 Codex 参数适配；自定义 POSIX 启动模板不能直接移植。", 4)
-            check = native.request(host, "doctor")
-            ready = check["ok"] and check["features"]
-        else:
-            ready = ssh(host, CODEX_CHECK, check=False).returncode == 0
-        if not ready:
-            die("目标机必须安装 Python 3.11+ 和支持功能开关的 Codex CLI；未推送任务分支。", 4)
-    rec = {"job": job, "host": host["name"], "project": project, "repo": repo, "branch": branch,
-           "base": sha, "sync": host["sync"], "agent": a.agent, "cmd": a.cmd, "rounds": 1,
-           "created": time.strftime("%Y-%m-%d %H:%M:%S"), "user_id": uid,
-           "worker_root": host["workdir"], "shared_root": host["shared_workdir"], "profile": profile,
-           "model": a.model, "effort": a.effort, "agent_config": agent if a.agent else None,
-           "worker_platform": host["platform"], "worker_python": host["python"], "heavy": a.heavy,
-           "handoff_version": 1, "initiator_session": initiator_session(a)}
-    print(f"dispatching {job} -> {host['name']} (branch {branch}, base {sha[:10]}, sync {host['sync']})")
+    with contextlib.ExitStack() as stack:
+        included = None
+        if include_paths:
+            included = stack.enter_context(tempfile.TemporaryFile())
+            packed = subprocess.run(["tar", "-cf", "-", "-C", repo, "--", *include_paths],
+                                    stdout=included, stderr=subprocess.PIPE,
+                                    env=dict(os.environ, COPYFILE_DISABLE="1"))
+            if packed.returncode:
+                die("--include 打包失败，未派单：\n" + packed.stderr.decode(errors="replace"))
+            included.seek(0)
+        host = cfg.host(a.host) if a.force_host and a.host not in (None, "auto") else pick_host(cfg, a.host, a.tag)
+        host = scoped_host(host, uid)
+        if getattr(a, "workdir", None):
+            custom_root = a.workdir.rstrip("/\\")
+            host["workdir"] = custom_root + ("/users/" + uid if uid else "")
+            host["shared_workdir"] = custom_root
+        if host["platform"] == "windows" and a.test:
+            a.cmd = proj.get("test_windows", a.cmd)
+        profile = None
+        if a.agent:
+            local, _ = local_profile(uid)
+            profile = remote_profile(host, uid)
+            profile_report(host, uid, local, profile)
+            if profile is None:
+                die("此 ID 尚无远端配置；先询问是否同步、确认 ID，再执行 rd profile sync。未推送任务分支。", 4)
+            if any("{model_args}" not in agent.get(k, "") for k in ("start", "resume")):
+                die("Codex 启动与续跑模板必须保留 {model_args}，以执行员工配置隔离开关。", 4)
+            if host["platform"] == "windows":
+                if any(agent[k] != AGENTS["codex"][k] for k in ("start", "resume")):
+                    die("Windows 使用内置 Codex 参数适配；自定义 POSIX 启动模板不能直接移植。", 4)
+                check = native.request(host, "doctor")
+                ready = check["ok"] and check["features"]
+            else:
+                ready = ssh(host, CODEX_CHECK, check=False).returncode == 0
+            if not ready:
+                die("目标机必须安装 Python 3.11+ 和支持功能开关的 Codex CLI；未推送任务分支。", 4)
+        rec = {"job": job, "host": host["name"], "project": project, "repo": repo, "branch": branch,
+               "base": sha, "sync": host["sync"], "agent": a.agent, "cmd": a.cmd, "rounds": 1,
+               "created": time.strftime("%Y-%m-%d %H:%M:%S"), "user_id": uid,
+               "worker_root": host["workdir"], "shared_root": host["shared_workdir"], "profile": profile,
+               "model": a.model, "effort": a.effort, "agent_config": agent if a.agent else None,
+               "worker_platform": host["platform"], "worker_python": host["python"], "heavy": a.heavy,
+               "handoff_version": 1, "initiator_session": initiator_session(a)}
+        print(f"dispatching {job} -> {host['name']} (branch {branch}, base {sha[:10]}, sync {host['sync']})")
 
-    repo_key = hashlib.sha256((origin_url or repo).encode()).hexdigest()[:12]
-    bare = f"repos/{project}-{repo_key}.git"
-    rec["bare"] = bare
-    if host["platform"] == "windows":
-        native_init(host, rec, repo, sha, proj.get("origin_url") or origin_url)
-        if a.include:
-            tar = subprocess.Popen(["tar", "-cf", "-", "-C", repo, *a.include], stdout=subprocess.PIPE,
-                                   env=dict(os.environ, COPYFILE_DISABLE="1"))
-            try:
-                native.request(host, "upload", {"relative": "wt/" + job, "archive": True}, payload=tar.stdout)
-            finally:
-                tar.stdout.close()
-            if tar.wait() != 0:
-                die("could not pack --include paths")
-        setup = proj.get("setup_windows", proj.get("setup"))
-        if setup:
-            put_file(host, f"jobs/{job}/setup.ps1", setup)
+        repo_key = hashlib.sha256((origin_url or repo).encode()).hexdigest()[:12]
+        bare = f"repos/{project}-{repo_key}.git"
+        rec["bare"] = bare
+        rec["dispatch_state"] = "preparing"
         save_job(rec)
-        launch(host, rec, 1, "", prompt, a.timeout or host["timeout"])
-        print(f"started. job id: {job}")
-        return
-    if host["sync"] == "origin":
-        worker_url = proj.get("origin_url") or origin_url or die("this repository has no 'origin' remote")
-        git(["push", "origin", f"{sha}:refs/heads/{branch}"], repo)
-        prep = (f'[ -d "$ROOT/{bare}" ] || GIT_TERMINAL_PROMPT=0 git clone --bare {shlex.quote(worker_url)} '
-                f'"$ROOT/{bare}" || exit 90\n'
-                f'GIT_TERMINAL_PROMPT=0 git -C "$ROOT/{bare}" fetch origin '
-                f'"+refs/heads/{branch}:refs/heads/{branch}" || exit 91\n')
-    elif host["sync"] == "direct":
-        ssh(host, f'mkdir -p "$ROOT/repos" && {{ [ -d "$ROOT/{bare}" ] || git init -q --bare "$ROOT/{bare}"; }}')
-        git(["push", scp_path(host, bare), f"{sha}:refs/heads/{branch}"], repo, env=git_ssh_env(host))
-        prep = ""
-    else:
-        die(f"[host:{host['name']}] sync must be origin or direct")
-    ssh(host, f'mkdir -p "$ROOT/jobs/{job}" "$ROOT/repos" "$ROOT/wt" "$SHARED_ROOT/locks" "$ROOT/bin"\n{prep}'
-              f'git -C "$ROOT/{bare}" worktree add -q "$ROOT/wt/{job}" {shlex.quote(branch)} || exit 92')
+        try:
+            if host["platform"] == "windows":
+                native_init(host, rec, repo, sha, proj.get("origin_url") or origin_url)
+                if a.include:
+                    native.request(host, "upload", {"relative": "wt/" + job, "archive": True}, payload=included)
+                if wip:
+                    native.request(host, "apply-wip", {"job": job}, payload=wip)
+                setup = proj.get("setup_windows", proj.get("setup"))
+                if setup:
+                    put_file(host, f"jobs/{job}/setup.ps1", setup)
+                rec["dispatch_state"] = "launching"
+                save_job(rec)
+                launch(host, rec, 1, "", prompt, a.timeout or host["timeout"])
+                rec["dispatch_state"] = "started"
+                save_job(rec)
+                print(f"started. job id: {job}")
+                return
+            if host["sync"] == "origin":
+                worker_url = proj.get("origin_url") or origin_url or die("this repository has no 'origin' remote")
+                push_task_branch(repo, "origin", branch, sha)
+                rec["owns_origin_branch"] = True
+                save_job(rec)
+                prep = (f'if [ -d "$ROOT/{bare}" ]; then\n'
+                        f'  if git -C "$ROOT/{bare}" show-ref --verify --quiet {shlex.quote("refs/heads/" + branch)}; then '
+                        f'echo "task branch already exists; use another --branch" >&2; exit 91; fi\n'
+                        f'else GIT_TERMINAL_PROMPT=0 git clone --bare {shlex.quote(worker_url)} "$ROOT/{bare}" || exit 90; fi\n'
+                        f'GIT_TERMINAL_PROMPT=0 git -C "$ROOT/{bare}" fetch origin '
+                        f'{shlex.quote("refs/heads/" + branch + ":refs/heads/" + branch)} || exit 91\n'
+                        f'touch "$ROOT/jobs/{job}/branch-created" || exit 91\n')
+            elif host["sync"] == "direct":
+                ssh(host, f'mkdir -p "$ROOT/repos" && {{ [ -d "$ROOT/{bare}" ] || git init -q --bare "$ROOT/{bare}"; }}')
+                push_task_branch(repo, scp_path(host, bare), branch, sha, env=git_ssh_env(host))
+                rec["owns_worker_branch"] = True
+                save_job(rec)
+                prep = ""
+            else:
+                die(f"[host:{host['name']}] sync must be origin or direct")
+            ssh(host, f'mkdir -p "$ROOT/jobs/{job}" "$ROOT/repos" "$ROOT/wt" "$SHARED_ROOT/locks" "$ROOT/bin"\n{prep}'
+                      f'git -C "$ROOT/{bare}" worktree add -q "$ROOT/wt/{job}" {shlex.quote(branch)} || exit 92')
 
-    if a.include:
-        tar = subprocess.Popen(["tar", "-cf", "-", "-C", repo, *a.include], stdout=subprocess.PIPE,
-                               env=dict(os.environ, COPYFILE_DISABLE="1"))
-        ssh(host, f'tar -xf - -C "$ROOT/wt/{job}"', stdin=tar.stdout)
-        if tar.wait() != 0:
-            die("could not pack --include paths")
-    if proj.get("setup"):
-        put_file(host, f"jobs/{job}/setup.sh", proj["setup"] + "\n")
+            if a.include:
+                ssh(host, f'tar -xf - -C "$ROOT/wt/{job}"', stdin=included)
+            if wip:
+                with tempfile.TemporaryFile() as patch_file:
+                    patch_file.write(wip)
+                    patch_file.seek(0)
+                    ssh(host, f'git -C "$ROOT/wt/{job}" apply --index --binary -', stdin=patch_file)
+            if proj.get("setup"):
+                put_file(host, f"jobs/{job}/setup.sh", proj["setup"] + "\n")
 
-    if a.agent:
-        cmd_text = agent_command(agent, a.model, a.effort)
-    else:
-        cmd_text = ("rd-heavy sh -c " + shlex.quote(a.cmd)) if a.heavy else a.cmd
-    save_job(rec)
-    launch(host, rec, 1, cmd_text, prompt, a.timeout or host["timeout"])
-    print(f"started. job id: {job}")
-    print(f"  rd status {job}    rd logs {job}    rd wait {job}    rd fetch {job}")
+            if a.agent:
+                cmd_text = agent_command(agent, a.model, a.effort)
+            else:
+                cmd_text = ("rd-heavy sh -c " + shlex.quote(a.cmd)) if a.heavy else a.cmd
+            rec["dispatch_state"] = "launching"
+            save_job(rec)
+            launch(host, rec, 1, cmd_text, prompt, a.timeout or host["timeout"])
+            rec["dispatch_state"] = "started"
+            save_job(rec)
+            print(f"started. job id: {job}")
+            print(f"  rd status {job}    rd logs {job}    rd wait {job}    rd fetch {job}")
+        except (SystemExit, Exception, KeyboardInterrupt):
+            if rec["dispatch_state"] == "preparing":
+                rec["dispatch_state"] = "preparation_failed"
+                save_job(rec)
+                print(f"rd: 准备失败，job 已登记：{job}；核对后用 rd clean {job} --force --delete-branch 清理本任务。", file=sys.stderr)
+            else:
+                print(f"rd: 启动结果待核实，job 已登记：{job}；先用 rd status {job} 检查。", file=sys.stderr)
+            raise
 
 
 def remote_state(host, jobs):
@@ -957,6 +1015,10 @@ def job_states(cfg, recs):
     states = {}
     for host, jobs in by_host.values():
         states.update(remote_state(host, jobs))
+    for rec in recs:
+        state = states.get(rec["job"], {})
+        if rec.get("dispatch_state") == "preparation_failed" and state.get("state") in ("starting", "missing"):
+            state["state"] = "dead"
     return states
 
 
@@ -965,6 +1027,8 @@ def describe(rec, st):
     bits = [f"{rec['job']}  [{rec['host']}]  {s}"]
     if rec.get("user_id"):
         bits.append("ID=" + rec["user_id"])
+    if rec.get("dispatch_state") == "preparation_failed":
+        bits.append("preparation failed; registered for rd clean")
     if s == "done":
         code = st.get("exit")
         label = {"0": "ok", "124": "timed out", "97": "setup failed", "98": "profile/auth setup failed", "96": "worktree missing", "143": "stopped"}.get(code, "failed")
@@ -1197,16 +1261,42 @@ def cmd_stop(a, cfg):
     print(r.stdout.strip())
 
 
+def backup_reports(host, rec):
+    root = Path(os.environ.get("RD_REPORTS_DIR") or "~/.local/share/remote-dispatch/reports").expanduser().resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    job = messages.job_id(rec["job"])
+    destination = root / job
+    if destination.exists():
+        destination = root / (job + "-" + str(time.time_ns()))
+    with tempfile.TemporaryDirectory(prefix=".reports-", dir=root) as temporary:
+        staged = Path(temporary) / "reports"
+        staged.mkdir()
+        with tempfile.TemporaryFile() as archive:
+            if host["platform"] == "windows":
+                native.request(host, "reports-bundle", {"job": job}, output=archive)
+            else:
+                ssh(host, f'D="$ROOT/jobs/{job}/reports"; '
+                          'if [ -L "$D" ]; then echo "reports is a symlink" >&2; exit 1; '
+                          'elif [ -d "$D" ]; then tar -cf - -C "$D" .; '
+                          'elif [ -e "$D" ]; then exit 1; else tar -cf - -T /dev/null; fi', stdout=archive)
+            archive.seek(0)
+            native.extract(archive, staged)
+        staged.rename(destination)
+    print(f"reports saved: {destination}")
+    return str(destination)
+
+
 def cmd_clean(a, cfg):
     rec = load_job(a.job)
     host = job_host(cfg, rec)
     j, b = rec["job"], rec["branch"]
     st = remote_state(host, [j]).get(j, {})
-    if st.get("state") in ("running", "starting"):
+    unlaunched = rec.get("dispatch_state") in ("preparing", "preparation_failed")
+    if st.get("state") == "running" or (st.get("state") == "starting" and not unlaunched):
         die("the job is still running; rd stop it first")
     if st.get("state") == "unreachable":
         die(f"{host['name']} is unreachable; nothing was removed")
-    if rec.get("handoff_version") and not a.force:
+    if rec.get("handoff_version") and not a.force and not unlaunched:
         require_initiator(rec, a)
         receipt = collect_result(cfg, rec, st)
         if not receipt or delivery(rec, receipt) != "received":
@@ -1226,16 +1316,33 @@ def cmd_clean(a, cfg):
         if head and head != rec["base"] and head != have:
             die("the job has commits you have not fetched. Run rd fetch first, or --force.")
     bare = rec.get("bare", f"repos/{rec['project']}.git")
-    drop = f'git -C "$ROOT/{bare}" branch -q -D {shlex.quote(b)} 2>/dev/null; ' if a.delete_branch else ""
+    if not getattr(a, "discard_reports", False):
+        try:
+            rec["reports_backup"] = backup_reports(host, rec)
+            save_job(rec)
+        except (OSError, ValueError, SystemExit, tarfile.TarError) as error:
+            die(f"reports 取回失败，远端与 job 登记均保留：{error}；重试或显式 --discard-reports。")
+    delete_worker = a.delete_branch
+    delete_origin = a.delete_branch
+    if rec.get("dispatch_state"):
+        delete_origin = a.delete_branch and rec.get("owns_origin_branch", False)
+        if host["platform"] == "windows":
+            owned = native.request(host, "branch-owned", {"job": j})
+        else:
+            owned = ssh(host, f'test -f "$ROOT/jobs/{j}/branch-created"', check=False).returncode == 0
+        delete_worker = a.delete_branch and (rec.get("owns_worker_branch", False) or owned)
     if host["platform"] == "windows":
-        native.request(host, "clean", {"job": j, "bare": bare, "branch": b, "delete_branch": a.delete_branch})
+        native.request(host, "clean", {"job": j, "bare": bare, "branch": b, "delete_branch": delete_worker})
     else:
-        ssh(host, f'git -C "$ROOT/{bare}" worktree remove --force "$ROOT/wt/{j}" 2>/dev/null; '
-                  f'git -C "$ROOT/{bare}" worktree prune; {drop}rm -rf "$ROOT/jobs/{j}"')
-    if a.delete_branch and rec["sync"] == "origin":
-        git(["push", "origin", "--delete", b], rec["repo"], check=False)
+        drop = (f'if git -C "$ROOT/{bare}" show-ref --verify --quiet {shlex.quote("refs/heads/" + b)}; then '
+                f'git -C "$ROOT/{bare}" branch -q -D {shlex.quote(b)} || exit 1; fi; ') if delete_worker else ""
+        ssh(host, f'if [ -e "$ROOT/wt/{j}" ]; then '
+                  f'git -C "$ROOT/{bare}" worktree remove --force "$ROOT/wt/{j}" || exit 1; fi; '
+                  f'{drop}rm -rf "$ROOT/jobs/{j}"')
+    if delete_origin and rec["sync"] == "origin":
+        git(["push", "origin", "--delete", b], rec["repo"])
     os.remove(job_path(j))
-    print(f"cleaned {j}" + (" and deleted branch " + b if a.delete_branch else f" (branch {b} kept)"))
+    print(f"cleaned {j}" + (" and deleted branch " + b if delete_worker else f" (branch {b} kept; ownership not confirmed or deletion not requested)"))
 
 
 def cmd_hosts(a, cfg):
@@ -1332,12 +1439,12 @@ def main():
     p.add_argument("--force-host", action="store_true", help="skip the load check for --host")
     p.add_argument("--tag", action="append", default=[], help="only machines with this tag (repeatable)")
     p.add_argument("--ref", default="HEAD", help="commit to send (default HEAD)")
-    p.add_argument("--wip", action="store_true", help="also send tracked uncommitted changes")
+    p.add_argument("--wip", action="store_true", help="apply tracked working-tree differences from --ref to the remote index; fail if empty")
     p.add_argument("--branch", help="branch the job works on (default rd/<name>-<time>)")
     p.add_argument("--name", help="short label used in the job id")
     p.add_argument("--project", help="project name (default: name of the origin repository)")
     p.add_argument("--workdir", help="临时覆盖目标机的工作根目录（默认读取 host 配置的 workdir）")
-    p.add_argument("--include", action="append", default=[], help="extra untracked path to copy (repeatable)")
+    p.add_argument("--include", action="append", default=[], help="extra path inside repository to copy, relative to repository root (repeatable)")
     p.add_argument("--model")
     p.add_argument("--effort")
     p.add_argument("--timeout", type=int, help="seconds before the job is killed")
@@ -1415,6 +1522,7 @@ def main():
     p.add_argument("job")
     p.add_argument("--delete-branch", action="store_true", help="also delete the job branch (worker and origin)")
     p.add_argument("--force", action="store_true", help="discard uncommitted or unfetched work")
+    p.add_argument("--discard-reports", action="store_true", help="skip local reports backup before deleting the remote job")
     p.add_argument("--initiator-session")
     p.set_defaults(fn=cmd_clean)
 

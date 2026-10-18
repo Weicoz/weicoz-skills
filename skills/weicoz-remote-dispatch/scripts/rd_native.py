@@ -74,8 +74,12 @@ def request(host, operation, data=None, payload=None, output=None, timeout=60):
 
 def checked_path(root, relative):
     candidate = root / relative
-    if Path(relative).is_absolute() or ".." in Path(relative).parts or not candidate.resolve().is_relative_to(root.resolve()):
+    if Path(relative).is_absolute() or ".." in Path(relative).parts:
         raise ValueError("worker 请求含越界路径。")
+    try:
+        candidate.resolve().relative_to(root.resolve())
+    except ValueError:
+        raise ValueError("worker 请求含越界路径。") from None
     return candidate
 
 
@@ -354,26 +358,43 @@ def handle(q, incoming):
                 shutil.copyfileobj(incoming, output)
         return None
     if op == "init":
+        directory = checked_path(root, "jobs/" + q["job"])
+        directory.mkdir(parents=True, exist_ok=True)
         bare = checked_path(root, q["bare"])
         bare.parent.mkdir(parents=True, exist_ok=True)
         if not bare.exists():
+            bare.mkdir()
+            git(bare, "init", "--bare")
             if q["sync"] == "origin":
-                git(root, "clone", "--bare", q["origin"], bare)
+                git(bare, "remote", "add", "origin", q["origin"])
+        transfer = "refs/rd-transfer/" + q["job"]
+        try:
+            if q["sync"] == "origin":
+                git(bare, "fetch", "origin", "refs/heads/" + q["branch"] + ":" + transfer)
             else:
-                bare.mkdir()
-                git(bare, "init", "--bare")
-        if q["sync"] == "origin":
-            git(bare, "fetch", "origin", "+refs/heads/" + q["branch"] + ":refs/heads/" + q["branch"])
-        else:
-            with tempfile.TemporaryDirectory(dir=root) as temporary:
-                bundle = Path(temporary) / "incoming.bundle"
-                with bundle.open("wb") as output:
-                    shutil.copyfileobj(incoming, output)
-                git(bare, "fetch", bundle, q["transfer_ref"] + ":refs/heads/" + q["branch"])
+                with tempfile.TemporaryDirectory(dir=root) as temporary:
+                    bundle = Path(temporary) / "incoming.bundle"
+                    with bundle.open("wb") as output:
+                        shutil.copyfileobj(incoming, output)
+                    git(bare, "fetch", bundle, q["transfer_ref"] + ":" + transfer)
+            sha = git(bare, "rev-parse", transfer).stdout.strip()
+            git(bare, "update-ref", "refs/heads/" + q["branch"], sha, "")
+            (directory / "branch-created").touch()
+        finally:
+            git(bare, "update-ref", "-d", transfer, check=False)
         wt = checked_path(root, "wt/" + q["job"])
         wt.parent.mkdir(parents=True, exist_ok=True)
         git(bare, "worktree", "add", wt, q["branch"])
         return {"root": str(root)}
+    if op == "apply-wip":
+        wt = checked_path(root, "wt/" + q["job"])
+        result = subprocess.run(["git", "-C", str(wt), "apply", "--index", "--binary", "-"],
+                                input=incoming.read(), capture_output=True)
+        if result.returncode:
+            raise ValueError("--wip 补丁应用失败：" + result.stderr.decode(errors="replace"))
+        return None
+    if op == "branch-owned":
+        return checked_path(root, "jobs/" + q["job"] + "/branch-created").is_file()
     if op == "state":
         return {job: job_state(root, job) for job in q["jobs"]}
     if op == "report-read":
@@ -397,11 +418,14 @@ def handle(q, incoming):
         return {"dirty": len(git(wt, "status", "--porcelain", check=False).stdout.splitlines()), "head": git(wt, "rev-parse", "HEAD", check=False).stdout.strip()}
     if op == "clean":
         bare = checked_path(root, q["bare"])
-        git(bare, "worktree", "remove", "--force", checked_path(root, "wt/" + q["job"]), check=False)
-        git(bare, "worktree", "prune")
-        if q.get("delete_branch"):
-            git(bare, "branch", "-D", q["branch"], check=False)
-        shutil.rmtree(checked_path(root, "jobs/" + q["job"]), ignore_errors=True)
+        wt = checked_path(root, "wt/" + q["job"])
+        if wt.exists():
+            git(bare, "worktree", "remove", "--force", wt)
+        if q.get("delete_branch") and git(bare, "show-ref", "--verify", "--quiet", "refs/heads/" + q["branch"], check=False).returncode == 0:
+            git(bare, "branch", "-D", q["branch"])
+        directory = checked_path(root, "jobs/" + q["job"])
+        if directory.exists():
+            shutil.rmtree(directory)
         return None
     if op == "stop":
         directory = checked_path(root, "jobs/" + q["job"])
@@ -448,11 +472,19 @@ def handle(q, incoming):
 
 def serve(q):
     try:
-        if q["operation"] == "fetch-bundle":
+        if q["operation"] in ("fetch-bundle", "reports-bundle"):
             root = Path(os.path.expandvars(os.path.expanduser(q["workdir"]))).resolve()
             with tempfile.TemporaryDirectory() as temporary:
                 bundle = Path(temporary) / "result.bundle"
-                git(checked_path(root, q["bare"]), "bundle", "create", bundle, "refs/heads/" + q["branch"])
+                if q["operation"] == "fetch-bundle":
+                    git(checked_path(root, q["bare"]), "bundle", "create", bundle, "refs/heads/" + q["branch"])
+                else:
+                    reports = checked_path(root, "jobs/" + messages.job_id(q["job"]) + "/reports")
+                    if reports.is_symlink() or (reports.exists() and not reports.is_dir()):
+                        raise ValueError("reports 必须是普通目录。")
+                    with tarfile.open(bundle, "w") as archive:
+                        if reports.exists():
+                            archive.add(reports, arcname=".")
                 sys.stdout.buffer.write(json.dumps({"ok": True, "result": None, "binary_encoding": "base64"}).encode() + b"\n")
                 with bundle.open("rb") as source:
                     while True:
