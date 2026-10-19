@@ -77,6 +77,10 @@ RD_CONFIRMED_VERSION='填入已审阅的完整指纹'
 
 代理检查负载和配置。已有配置时不重复初始化，不自动同步个人环境。没有配置时先问是否同步，并展示或询问你的 ID。
 
+`hosts`、`run` 选机及 `resume` 准入同时检查远端外网：默认探测 PyPI、该员工活动模型服务主机，Codex 额外检查 WebSocket 路径的 TLS/HTTP 可达性。任一必需目标失败（含 TLS 错误、超时、缺工具）就不派，输出逐项原因；全部机器不可用时 `run` 退出 3。显式指定机器的 `--force-host` 语义不变。探针复用远端任务代理环境，不改变网络配置。
+
+外网探测需远端 Python 与 curl，全部目标并行共享默认 5 秒预算（SSH/资源体检另计）。本机 `RD_NETWORK_URLS`、`RD_NETWORK_MODEL_URL`、`RD_NETWORK_WEBSOCKET_URL`、`RD_NETWORK_TIMEOUT_SECONDS` 优先覆盖 `[host:名称]` / `[defaults]` 的同名小写配置；地址列表用逗号或空白分隔，模型主机始终追加。模型地址默认读取远端已同步员工配置的活动 provider `base_url`，再回退远端 `OPENAI_BASE_URL` / ChatGPT；不读取宿主个人配置。无法识别的自定义 provider 需显式指定模型地址。地址须为无凭据和查询参数的 HTTPS/WSS URL。WebSocket 检查发送升级请求头、不发送认证；HTTP 401/403 证明 TLS 可达，不能证明完整模型会话可用。详见 [体检配置与限制](SKILL.md#1-看机器)。
+
 手工执行时，进入需要处理的 Git 仓库：
 
 ```bash
@@ -132,6 +136,8 @@ RD_CONFIRMED_VERSION='填入已审阅的完整指纹'
 默认周期按环境变量 `RD_REPORT_INTERVAL_SECONDS` → 本机配置 `[monitor] report_interval_seconds` → 900 秒选择，必须为正整数。例如环境变量设为 `600`，或在 `config.ini` 的 `[monitor]` 写 `report_interval_seconds = 600`，表示10分钟。显式 `--timeout` 优先覆盖单次等待，用于本次定时或提前提醒后的剩余时间；不改变登记的基本周期。
 
 退出 2 表示统一巡检到期，0 表示有任务成功结束，1 表示失败或监控连接受阻。发起方读取事件后核对日志、实际源码／检查证据和机器资源，再报告；事件本身不是用户报告。提前结束提醒不重置其余任务的统一截止时间，下一次等待使用剩余秒数。宿主后台唤醒及消息送达必须实际可用；详见 [发起方统一巡检](SKILL.md#3-发起方统一巡检与提醒)。
+
+`watch` 观察到运行中任务连续只有 `Reconnecting... waiting for network`、无其他进展达默认 10 分钟，会退出 1 并输出 `monitor_error`，明细含 `monitor_reason=network_reconnect_stalled`，提示检查远端外网、代理和模型服务；任务继续运行，不自动停止。用本机 `RD_NETWORK_STALL_SECONDS` 或 `[monitor] network_stall_seconds` 调整阈值；`--keep-on-disconnect` 不屏蔽此告警。计时从首次观察到重连开始，跨多次 `watch` 保存在 `RD_STATE/network-watch`。普通 stdout/stderr 输出、HEAD/dirty 变化、轮次变化、日志截断或漏采窗口都会重置计时；仅静默不触发，事件不包含日志正文。
 
 测试和构建也会带上你的 ID，并使用独立任务目录：
 
