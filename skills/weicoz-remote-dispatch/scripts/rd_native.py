@@ -415,6 +415,9 @@ def handle(q, incoming):
         return "\n".join(path.read_bytes()[-1024 * 1024:].decode("utf-8", errors="replace").splitlines()[-q["lines"]:]) if path.exists() else "(日志尚未生成)"
     if op == "clean-check":
         wt = checked_path(root, "wt/" + q["job"])
+        if q.get("detailed"):
+            return {"head": git(wt, "rev-parse", "HEAD").stdout.strip(),
+                    "status": git(wt, "status", "--porcelain=v1", "-z", "--untracked-files=all").stdout}
         return {"dirty": len(git(wt, "status", "--porcelain", check=False).stdout.splitlines()), "head": git(wt, "rev-parse", "HEAD", check=False).stdout.strip()}
     if op == "clean":
         bare = checked_path(root, q["bare"])

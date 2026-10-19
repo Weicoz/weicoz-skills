@@ -817,12 +817,14 @@ def cmd_run(a, cfg):
         if not path.exists():
             missing.append(f"{value} -> {path}")
         try:
-            include_paths.append(str(path.relative_to(repo)))
+            include_paths.append(path.relative_to(repo).as_posix())
         except ValueError:
             die(f"--include 路径必须位于仓库内：{value}（仓库根目录：{repo}）", 4)
     if missing:
         die("--include 缺少以下路径（相对仓库根目录解析）：\n  " + "\n  ".join(missing), 4)
     sha = git(["rev-parse", "--verify", a.ref + "^{commit}"], repo).stdout.strip()
+    source = git(["symbolic-ref", "--quiet", "HEAD"], repo, check=False)
+    source_branch = source.stdout.strip()[len("refs/heads/"):] if source.returncode == 0 else None
     wip = b""
     if a.wip:
         diff = subprocess.run(["git", "-C", repo, "diff", "--no-ext-diff", "--no-textconv",
@@ -880,7 +882,8 @@ def cmd_run(a, cfg):
             if not ready:
                 die("目标机必须安装 Python 3.11+ 和支持功能开关的 Codex CLI；未推送任务分支。", 4)
         rec = {"job": job, "host": host["name"], "project": project, "repo": repo, "branch": branch,
-               "base": sha, "sync": host["sync"], "agent": a.agent, "cmd": a.cmd, "rounds": 1,
+               "base": sha, "source_branch": source_branch, "include_paths": include_paths,
+               "sync": host["sync"], "agent": a.agent, "cmd": a.cmd, "rounds": 1,
                "created": time.strftime("%Y-%m-%d %H:%M:%S"), "user_id": uid,
                "worker_root": host["workdir"], "shared_root": host["shared_workdir"], "profile": profile,
                "model": a.model, "effort": a.effort, "agent_config": agent if a.agent else None,
@@ -1049,12 +1052,72 @@ def describe(rec, st):
     return line
 
 
+def scoped_jobs(a):
+    """跨发起会话查当前员工；项目显式指定，否则在当前仓库内筛选。"""
+    uid = require_user()
+    recs = [load_job(a.job)] if getattr(a, "job", None) else all_jobs()
+    recs = [r for r in recs if r.get("user_id") == uid]
+    project = getattr(a, "project", None)
+    if project:
+        recs = [r for r in recs if r.get("project") == project]
+    directory = get_dir(a)
+    if directory or not project:
+        probe = run(["git", "-C", directory or os.getcwd(), "rev-parse", "--show-toplevel"], check=False)
+        if probe.returncode == 0:
+            repo = Path(probe.stdout.strip()).resolve()
+            recs = [r for r in recs if Path(r["repo"]).resolve() == repo]
+        elif directory:
+            die("指定目录不是 Git 仓库。", 4)
+    return recs
+
+
+def merge_check(rec, head, into):
+    """只检查本地对象与祖先关系；不隐式 fetch，也不猜合入目标。"""
+    ref = into or rec.get("source_branch")
+    reasons = []
+    target = None
+    if not ref:
+        reasons.append("需指定 --into")
+    else:
+        reference = ref if into else "refs/heads/" + ref
+        resolved = git(["rev-parse", "-q", "--verify", "--end-of-options", reference + "^{commit}"], rec["repo"], check=False)
+        if resolved.returncode:
+            reasons.append(f"REF 不存在或不是提交：{ref}")
+        else:
+            target = resolved.stdout.strip()
+    if not head:
+        reasons.append("无法核验远端 head")
+    elif head != rec["base"]:
+        if not re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", head) or git(["cat-file", "-e", head + "^{commit}"], rec["repo"], check=False).returncode:
+            reasons.append("未取回")
+        elif target:
+            compared = git(["merge-base", "--is-ancestor", head, target], rec["repo"], check=False)
+            if compared.returncode:
+                reasons.append("未合入 " + ref if compared.returncode == 1 else "无法核验合入关系")
+    return reasons
+
+
 def cmd_status(a, cfg):
-    recs = [load_job(a.job)] if a.job else [r for r in all_jobs() if not r.get("user_id") or r["user_id"] == require_user()]
+    unmerged = getattr(a, "unmerged", False)
+    if getattr(a, "into", None) and not unmerged:
+        die("--into 需要 --unmerged。", 4)
+    filtered = unmerged or getattr(a, "project", None) or get_dir(a)
+    recs = scoped_jobs(a) if filtered else ([load_job(a.job)] if a.job else [r for r in all_jobs() if not r.get("user_id") or r["user_id"] == require_user()])
     if not recs:
         print("no jobs.")
         return
     states = job_states(cfg, recs)
+    if unmerged:
+        selected = []
+        for rec in recs:
+            snapshot = states.get(rec["job"], {})
+            head = snapshot.get("head")
+            if head and head != rec["base"]:
+                reasons = merge_check(rec, head, getattr(a, "into", None))
+                if reasons:
+                    states[rec["job"]] = dict(snapshot, merge_status="；".join(reasons))
+                    selected.append(rec)
+        recs = selected
     if getattr(a, "details", False):
         output = []
         for rec in recs:
@@ -1070,7 +1133,8 @@ def cmd_status(a, cfg):
         print(json.dumps([dict(r, **states.get(r["job"], {})) for r in recs], indent=2, ensure_ascii=False))
         return
     for r in recs:
-        print(describe(r, states.get(r["job"], {})))
+        snapshot = states.get(r["job"], {})
+        print(describe(r, snapshot) + ("  " + snapshot["merge_status"] if "merge_status" in snapshot else ""))
 
 
 def cmd_wait(a, cfg):
@@ -1286,7 +1350,102 @@ def backup_reports(host, rec):
     return str(destination)
 
 
+def worktree_changes(host, rec):
+    """实时读取 head 和完整路径，NUL 分隔保留空格、换行及重命名两端。"""
+    if host["platform"] == "windows":
+        info = native.request(host, "clean-check", {"job": rec["job"], "detailed": True})
+        head, status = info["head"], info["status"]
+    else:
+        wt = '"$ROOT/wt/' + messages.job_id(rec["job"]) + '"'
+        reply = ssh(host, f'head=$(git -C {wt} rev-parse HEAD) || exit 1; '
+                          'printf "%s\\n" "$head"; '
+                          f'GIT_OPTIONAL_LOCKS=0 git -C {wt} status --porcelain=v1 -z --untracked-files=all', check=False)
+        if not reply or reply.returncode:
+            raise ValueError("无法核验 worktree 的 head 与未提交内容")
+        head, separator, status = reply.stdout.partition("\n")
+        if not separator:
+            raise ValueError("worktree 检查响应无效")
+    paths = []
+    entries = iter(status.split("\0"))
+    for entry in entries:
+        if not entry:
+            continue
+        if len(entry) < 4 or entry[2] != " ":
+            raise ValueError("worktree 路径状态无效")
+        paths.append(entry[3:])
+        if "R" in entry[:2] or "C" in entry[:2]:
+            original = next(entries, "")
+            if not original:
+                raise ValueError("worktree 重命名路径状态无效")
+            paths.append(original)
+    return head, paths
+
+
+def pending_results(cfg, rec, snapshot):
+    unlaunched = rec.get("dispatch_state") in ("preparing", "preparation_failed")
+    if rec.get("handoff_version") and not unlaunched:
+        receipt = collect_result(cfg, rec, snapshot)
+        if not receipt or delivery(rec, receipt) != "received":
+            return True
+    for path in result_path(rec, 1).parent.glob("r*.json"):
+        if not path.name.endswith(".ack.json"):
+            receipt = messages.read_json(path)
+            if receipt and delivery(rec, receipt) != "received":
+                return True
+    return False
+
+
+def cmd_clean_merged(a, cfg):
+    if a.job or a.force or a.delete_branch or getattr(a, "discard_reports", False):
+        die("--merged 不与 job、--force、--delete-branch 或 --discard-reports 混用。", 4)
+    recs = scoped_jobs(a)
+    if not recs:
+        print("no jobs.")
+        return
+    states = job_states(cfg, recs)
+    for rec in recs:
+        j = rec["job"]
+        snapshot = states.get(j, {})
+        state = snapshot.get("state")
+        reason = None
+        if state == "running":
+            reason = "任务运行中"
+        elif state == "starting" or rec.get("dispatch_state") == "preparing":
+            reason = "任务准备中或启动结果待核实"
+        elif state not in ("done", "dead"):
+            reason = "连接不可达" if state == "unreachable" else "未确认任务已结束"
+        if reason:
+            print(f"skip {j}: {reason}")
+            continue
+        try:
+            host = job_host(cfg, rec)
+            head, paths = worktree_changes(host, rec)
+            reasons = merge_check(rec, head, getattr(a, "into", None))
+            if reasons:
+                print(f"skip {j}: {'；'.join(reasons)}")
+                continue
+            if pending_results(cfg, rec, snapshot):
+                print(f"skip {j}: 结果回执待收取；先用 rd result / rd ack")
+                continue
+            included = rec.get("include_paths", [])
+            unexpected = [p for p in paths if not any(
+                item == "." or p == item or p.startswith(item.rstrip("/") + "/") for item in included)]
+            if unexpected:
+                print(f"skip {j}: 存在非 --include 路径的未提交内容：{unexpected!r}")
+                continue
+            if getattr(a, "dry_run", False):
+                print(f"would clean {j} (reports 将保存，分支保留)")
+            else:
+                remove_job(a, rec, host)
+        except (OSError, ValueError, SystemExit, subprocess.SubprocessError) as error:
+            print(f"skip {j}: 核验或清理失败，保留未删除内容与登记：{error}")
+
+
 def cmd_clean(a, cfg):
+    if getattr(a, "merged", False):
+        return cmd_clean_merged(a, cfg)
+    if not a.job or getattr(a, "into", None) or getattr(a, "dry_run", False) or getattr(a, "project", None):
+        die("请指定 job；--into、--dry-run 和范围筛选需要 --merged。", 4)
     rec = load_job(a.job)
     host = job_host(cfg, rec)
     j, b = rec["job"], rec["branch"]
@@ -1315,6 +1474,12 @@ def cmd_clean(a, cfg):
         have = git(["rev-parse", "-q", "--verify", f"refs/remotes/rd/{b}"], rec["repo"], check=False).stdout.strip()
         if head and head != rec["base"] and head != have:
             die("the job has commits you have not fetched. Run rd fetch first, or --force.")
+    remove_job(a, rec, host)
+
+
+def remove_job(a, rec, host):
+    """共用报告保存与删除过程，调用方负责各自的清理前置条件。"""
+    j, b = rec["job"], rec["branch"]
     bare = rec.get("bare", f"repos/{rec['project']}.git")
     if not getattr(a, "discard_reports", False):
         try:
@@ -1451,11 +1616,14 @@ def main():
     p.add_argument("--initiator-session", help="发起方会话ID；默认 RD_INITIATOR_SESSION，再 CODEX_THREAD_ID")
     p.set_defaults(fn=cmd_run)
 
-    p = sub.add_parser("status", help="show jobs")
+    p = sub.add_parser("status", parents=[repo_parser], help="show jobs")
     p.add_argument("job", nargs="?")
     p.add_argument("--json", action="store_true")
     p.add_argument("--details", action="store_true", help="返回本轮进度/结果，要求原发起会话")
     p.add_argument("--initiator-session")
+    p.add_argument("--unmerged", action="store_true", help="跨会话列出当前员工未合入的提交")
+    p.add_argument("--into", help="合入目标 REF；默认各 job 的 source_branch")
+    p.add_argument("--project", help="限定项目；未指定时 --unmerged 在当前仓库内筛选")
     p.set_defaults(fn=cmd_status)
 
     p = sub.add_parser("wait", help="block until a job finishes (exit 0 ok, 1 failed, 2 still running)")
@@ -1518,8 +1686,12 @@ def main():
     p.add_argument("--initiator-session")
     p.set_defaults(fn=cmd_stop)
 
-    p = sub.add_parser("clean", help="remove a finished job's worktree and logs from the worker")
-    p.add_argument("job")
+    p = sub.add_parser("clean", parents=[repo_parser], help="remove a finished job's worktree and logs from the worker")
+    p.add_argument("job", nargs="?")
+    p.add_argument("--merged", action="store_true", help="按合入、回执及未提交路径条件批量清理当前员工已结束的 job")
+    p.add_argument("--into", help="合入目标 REF；默认各 job 的 source_branch")
+    p.add_argument("--dry-run", action="store_true", help="只列出 --merged 计划，不删除")
+    p.add_argument("--project", help="限定项目；未指定时 --merged 在当前仓库内筛选")
     p.add_argument("--delete-branch", action="store_true", help="also delete the job branch (worker and origin)")
     p.add_argument("--force", action="store_true", help="discard uncommitted or unfetched work")
     p.add_argument("--discard-reports", action="store_true", help="skip local reports backup before deleting the remote job")

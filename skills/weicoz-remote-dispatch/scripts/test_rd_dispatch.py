@@ -90,6 +90,8 @@ class DispatchTests(unittest.TestCase):
         directory = Path(host["workdir"]) / "jobs" / rec["job"]
         directory.mkdir(parents=True, exist_ok=True)
         (directory / "exit_code").write_text("0")
+        suffix = "json" if host["platform"] == "windows" else "sh"
+        (directory / f"run.r{rec['rounds']}.{suffix}").write_text("")
 
     def args(self, **overrides):
         values = dict(dir=str(self.repo), agent=None, prompt_file=None, cmd="true", test=False,
@@ -100,8 +102,9 @@ class DispatchTests(unittest.TestCase):
         return argparse.Namespace(**values)
 
     def dispatch(self, **kwargs):
+        before = {r["job"] for r in rd.all_jobs()}
         rd.cmd_run(self.args(**kwargs), self.cfg)
-        return rd.all_jobs()[-1]
+        return next(r for r in rd.all_jobs() if r["job"] not in before)
 
     def clean(self, record, **overrides):
         values = dict(job=record["job"], force=True, delete_branch=True, discard_reports=False, initiator_session=None)
@@ -346,6 +349,234 @@ class DispatchTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.clean(record)
         self.assertTrue((self.worker / "wt" / record["job"]).exists())
+
+    def bulk_args(self, **overrides):
+        values = dict(job=None, merged=True, force=False, delete_branch=False, discard_reports=False,
+                      initiator_session=None, into=None, dry_run=False, project=None, dir=str(self.repo))
+        values.update(overrides)
+        return argparse.Namespace(**values)
+
+    def capture(self, command, args):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            command(args, self.cfg)
+        return output.getvalue()
+
+    def remote_head(self, record, commit=False, fetch=False):
+        wt = self.worker / "wt" / record["job"]
+        if commit:
+            (wt / "result.txt").write_text(record["job"])
+            native.git(wt, "add", "result.txt")
+            native.git(wt, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                       "commit", "-qm", "fixture result")
+        head = native.git(wt, "rev-parse", "HEAD").stdout.strip()
+        (self.worker / "jobs" / record["job"] / "head").write_text(head)
+        if fetch:
+            self.git("fetch", "-q", str(self.worker / record["bare"]), record["branch"])
+        return head
+
+    def acknowledge(self, record):
+        snapshot = rd.job_states(self.cfg, [record])[record["job"]]
+        receipt = rd.collect_result(self.cfg, record, snapshot)
+        rd.cmd_ack(argparse.Namespace(job=record["job"], round=receipt["round"],
+                                     receipt_id=receipt["receipt_id"],
+                                     initiator_session=record.get("initiator_session")), self.cfg)
+
+    def test_source_branch_and_include_paths_are_recorded_independently_of_ref(self):
+        source = self.git("symbolic-ref", "--short", "HEAD").strip()
+        (self.repo / "extra.txt").write_text("input")
+        record = self.dispatch(include=["./extra.txt"])
+        self.assertEqual(record["source_branch"], source)
+        self.assertEqual(record["include_paths"], ["extra.txt"])
+        self.assertEqual(record["base"], self.base)
+        self.git("checkout", "--detach", "-q", "HEAD")
+        record = self.dispatch()
+        self.assertIsNone(record["source_branch"])
+
+    def test_status_unmerged_reports_merged_unmerged_unfetched_and_missing_ref(self):
+        merged = self.dispatch(name="merged")
+        merged_head = self.remote_head(merged, commit=True, fetch=True)
+        self.git("merge", "--ff-only", merged_head)
+        unmerged = self.dispatch(name="unmerged", initiator_session="another-session")
+        unmerged_head = self.remote_head(unmerged, commit=True, fetch=True)
+        unfetched = self.dispatch(name="unfetched")
+        self.remote_head(unfetched, commit=True)
+        legacy = self.dispatch(name="legacy")
+        legacy_head = self.remote_head(legacy, commit=True, fetch=True)
+        del legacy["source_branch"]
+        rd.save_job(legacy)
+        unchanged = self.dispatch(name="unchanged")
+        self.remote_head(unchanged)
+        foreign = dict(unmerged, job="foreign-job", user_id="employee_b")
+        rd.save_job(foreign)
+        args = self.bulk_args(unmerged=True, json=True, details=False)
+        rows = json.loads(self.capture(rd.cmd_status, args))
+        by_job = {r["job"]: r for r in rows}
+        self.assertEqual(set(by_job), {unmerged["job"], unfetched["job"], legacy["job"]})
+        self.assertIn("未合入", by_job[unmerged["job"]]["merge_status"])
+        self.assertIn("未取回", by_job[unfetched["job"]]["merge_status"])
+        self.assertIn("需指定 --into", by_job[legacy["job"]]["merge_status"])
+        args.into = legacy_head
+        rows = json.loads(self.capture(rd.cmd_status, args))
+        self.assertNotIn(legacy["job"], [r["job"] for r in rows])
+        args.into = unmerged_head
+        rows = json.loads(self.capture(rd.cmd_status, args))
+        self.assertNotIn(unmerged["job"], [r["job"] for r in rows])
+        args.into, args.json = None, False
+        self.assertIn("未取回", self.capture(rd.cmd_status, args))
+
+    def test_source_branch_uses_local_branch_even_when_a_tag_has_the_same_name(self):
+        source = self.git("symbolic-ref", "HEAD").strip()[len("refs/heads/"):]
+        self.git("tag", source)
+        record = self.dispatch()
+        self.assertEqual(record["source_branch"], source)
+        head = self.remote_head(record, commit=True, fetch=True)
+        self.git("tag", "-f", source, head)
+        self.assertIn("未合入", "；".join(rd.merge_check(record, head, None)))
+        self.assertEqual(rd.merge_check(record, head, "refs/tags/" + source), [])
+
+    def test_bulk_scope_filters_current_employee_repository_and_project(self):
+        record = self.dispatch()
+        self.remote_head(record, commit=True, fetch=True)
+        foreign = dict(record, job="foreign-job", user_id="employee_b")
+        other_repo = dict(record, job="other-repo", repo="/home/user/other-repo")
+        other_project = dict(record, job="other-project", project="other-project")
+        for item in (foreign, other_repo, other_project):
+            rd.save_job(item)
+        self.assertEqual({r["job"] for r in rd.scoped_jobs(self.bulk_args())},
+                         {record["job"], other_project["job"]})
+        self.assertEqual({r["job"] for r in rd.scoped_jobs(self.bulk_args(dir=None, project=record["project"]))},
+                         {record["job"], other_repo["job"]})
+        with patch.object(os, "getcwd", return_value=str(self.repo)):
+            self.assertEqual({r["job"] for r in rd.scoped_jobs(self.bulk_args(dir=None))},
+                             {record["job"], other_project["job"]})
+        with patch.object(rd, "job_states", wraps=rd.job_states) as states:
+            self.capture(rd.cmd_clean, self.bulk_args(project=record["project"]))
+        self.assertEqual([r["job"] for r in states.call_args.args[1]], [record["job"]])
+
+    def test_clean_merged_dry_run_then_preserves_reports_and_branches_on_both_platforms(self):
+        for platform in ("posix", "windows"):
+            with self.subTest(platform=platform):
+                self.cfg.cp.set("host:fixture", "platform", platform)
+                inputs = self.repo / "inputs folder"
+                inputs.mkdir(exist_ok=True)
+                (inputs / "中文\ninput.txt").write_text("included")
+                record = self.dispatch(include=["inputs folder"], initiator_session="previous-session")
+                self.remote_head(record)
+                self.acknowledge(record)
+                reports = self.reports(record)
+                wt = self.worker / "wt" / record["job"]
+                before = reports.parent
+                with patch.object(rd, "backup_reports", wraps=rd.backup_reports) as backup:
+                    output = self.capture(rd.cmd_clean, self.bulk_args(dry_run=True))
+                backup.assert_not_called()
+                self.assertIn("would clean " + record["job"], output)
+                self.assertTrue(wt.exists())
+                self.assertTrue(before.exists())
+                self.assertTrue(Path(rd.job_path(record["job"])).exists())
+                self.assertIn("cleaned " + record["job"], self.capture(rd.cmd_clean, self.bulk_args()))
+                self.assertFalse(wt.exists())
+                self.assertFalse(before.exists())
+                self.assertFalse(Path(rd.job_path(record["job"])).exists())
+                self.assertEqual(native.git(self.worker / record["bare"], "rev-parse", record["branch"]).stdout.strip(), self.base)
+                self.assertEqual((self.root / "saved reports" / record["job"] / "summary.md").read_text(), "复现报告")
+
+    def test_clean_merged_accepts_ancestor_without_rd_tracking_ref_and_old_job_with_into(self):
+        record = self.dispatch()
+        head = self.remote_head(record, commit=True, fetch=True)
+        self.git("merge", "--ff-only", head)
+        self.git("commit", "--allow-empty", "-qm", "later local result")
+        self.acknowledge(record)
+        into = record.pop("source_branch")
+        rd.save_job(record)
+        output = self.capture(rd.cmd_clean, self.bulk_args())
+        self.assertIn("需指定 --into", output)
+        self.assertTrue(Path(rd.job_path(record["job"])).exists())
+        self.assertIn("cleaned " + record["job"], self.capture(rd.cmd_clean, self.bulk_args(into=into)))
+
+    def test_clean_merged_skips_each_unsafe_state(self):
+        record = self.dispatch()
+        self.remote_head(record)
+        self.acknowledge(record)
+        for state, dispatch_state, reason in (
+            ("running", "started", "运行中"),
+            ("starting", "started", "准备中"),
+            ("done", "preparing", "准备中"),
+            ("unreachable", "started", "不可达"),
+            ("missing", "started", "未确认任务已结束"),
+            ("unknown", "started", "未确认任务已结束"),
+        ):
+            with self.subTest(state=state, dispatch_state=dispatch_state):
+                record["dispatch_state"] = dispatch_state
+                rd.save_job(record)
+                with patch.object(rd, "job_states", return_value={record["job"]: {"state": state}}), \
+                     patch.object(rd, "worktree_changes") as changes:
+                    self.assertIn(reason, self.capture(rd.cmd_clean, self.bulk_args()))
+                changes.assert_not_called()
+                self.assertTrue(Path(rd.job_path(record["job"])).exists())
+
+    def test_clean_merged_skips_unfetched_unmerged_invalid_ref_and_unreadable_worktree(self):
+        record = self.dispatch()
+        self.remote_head(record, commit=True)
+        self.acknowledge(record)
+        self.assertIn("未取回", self.capture(rd.cmd_clean, self.bulk_args()))
+        self.remote_head(record, fetch=True)
+        self.assertIn("未合入", self.capture(rd.cmd_clean, self.bulk_args()))
+        missing_ref = record["source_branch"] + "-" + record["job"]
+        self.assertIn("REF 不存在", self.capture(rd.cmd_clean, self.bulk_args(into=missing_ref)))
+        with patch.object(rd, "worktree_changes", side_effect=ValueError("无法核验 worktree")):
+            self.assertIn("无法核验 worktree", self.capture(rd.cmd_clean, self.bulk_args()))
+        self.assertTrue(Path(rd.job_path(record["job"])).exists())
+        self.assertTrue((self.worker / "wt" / record["job"]).exists())
+
+    def test_clean_merged_blocks_current_and_historical_pending_receipts(self):
+        record = self.dispatch()
+        self.remote_head(record)
+        self.assertIn("结果回执待收取", self.capture(rd.cmd_clean, self.bulk_args()))
+        # Acknowledging a later round must not discard an earlier unreceived result.
+        record["rounds"] = 2
+        rd.save_job(record)
+        self.finish(rd.job_host(self.cfg, record), record)
+        self.acknowledge(record)
+        self.assertIn("结果回执待收取", self.capture(rd.cmd_clean, self.bulk_args()))
+        receipt = rd.messages.read_json(rd.result_path(record, 1))
+        rd.cmd_ack(argparse.Namespace(job=record["job"], round=1, receipt_id=receipt["receipt_id"], initiator_session=None), self.cfg)
+        self.assertIn("cleaned ", self.capture(rd.cmd_clean, self.bulk_args()))
+
+    def test_clean_merged_blocks_unexpected_paths_renames_and_legacy_dirty_content(self):
+        for platform in ("posix", "windows"):
+            with self.subTest(platform=platform):
+                self.cfg.cp.set("host:fixture", "platform", platform)
+                record = self.dispatch(include=["tracked.txt"])
+                self.remote_head(record)
+                self.acknowledge(record)
+                wt = self.worker / "wt" / record["job"]
+                native.git(wt, "mv", "tracked.txt", "outside.txt")
+                self.assertIn("非 --include", self.capture(rd.cmd_clean, self.bulk_args()))
+                native.git(wt, "reset", "--hard", "HEAD")
+                (wt / "tracked.txt").write_text("allowed")
+                # Existing jobs without the include record must not infer a whitelist.
+                del record["include_paths"]
+                rd.save_job(record)
+                self.assertIn("非 --include", self.capture(rd.cmd_clean, self.bulk_args()))
+                self.assertTrue(wt.exists())
+
+    def test_clean_merged_legacy_without_pending_result_and_failed_backup(self):
+        record = self.dispatch()
+        record.pop("handoff_version")
+        record.pop("source_branch")
+        rd.save_job(record)
+        self.remote_head(record)
+        self.assertIn("需指定 --into", self.capture(rd.cmd_clean, self.bulk_args()))
+        with patch.object(rd, "backup_reports", side_effect=OSError("fixture disk full")):
+            self.assertIn("清理失败", self.capture(rd.cmd_clean, self.bulk_args(into=record["base"])))
+        self.assertTrue(Path(rd.job_path(record["job"])).exists())
+        self.assertTrue((self.worker / "wt" / record["job"]).exists())
+        self.assertIn("cleaned ", self.capture(rd.cmd_clean, self.bulk_args(into=record["base"])))
+
+    def test_bulk_cli_rejects_unsafe_combinations(self):
+        for option in (dict(force=True), dict(delete_branch=True), dict(discard_reports=True), dict(job="fixture-job")):
+            with self.subTest(option=option), self.assertRaises(SystemExit):
+                rd.cmd_clean(self.bulk_args(**option), self.cfg)
 
 
 if __name__ == "__main__":
