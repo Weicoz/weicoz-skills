@@ -58,7 +58,12 @@ description: >
 ## 数据库体积
 
 保留策略：每 300 秒删除 24 小时前的 `proc_samples` / `sys_snapshot`，随后
-`PRAGMA incremental_vacuum(512)`；连接打开时若 `freelist_count > 500` 执行一次 `VACUUM`。
+`PRAGMA incremental_vacuum(512)`；连接打开时若 `freelist_count > 500` 执行一次 `VACUUM`，
+同时把 `auto_vacuum` 切成 INCREMENTAL。
+
+样本节流：同一 PID 最小间隔 5 秒（`storage.rs` 的 `DEFAULT_SAMPLE_MIN_INTERVAL_SECS`，
+环境变量 `PROCMON_SAMPLE_MIN_SECS` 可覆盖，0 关闭）。忙时不再逐秒落盘；
+异常检测走每轮实时指标与最近 60 分钟时间线，5 秒粒度不影响判定。
 
 稳态体积由 24 小时窗口决定，不是无限膨胀；但库文件是**高水位**，删行不自动缩文件。
 两个前提缺一个就会"只增不减"：
@@ -77,9 +82,10 @@ description: >
 4. 只想保留最近几小时：`sqlite3 "$DB" "DELETE FROM proc_samples WHERE ts < strftime('%s','now')-3600*6;"` 后再 VACUUM。
 5. `procmon clean` 清空全部历史，含取证目录，破坏性，必须先授权。
 
-稳态估算：24 小时窗口约 120 万至 170 万行、库约 150 MB 至 200 MB。
-嫌大就缩短窗口或降采样，二者都要改代码（`storage.rs` 的 `86400` 与采样节流条件），
-不要在运行中的库上手工反复 VACUUM 抵消设计窗口。
+稳态体积 = 24 小时窗口 × 采样密度。实测（2026-10-20，659 进程）：节流前忙时 4,816 行/分，
+节流后 2,086 行/分（降 57%）；轻载约 940 行/分。24 小时对应约 200 MB（轻载）至 400 MB（忙时）。
+行数下限由空闲抽样决定：约 2 行/分钟/进程。还要更小就改空闲抽样（`now_int % 30`）或窗口（`86400`），
+两者都在 `storage.rs`；不要在运行中的库上手工反复 VACUUM 抵消设计窗口。
 
 ## 故障对照
 
