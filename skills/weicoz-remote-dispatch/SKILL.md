@@ -5,11 +5,10 @@ description: 把 Codex 或 DSH 编码代理会话、测试和构建命令经 SSH
 
 # Remote Dispatch
 
-把任务派到指定机器，并按员工固定 ID 选择独立配置。实现是一个独立的 Python 包与 `rd` 命令，本技能只负责调用它。
+把任务派到指定机器，并按员工固定 ID 选择独立配置。实现是 Python 包 `remote_dispatch` 与 `rd` 命令，本技能只负责调用它。
 
-- 项目源码：`/Users/weicoz/File/git/remote-dispatch`（包、完整文档、测试）
-- 发布地址：`https://github.com/Weicoz/remote-dispatch`
-- 技能源文件：项目仓库 `skills/weicoz-remote-dispatch/SKILL.md`；本目录是发布副本，`references/` 为项目 `docs/` 的副本
+- 项目源码：`https://github.com/Weicoz/remote-dispatch`（`src/remote_dispatch`、`docs/`、`tests/`）
+- 技能源文件在项目仓库 `skills/weicoz-remote-dispatch/SKILL.md`；Codeberg `weicoz-skills` 里的同名文件由 `make sync-skill` 同步。
 
 需要同时协调本机交互会话与多条远端任务时，由 `weicoz-session-hub` 当总控，本技能负责其中的远端任务。
 
@@ -18,10 +17,10 @@ description: 把 Codex 或 DSH 编码代理会话、测试和构建命令经 SSH
 未安装时先装。不要改技能目录里的脚本，也不要复制一份实现到别处。
 
 ```bash
-uv tool install --from /Users/weicoz/File/git/remote-dispatch remote-dispatch
-uv tool install git+https://github.com/Weicoz/remote-dispatch        # 或从 GitHub
-pipx install /Users/weicoz/File/git/remote-dispatch                   # 或 pipx
-pip install --user /Users/weicoz/File/git/remote-dispatch             # 或 pip
+uv tool install --from . remote-dispatch                           # 仓库目录内
+uv tool install git+https://github.com/Weicoz/remote-dispatch      # 或从 GitHub
+pipx install .                                                     # 或 pipx
+pip install --user .                                               # 或 pip
 
 rd --version          # 验证入口
 ```
@@ -40,7 +39,7 @@ rd --version          # 验证入口
 
 ## 配置
 
-机器清单在 `~/.config/remote-dispatch/config.ini`，不存在时按项目 `examples/config.example.ini` 建一份。
+机器清单在 `~/.config/remote-dispatch/config.ini`，不存在时按 `examples/config.example.ini` 建一份。
 
 ```ini
 [host:mini]
@@ -54,7 +53,7 @@ origin_url = git@github.com:me/myrepo.git
 test = uv run pytest -q
 ```
 
-新增机器、目标机装环境与凭据的步骤见 [目标机准备](references/worker-setup.md)。
+新增机器、目标机装环境与凭据的步骤见 [目标机准备](../../docs/worker-setup.md)。
 
 ## 员工 ID 与配置同步
 
@@ -111,11 +110,11 @@ PowerShell 把 `rd` 预设为 `Remove-Item` 别名，CMD 预设为 `rmdir`。必
 
 ## 参考文档
 
-与项目 `docs/` 同源，冲突时以项目仓库为准。
+对应项目仓库的 `docs/` 目录，冲突时以那里为准。
 
-- [代理适配与自定义](references/agents.md)
-- [平台差异（macOS / Linux / Windows）](references/platforms.md)
-- [目标机准备](references/worker-setup.md)
-- [员工配置包格式](references/user-profiles.md)
-- [多轮交接协议](references/handoff.md)
-- [运行状态与缓存保留](references/cache-retention.md)
+- [代理适配与自定义](https://github.com/Weicoz/remote-dispatch/blob/main/docs/agents.md)
+- [平台差异（macOS / Linux / Windows）](https://github.com/Weicoz/remote-dispatch/blob/main/docs/platforms.md)
+- [目标机准备](https://github.com/Weicoz/remote-dispatch/blob/main/docs/worker-setup.md)
+- [员工配置包格式](https://github.com/Weicoz/remote-dispatch/blob/main/docs/user-profiles.md)
+- [多轮交接协议](https://github.com/Weicoz/remote-dispatch/blob/main/docs/handoff.md)
+- [运行状态与缓存保留](https://github.com/Weicoz/remote-dispatch/blob/main/docs/cache-retention.md)
