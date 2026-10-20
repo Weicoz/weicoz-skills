@@ -8,7 +8,8 @@ description: 把 Codex 或 DSH 编码代理会话、测试和构建命令经 SSH
 把任务派到指定机器，并按员工固定 ID 选择独立配置。实现是一个独立的 Python 包与 `rd` 命令，本技能只负责调用它。
 
 - 项目源码：`/Users/weicoz/File/git/remote-dispatch`（包、完整文档、测试）
-- 发布地址：`https://github.com/Weicoz/remote-dispatch`（技能本体在 Codeberg 的 weicoz-skills 仓库）
+- 发布地址：`https://github.com/Weicoz/remote-dispatch`
+- 技能源文件：项目仓库 `skills/weicoz-remote-dispatch/SKILL.md`；本目录是发布副本，`references/` 为项目 `docs/` 的副本
 
 需要同时协调本机交互会话与多条远端任务时，由 `weicoz-session-hub` 当总控，本技能负责其中的远端任务。
 
