@@ -34,6 +34,10 @@ python3 "$skill_dir/scripts/package.py" \
 5. 将 `payload.tgz`、`manifest.json`、`install.mjs` 传到目标私有目录，解包到同目录。执行 `node install.mjs <目录>`。安装器先核对所有文件哈希，再逐项备份被覆盖的配置、写入文件和恢复链接。它不清理目标历史或旧备份。
 6. 在目标安装 DSH 各 profile 依赖及 MCP 命令。链接插件保留已构建源码及来源，核对其运行依赖。CLI 管理的核心包使用目标 DSH 安装，不复制源宿主的原生依赖。
 
+## 本机入口漂移检查
+
+改共用 AGENTS 后、迁移前后，以及怀疑某个 Harness 读到旧规则时，运行 `python3 scripts/check_links.py`。它只读核对各 Harness 的 `AGENTS.md` 入口与唯一维护源是否为同一文件（硬链接或软链接），分叉时退出码 1。常见成因是编辑器整文件替换保存，给维护源换了 inode。修复：备份旧入口后以 `ln -f <维护源> <入口>` 重新硬链接，再运行一次确认。维护源与入口清单可用 `HARNESS_AGENTS_SOURCE`、`HARNESS_AGENTS_ENTRIES`（以 `:` 分隔、相对 `HOME`）覆盖。
+
 ## 验证与收尾
 
 - 对安装报告、模型/协议、MCP 名称与启用状态、插件清单、Shell 语法、Skills/AGENTS 链接逐项核对差异。默认源版本与目标版本匹配；偏差写明原因。
