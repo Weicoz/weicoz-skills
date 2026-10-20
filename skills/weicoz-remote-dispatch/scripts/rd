@@ -110,6 +110,20 @@ rm -f "$RD_JOB_DIR/exit_code" "$RD_JOB_DIR/timed_out"
 echo $$ > "$RD_JOB_DIR/pid"
 cd "$RD_WT" || { echo 96 > "$RD_JOB_DIR/exit_code"; exit 96; }
 date -u +%Y-%m-%dT%H:%M:%SZ > "$RD_JOB_DIR/started.r$RD_ROUND"
+# SSH shells on macOS can inherit only 256 descriptors, even with an unlimited hard limit.
+mkdir -p "$RD_JOB_DIR/reports"
+{
+  rd_nofile_soft=$(ulimit -Sn)
+  rd_nofile_hard=$(ulimit -Hn)
+  rd_nofile_target=10240
+  if [ "$rd_nofile_hard" != unlimited ] && [ "$rd_nofile_hard" -lt "$rd_nofile_target" ]; then
+    rd_nofile_target=$rd_nofile_hard
+  fi
+  if [ "$rd_nofile_soft" != unlimited ] && [ "$rd_nofile_soft" -lt "$rd_nofile_target" ]; then
+    ulimit -Sn "$rd_nofile_target" || echo "rd: could not raise the job's file descriptor soft limit" >&2
+  fi
+  printf 'nofile soft_before=%s soft_after=%s hard=%s\n' "$rd_nofile_soft" "$(ulimit -Sn)" "$rd_nofile_hard"
+} > "$RD_JOB_DIR/reports/resource-limits.r$RD_ROUND.log" 2>&1
 if [ -f "$RD_JOB_DIR/setup.sh" ] && [ ! -f "$RD_JOB_DIR/setup.done" ]; then
   if sh "$RD_JOB_DIR/setup.sh" > "$RD_JOB_DIR/setup.log" 2>&1; then
     touch "$RD_JOB_DIR/setup.done"

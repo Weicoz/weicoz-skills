@@ -146,6 +146,10 @@ RD_CONFIRMED_VERSION='填入已审阅的完整指纹'
 "$RD_BIN" run --cmd 'npm run build' --heavy --host mini
 ```
 
+POSIX 作业在 setup 和任务启动前，把文件句柄软上限提高到 10240（受已有硬上限约束）；已更高或无限的软上限保持不变。此调整只作用于本作业及其子进程，不修改机器配置、硬上限或员工沙箱。`--cmd`、`--test` 和代理任务共用此入口，续跑时同样生效；已运行任务保持原值。Windows runner 不受此项影响。
+
+初始值、实际值和调整失败信息写入 `reports/resource-limits.r<N>.log`，清理时随 reports 备份。若全量测试报 `OSError: [Errno 24] Too many open files`，先取完整堆栈并核对该日志；不要用单文件通过或汇总中的数据库 ERROR 推断沙箱权限失败。
+
 机器根目录下的整机排队锁共用，避免员工各自排队却同时耗尽内存。默认分支名带员工 ID，仓库还区分来源，避免同名仓库混用。
 
 ## 换电脑与更新
