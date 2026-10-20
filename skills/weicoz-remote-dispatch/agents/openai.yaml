@@ -1,5 +1,0 @@
-interface:
-  display_name: "Remote Dispatch"
-  short_description: "把编码代理会话和测试经 SSH 派到别的机器执行并取回提交"
-  brand_color: "#1F6FEB"
-  default_prompt: "使用 $weicoz-remote-dispatch 派任务到远端：读取 RD_USER_ID，首次同步先询问 ID 和是否同步配置；检查机器负载及员工配置，再派单、取回并验收。"

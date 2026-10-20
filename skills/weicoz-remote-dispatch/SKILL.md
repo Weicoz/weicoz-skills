@@ -1,276 +1,120 @@
 ---
 name: weicoz-remote-dispatch
-description: 把 Codex 编码代理会话和测试、构建命令经 SSH 派到另一台机器执行（dsh、Kimi Code、Claude Code 代理模板尚未完成员工配置隔离，目前暂停派单），本机只负责派单、看进度和取回提交。只在用户主动要求或明确授权把任务放到别的机器上跑时使用，例如“派到另一台机器／远端／mac mini／服务器上跑”“让别的机器跑测试”“用双机／多机跑”“remote dispatch”“rd run”，或要求添加、检查远端机器。用户没有要求也没有授权时不要使用：派代理、跑测试默认都在本机进行；本机负载高时可以建议派到远端，但要等用户同意。
+description: 把 Codex 或 DSH 编码代理会话、测试和构建命令经 SSH 派到另一台机器执行，本机只负责派单、看进度和取回提交。只在用户主动要求或明确授权把任务放到别的机器上跑时使用，例如“派到另一台机器／远端／mac mini／服务器上跑”“让别的机器跑测试”“用双机／多机跑”“remote dispatch”“rd run”，或要求添加、检查远端机器。用户没有要求也没有授权时不要使用：派代理、跑测试默认都在本机进行；本机负载高时可以建议派到远端，但要等用户同意。
 ---
 
 # Remote Dispatch
 
-把任务派到指定机器，并按员工固定 ID 选择独立配置。需要同时协调多条工作线（本机交互会话和远端任务混合）并在一处汇总时，由 `weicoz-session-hub` 当总控，本技能负责其中的远端任务。员工使用指南见 [README.md](README.md)；准备配置、路径映射和同步时读 [员工配置](references/user-profiles.md)。
+把任务派到指定机器，并按员工固定 ID 选择独立配置。实现是一个独立的 Python 包与 `rd` 命令，本技能只负责调用它。
 
-## 发起方与接收方
+- 项目源码：`/Users/weicoz/File/git/remote-dispatch`（包、完整文档、测试）
+- 发布地址：`https://codeberg.org/jy_project/remote-dispatch`（推送前先用本地路径安装）
 
-当前发起方会话负责调度与验收。接收方执行本轮指令范围内的实现、排错和检查，回传结果后保留上下文等待新指令。发起方读取结果、判断是否完成；需要修复或复检时用 `rd resume` 续派到原接收会话。接收方不自行追加下一轮任务。派的是“实现并通过检查”时，范围内必要排错属于本轮；派的是“只检查并报告”时，失败后回传事实。
+需要同时协调本机交互会话与多条远端任务时，由 `weicoz-session-hub` 当总控，本技能负责其中的远端任务。
 
-新派单用 `--initiator-session` 绑定宿主提供的当前会话ID；未显式传入时依次使用 `RD_INITIATOR_SESSION`、`CODEX_THREAD_ID`。宿主未提供ID时标为未绑定，不声称结果已送达特定会话。旧任务兼容原调用，不自动改其绑定、配置或工作。会话ID用于路由，不能代替认证或文件权限隔离。协议与例子见 [会话交付](references/handoff.md)。
+## 安装与更新
 
-结果通过 `rd result <job>` / `rd inbox` 交给绑定的发起方；发起方实际收取后执行 `rd ack <job> --round <N> --receipt-id <ID>`。确认只表示收取，不表示测试通过或授权续派。明确新指令后再 `rd resume`；只有新指令才产生下一轮。新任务清理前先收取回执、保存需要的产物。
+未安装时先装。不要改技能目录里的脚本，也不要复制一份实现到别处。
 
-随时用 `rd status <job> --details` 查询阶段、摘要、更新时间及已取得结果。执行方用本轮 `RD_REPORTER` 写进度/结果，检查结论标为执行方报告；发起方核对证据后验收。默认日志和定时事件只提供必要元数据，凭据与敏感正文不写回执。
+```bash
+uv tool install --from /Users/weicoz/File/git/remote-dispatch remote-dispatch
+uv tool install git+https://codeberg.org/jy_project/remote-dispatch   # 或从仓库
+pipx install /Users/weicoz/File/git/remote-dispatch                   # 或 pipx
+pip install --user /Users/weicoz/File/git/remote-dispatch             # 或 pip
 
-目标机支持 macOS、Linux 和原生 Windows。按机器清单 `platform` 选择运行适配；Windows 的 PowerShell、环境文件、后台进程与首次验收见 [Platforms](references/platforms.md)。平台未确认时先体检，不把 POSIX 命令直接发给 Windows。
+rd --version          # 验证入口
+```
+
+更新：`uv tool upgrade remote-dispatch`，或重跑上面的安装命令。升级包不需要动技能。
+
+本机要求 Python 3.9+、git、ssh。员工配置隔离要求两端 Python 3.11+，目标机另需对应代理 CLI 与认证。
+
+## 授权边界
+
+默认所有任务都在本机执行。只有用户主动要求，或对建议明确同意，才派出去。
+
+本机负载高、内存紧、磁盘不够，都不是自行改派的理由。可以建议：说明本机状况、`rd hosts` 看到的远端状况、打算把哪件事派到哪台机器，然后等用户答复。答复含糊不算授权。
+
+授权只覆盖用户同意的那件事。用户说“以后都派到远端”才算持续有效。
+
+## 配置
+
+机器清单在 `~/.config/remote-dispatch/config.ini`，不存在时按项目 `examples/config.example.ini` 建一份。
+
+```ini
+[host:mini]
+ssh = weicoz@192.168.1.20
+workdir = ~/remote-dispatch
+sync = origin
+dsh_auth_file = ~/employee/dsh-credentials.yaml   # 只有 dsh 需要
+
+[project:myrepo]
+origin_url = git@github.com:me/myrepo.git
+test = uv run pytest -q
+```
+
+新增机器、目标机装环境与凭据的步骤见 [目标机准备](references/worker-setup.md)。
 
 ## 员工 ID 与配置同步
 
-- 派单前读取环境变量 `RD_USER_ID`。缺失时询问员工自选 ID，暂停派单；不随机生成、不猜登录用户名。同一员工在其他电脑配置相同 ID。ID 只选配置，不用于身份认证。
-- **每次首次登记或主动同步，必须询问是否同步，并告知已配置 ID；ID 缺失时先询问 ID。** 用 `rd profile check <机器>` 展示目标机、ID、配置清单、变化和版本指纹，用户明确确认后再同步。用户只同意派任务，不代表同意复制个人配置。
-- 确认问题示例：「你的 ID 是 `zhangsan`，将向 `mini` 同步上述配置清单，是否同步？」未知 ID 时问：「你的固定员工 ID 是多少？是否将本机选定配置同步到 `mini`？」不要索取 token 或 API key。
-- 本地配置包来自员工派单电脑，包含公司公共规范和员工允许的差异；不复制目标机机器主人的默认环境。`RD_PROFILE_DIR` 指向可移植配置包，默认 `~/.config/remote-dispatch/profiles/<ID>/`。
-- 目标机按 `users/<ID>/` 分开配置、仓库、worktree 和日志；每单使用 `jobs/<job>/codex/`。全机器重任务锁共用。不同员工不得复用同一个 ID。
-- 运行时比较内容指纹及配置源更新时间。内容不同且本地领先远端**超过 7×24 小时**时，询问是否更新；不同步就用原版本，不自动覆盖。不是按上次同步距今多久判断。远端更新时不自动回退。
-- 配置包缺失时标「未确认：无法比较本地更新时间」，已有远端配置仍可派单；远端也无配置时，完成上面的确认再初始化。续跑始终使用原任务配置，更新只影响新任务。
-- 当前员工代理配置隔离只支持 Codex。其他代理模板保留，但 `rd run --agent dsh|kimi|claude` 暂停派单，防止回退宿主个人配置。普通 `--cmd` / `--test` 按 ID 隔离任务目录；不得用它们绕过代理配置检查。
+- 派单前读 `RD_USER_ID`。缺失时询问员工自选 ID 并暂停派单，不随机生成、不猜登录名。ID 只选配置，不是认证。
+- **首次登记或主动同步必须询问是否同步**，并告知已配置 ID。先跑 `rd profile check <机器>` 展示目标机、ID、清单、变化与版本指纹，用户确认后再 `rd profile sync`。
+- 用户只同意派任务，不代表同意复制个人配置。
+- 内容不同且本地领先远端超过 7×24 小时才询问更新；不同步就沿用原版本。续跑始终用原任务配置。
 
 ```bash
 rd profile check mini
-# 用户确认 ID、清单和本地指纹后执行；两个确认值必须来自本次确认
 rd profile sync mini --confirm-user-id zhangsan --confirm-version <完整指纹>
-```
-
-## 可以建议，但必须用户授权才派
-
-默认所有任务都在本机执行。只有用户主动要求，或者对你的建议明确表示同意，才用这个技能派出去。
-
-本机负载高、内存紧、磁盘不够，都不是自行改派的理由。遇到这种情况可以主动建议：把本机的状况和 `rd hosts` 看到的远端状况告诉用户，说明打算把哪件事派到哪台机器，然后等用户答复。用户没回答、或者回答得含糊，都不算授权，继续在本机做或者停下来等。派到远端会复制代码并按员工配置执行，那台机器也可能承担别的工作；由用户知情后选择。
-
-授权只覆盖用户同意的那件事。同意把这次测试放到远端跑，不等于之后的任务也都放过去；用户说“以后都派到远端”这类话时才当作持续有效。
-
-所有操作通过 `scripts/rd`（下文简称 `rd`）。POSIX 普通命令派单要求本机 Python 3.8+、git、ssh；员工 Codex 配置和 Windows worker 要求 Python 3.11+，目标机还需 git、Codex CLI 和单独配置的认证来源。**当发起方（本机）为 Windows 时**：PowerShell 预设了 `rd` 为 `Remove-Item` 别名，CMD 预设了 `rd` 为 `rmdir` 内置命令；在 Windows 发起派单时，必须通过 `python scripts/rd` 或配套包装脚本 `rd.cmd` / `rd-remote.cmd` / `rd-remote.ps1` 执行，严禁在 PowerShell 或 CMD 中直接裸敲 `rd`，防止误删本地目录。
-
-## 它是怎么工作的
-
-1. 本机把要处理的提交推到一个任务分支。
-2. 远端取到这个分支，在独立的 worktree 里启动代理或命令，脱离 SSH 连接在后台运行。
-3. 代理在远端提交。任务结束后由运行脚本把分支推回去，代理自己不需要也不应该 push。
-4. 本机用 `rd fetch` 把结果取成 `rd/<分支>`，审查后再决定是否合并。
-
-代码同步有两种方式，在机器清单里按机器设置：
-
-- `sync = origin`：经过仓库的 `origin`（例如 GitHub）。远端要有自己的仓库读写凭据。任务分支会出现在 `origin` 上。
-- `sync = direct`：本机经 SSH 直接推给远端，取回也走 SSH。远端不需要任何仓库凭据，分支不会出现在 `origin` 上。
-
-## 第一次用
-
-机器清单在 `~/.config/remote-dispatch/config.ini`，不存在时照 `assets/config.example.ini` 建一份。新增机器、给机器装环境、配置凭据的步骤见 `references/worker-setup.md`。
-
-加完机器后先体检，缺什么会直接列出来：
-
-```bash
-rd doctor <机器名>          # 在要派单的仓库目录里执行，才能检查仓库访问
 ```
 
 ## 派单流程
 
-### 1. 看机器
-
 ```bash
-rd hosts
+rd hosts                        # 探活所有机器
+rd doctor mini                  # 在仓库目录执行，检查目标机是否具备条件
+
+rd run --agent codex --prompt-file task.md --ref HEAD
+rd run --agent dsh --prompt-file task.md          # DSH headless
+rd run --test                                     # 跑项目配置的测试命令
+rd run --cmd 'make bench' --heavy                 # 普通命令，占重任务锁
+
+rd status --details             # 阶段、摘要与更新时间
+rd wait <job>                   # 阻塞到结束：0 成功，1 失败，2 仍在跑
+rd result <job>                 # 收本轮结构化回执
+rd inbox                        # 当前发起会话待收取的结果
+rd ack <job> --round 2 --receipt-id <ID>
+rd resume <job> --prompt-file next.md
+rd fetch <job>                  # 取回提交为 rd/<branch>
+rd stop <job>                   # 终止运行中的任务
+rd clean <job>                  # 删除已完成任务的远端 worktree 与日志
 ```
 
-**每次往远端安排任何任务之前都先看一遍远端的负载，不只是第一次。** 这包括续跑（`rd resume`）、重派，以及不经过 `rd` 直接在那台机器上做的重活（部署、构建镜像、手动跑测试）：远端往往同时是测试服或别人在用的机器，`rd` 只知道自己派出去的会话，看不到这些。把看到的负载、空闲内存、磁盘写进给用户的汇报里；吃紧就不派，并告诉用户。
+- 新派单用 `--initiator-session` 绑定当前会话 ID；未传时依次读 `RD_INITIATOR_SESSION`、`CODEX_THREAD_ID`。宿主没给 ID 就标未绑定，不声称结果会送达某会话。
+- `ack` 只表示已收取，不表示验收通过，也不授权续派。只有新指令才产生下一轮。
+- `rd fetch` 取回的是候选，合并与验收由发起方判断。
+- `rd clean` 前先收取回执、确认没有需要保留的产物；删除远端 worktree 需用户确认。
 
-每台机器给出负载、空闲内存、磁盘、正在跑的会话数、外网探测明细和结论。**没有会话数上限**：资源指标（每核负载、空闲内存、可用磁盘、已用交换）和外网连通都达标才接新任务，哪怕上面已经有别的会话在跑；任一项不达标就不接，哪怕上面一个会话都没有。正在跑的会话数只是给你看的参考。
+## 代理支持
 
-外网探针在目标机执行，POSIX 要求 `python3` 和 `curl`，Windows 使用已配置 Python 和 `curl.exe`；复用任务的 `env_file` 及代理环境，不修改网络配置。默认并行检查 PyPI、当前模型服务主机，以及 Codex 的 WebSocket 路径 TLS。模型地址优先使用 `RD_NETWORK_MODEL_URL` / `network_model_url`；未指定时，只读取 `RD_USER_ID` 对应远端已同步员工配置的活动 provider `base_url`，再回退远端 `OPENAI_BASE_URL` / `https://chatgpt.com`。无法识别自定义 provider 时停止准入并提示显式配置，不读取宿主个人配置或凭据。
+| 代理 | 状态 | 隔离 |
+| --- | --- | --- |
+| `codex` | 完整支持 | 每任务独立 `CODEX_HOME` 加员工配置包与认证文件 |
+| `dsh` | 支持（headless） | 每任务独立 `DSH_HOME` 加 `dsh_auth_file` 凭据副本；不继承宿主 `~/.dsh` |
+| `kimi` / `claude` | 仅模板 | 未实现隔离，`rd run` 会拒绝派单 |
 
-本机环境变量 `RD_NETWORK_URLS`（逗号/空白分隔）、`RD_NETWORK_MODEL_URL`、`RD_NETWORK_WEBSOCKET_URL`、`RD_NETWORK_TIMEOUT_SECONDS` 优先于 `[host:名称]` / `[defaults]` 中对应的 `network_urls`、`network_model_url`、`network_websocket_url`、`network_timeout_seconds`。必需列表可替换，模型主机始终追加；探测共享超时默认 5 秒（SSH 和资源体检另有超时）。地址须为无凭据、查询参数和片段的 HTTPS/WSS URL。每个目标均显示成功或 DNS、TLS、连接、超时等失败原因；缺少工具或探针失败也不可用。任一必需目标失败，`rd run` 排除该机，全部失败退出 3；显式指定机器的 `--force-host` 仍按原语义绕过准入。
+`dsh` 由 `dsh headless --json` 启动，续跑加 `--session-id`；headless 没有 `--model`，模型写在员工 DSH 配置里。目标机不接受 Windows。
 
-Codex 额外请求默认 `https://chatgpt.com/backend-api/codex/responses`（自定义 provider 默认在其 base URL 下请求 `/responses`，可覆盖），使用 HTTP/1.1 WebSocket 升级请求头。此项验证 TLS 与 HTTP 响应可达性，不发送认证；HTTP 401/403 也算 TLS 可达，101 升级后等待超时也算握手可达。TLS 握手/证书失败会拒绝准入。它不能保证已认证模型会话或完整 WebSocket 数据交换成功，运行中仍需巡检。
+## 发起方为 Windows
 
-汇报负载时写出算法，不只给原始数字：「1 分钟负载 ÷ 核数 = 每核负载」，再与 `max_load_per_core` 比较，并给出结论。用一句话说明含义：每核负载大于 1 表示有进程在排队等 CPU。示例：「M4：负载 25.5 ÷ 10 核 = 每核 2.5，超过 1.5，不派」。Windows 机器报 CPU 采样利用率与 `max_cpu_pct`，不换算成每核负载；“已用交换”取页面文件已用量，取不到报 `?`，不当作 0。
+PowerShell 把 `rd` 预设为 `Remove-Item` 别名，CMD 预设为 `rmdir`。必须用 `python -m remote_dispatch <命令>`，或包内 `bin/rd.cmd`、`bin/rd-remote.cmd`、`bin/rd-remote.ps1`，禁止裸敲 `rd`。
 
-`rd run` 自己也会查一遍，不达标的机器不会被选中；所有机器都不达标时它不派单并以退出码 3 结束。**负载高时默认不派**：把各机器不达标的原因原样告诉用户，然后等它降下来或由用户决定。只有用户明确要求强制执行时才用 `--force-host` 硬派。硬派的后果是把远端也拖进换页，所有任务一起变慢。
+## 参考文档
 
-### 2. 派
+与项目 `docs/` 同源，冲突时以项目仓库为准。
 
-派代理：
-
-```bash
-rd run --agent codex --prompt-file <提示词文件> --branch <分支名> --name <短标签>
-```
-
-派命令（测试、构建）：
-
-```bash
-rd run --test                      # 跑机器清单里为这个项目配置的测试命令
-rd run --cmd '<命令>' --heavy      # 任意命令；--heavy 表示它很吃内存，需要排队
-```
-
-`--cmd` 跑完整测试时，把完整输出写进 worktree 内的日志文件，屏幕只回显汇总行与失败／报错行，例如 `pytest ... > full.log 2>&1; grep -E '^(FAILED|ERROR) |passed|failed' full.log`。用 `| tail` 截断唯一一份输出会丢掉首个报错的调用栈，只能重派复现。
-
-常用选项：
-
-- `-C <路径>`、`--dir <路径>`：指定本地项目仓库目录。默认使用当前工作目录，支持传入任意自定义项目路径。
-- `--workdir <路径>`：临时覆盖目标机的工作根目录。默认读取 `config.ini` 中的 `workdir`（POSIX 默认 `~/remote-dispatch`，Windows 默认 `C:/rd`）。
-- `--host <机器名>`：指定机器。不写就自动选空闲会话最多、负载最低的一台。
-- `--model`、`--effort`：换模型和推理强度，只对支持的代理有效。
-- `--timeout <秒>`：到点杀掉，默认一小时。
-- `--wip`：保留 `--ref` 为远端 HEAD，将本机已跟踪文件的最终工作树相对该 ref 的差异应用到远端暂存区，包含暂存、未暂存和二进制改动；本机工作树和暂存区保持原样。ref 与本机 HEAD 不同时，差异也包含两者之间的已提交变化。差异为空时明确报错并停止派单；未跟踪文件用 `--include`。
-- `--include <路径>`：额外复制仓库内文件，可重复；相对路径按选定仓库的根目录解析，`-C/--dir` 用于选择仓库。派单前逐项检查并完成打包，缺失时列出全部缺失路径，以非零退出，尚未连接远端。
-- `--tag <标签>`：只选带这个标签的机器，例如需要 Docker 的任务。
-
-`rd run` 输出的 job id 是后面所有命令的参数，记下来并告诉用户。
-
-job 记录中的 `source_branch` 是派单时本地仓库的当前分支名，与 `--ref` 指定的起始提交独立；分离 HEAD 时为 `null`，旧 job 可能没有此字段。`include_paths` 保存派单时 `--include` 的仓库相对路径，旧 job 缺少该记录时按空白名单处理。
-
-给代理写提示词时补上两句话，因为远端环境和本机不同：
-
-```
-不要 push、不要切换分支；提交到当前分支即可，任务结束后分支会被自动推回。
-完整测试套件这类很吃内存的命令用 `rd-heavy <命令>` 来跑（例如 `rd-heavy make all`），它会和这台机器上的其他任务排队。
-```
-
-提交 hook 只跑受影响测试、且要靠本地记录判断影响范围的项目（与语言无关，例如 Python 的 pytest-testmon），新任务 worktree 没有这份记录会让 hook 退回全量，有的还带追踪开销。一个实例（2026-10-16，10 核机器，一个 Python 项目约 5000 项测试）：hook 退回全量时 20～28 分钟，不带追踪、2 进程并行的完整测试 8 分钟，复制已有记录后 hook 只选 27 项、约 5 秒。做法是在目标机员工目录下缓存一份最近的记录，提示词里让代理开工时先复制到 worktree（不提交），回报 hook 是否仍退回全量；阶段性全量另用 `rd run --cmd '<项目不带追踪的完整测试命令>' --heavy` 跑。具体文件名、命令和失效条件按项目所用工具确定，先在目标机实测再推广。
-
-第二句的原因：一台机器上可能同时有多个会话，各自写代码、跑单个测试文件没问题，但同时跑几遍完整测试会把内存耗尽。`rd-heavy` 是每个任务的 PATH 里都有的排队命令，同一时刻只放行机器清单里 `max_heavy` 个。
-
-### 3. 发起方统一巡检与提醒
-
-**本机发起方负责按统一周期复查和向用户汇报，默认 15 分钟，可配置。** 远端执行方继续实现、提交和记录日志；不把定时汇报责任交给远端代理，也不把它的自述当作复查。首次派单后建立一个本次会话的后台监控，登记全部 job、项目、机器、派发时间、所选周期、最近检查及下一检查时间；新增任务加入同一监控，不为每张票重复建立计时器。
-
-统一周期默认 900 秒，本机 `RD_REPORT_INTERVAL_SECONDS` 优先于 `RD_CONFIG` 中 `[monitor] report_interval_seconds`，两者未设置则用默认值；只接受正整数秒。用户在本次请求指定周期时采用该周期，并在记录中写明。到期时检查仍未完成的任务；周期内已结束的任务及时给出结束提醒，退出码与验收状态分开。未完成就汇报本周期的实际项目／执行进展，之后继续下一个所选周期，直到全部结束或用户明确停止监控。完成、失败、超时、连接受阻和重要里程碑可以提前提醒；提前提醒、续跑和新增 job 不顺延其余任务的下一检查时间。
-
-发起方检查 `rd status`、必要的脱敏日志、实际 worktree／提交与检查回执、目标机资源。运行中 status 从当前任务 worktree 读 head/dirty，并标 head_source 与 observed_at；多票的其他 worktree 仍按需实际检查。无法实读时使用已记录事实并标明来源，不据旧值断言没有新提交。合并同项目的多票进度后汇报：已验证的新变化、正在执行、阻塞、下一步和负载／内存／磁盘；没有新证据也说明过去 15 分钟未见新进展。巡检不重复运行测试套件，不自动重派、停止任务；清理遵循下文授权规范。
-
-本机后台监控可以用以下有界等待唤醒发起方；多个 job 共用一次调用：
-
-```bash
-rd watch <job1> [<job2> ...]
-# 本次等待10分钟；也可传统一截止时间的剩余秒数
-rd watch <job1> [<job2> ...] --timeout 600
-# 网络间歇中断时保留本次截止时间，继续只读观察。
-rd watch <job1> [<job2> ...] --keep-on-disconnect
-```
-
-`--timeout` 优先覆盖本次等待时长，未传时用上述周期配置；提前提醒后的剩余时间覆盖不改变已登记的基本巡检周期。`watch` 只通过 SSH 读取任务状态，不要求远端生成报告。到期退出 2 并输出 `progress_due`，发起方再做上述实查和用户汇报；任一任务提前结束退出 0（失败退出 1），连接不可达也退出 1 并输出 `monitor_error`，不将其当任务已完成。输出仅含状态元数据，不包含原始日志或提示词。每次唤醒后移出已报告结束的 job；提前唤醒时按登记的统一截止时间，将剩余秒数传给 `--timeout`，到期实查后才推进下一周期，避免频繁完成事件把长任务的报告一直推迟。
-
-运行中任务若持续只有 `Reconnecting... waiting for network` 类输出、没有其他进展，默认观察满 600 秒后也以退出码 1 提醒：`monitor_error`，任务明细含 `monitor_reason=network_reconnect_stalled` 和检查远端外网、代理、模型服务的指引。阈值用本机 `RD_NETWORK_STALL_SECONDS` 或 `[monitor] network_stall_seconds` 配置，须为大于零的有限秒数。每 30 秒最多采样 stdout/stderr 各 64KiB，只传偏移与分类；普通输出、HEAD/dirty 变化、轮次变化、日志截断或漏采大窗口会重置计时。计时从发起方首次观察到重连开始，保存在本机 `RD_STATE/network-watch`，跨巡检唤醒延续；未观察的历史时长不倒推。告警不自动停止、续派或清理任务，`--keep-on-disconnect` 也不会屏蔽此类告警。仅静默且从未观察到重连的任务不触发该规则。
-
-使用本次宿主可用的后台任务／定时唤醒能力，记录可核验的监控句柄和下一检查时间。Shell 输出或监控子代理给父代理的内部消息不等于已向用户送达；发起方必须将实查结论发送到当前会话。宿主无法在会话结束后自动唤醒或送达时如实说明限制，不能只写“每 15 分钟汇报”就声称功能已启用。其他通知渠道只按用户已授权的目的地使用，不默认外发。
-
-新任务的完成事件带发起会话、轮次与 result_ready，发起方再收取结果回执。未确认收取的结果保留在会话 inbox，不因会话暂时结束而标为已送达。接收方不为等待新指令空转调用模型；当前会话恢复后读取 inbox，再决定后续。CLI 不自动向另一会话、终端或外部通知渠道注入消息。
-
-### 等待结束与手动查询
-
-`rd wait` 会一直阻塞到任务结束。用后台方式运行它，结束时你会被唤起，不要前台干等或自己写循环轮询：
-
-```bash
-rd wait <job>            # 退出码 0 成功，1 失败或超时
-```
-
-中途想看进度：
-
-```bash
-rd status [<job>]        # 状态、退出码、有没有新提交、最后一行输出
-rd logs <job>            # 输出末尾；rd logs <job> err 看错误输出，setup 看环境准备，last 看代理的最终答复
-```
-
-启动后一两分钟看一次 `rd logs`，确认代理真的开始工作了，而不是卡在登录或找不到命令上。
-
-退出码含义：0 成功；124 超时；97 环境准备命令失败（看 `rd logs <job> setup`）；98 员工配置或认证准备失败（看 `err`）；143 被 `rd stop` 停掉；其他值是代理或命令自己的退出码。派单前 ID、配置或同步确认不满足时，`rd` 返回 4，不推任务分支。
-
-### 4. 超时续跑
-
-代理任务超时或没做完时，在同一个会话里接着做，不要新开任务重来，否则它已有的上下文全部丢失：
-
-```bash
-rd resume <job> --prompt-file <续跑说明>
-```
-
-会话编号从日志里自动取。取不到时用 `--session <编号>` 指定。续跑说明里写清楚上一轮为什么中断、改动都还在、接着做什么。
-
-先用 `rd result <job> --summary`读取有界摘要和原件路径。新runner从本轮Codex日志区分模型路由、上下文、认证、传输及限流故障；日志不全时工作迹象记未知，不冒零工作。默认同类且未见工作执行的模型故障只允许一次原会话续跑；`RD_MAX_SAME_FAILURE_RESUMES`优先于`[recovery] max_same_failure_resumes`，只接受非负整数。预算只限制发起方续跑，不改模型CLI内部策略，也不覆盖资源和身份检查。
-
-纯上下文故障可以显式 `rd resume <job> --new-context --prompt-file <剩余工作说明>`：保留job、工作树、员工配置、模型及旧回执，记录前任会话；新receiver等待真实thread.started后绑定。路由、认证、网络故障不能靠换上下文绕过；修复后用`--retry-after-repair <恢复证据说明>`登记依据再续跑。普通`resume`仍复用原会话，工具不自动重派或循环换上下文。
-
-### 5. 取回并验收
-
-日常结果读取用 `rd result <job> --summary`，保留原完整JSON接口供按需核验；结构化证据和散列见[交付回执](references/handoff.md)。执行退出、执行方检查、发起方验收及送达分别记录，不能由一个exit码替代。
-
-```bash
-rd fetch <job>
-```
-
-结果落在本机的 `rd/<分支>`，不会动你当前的分支。本机审查 `git diff`、核对验收项；验收需要的测试默认派回执行机跑（`rd run --cmd '<测试命令>' --ref rd/<分支> --heavy`，或 `rd run --test`），不占用本机资源。通过后再合并：单任务用 `git merge --ff-only rd/<分支>`；多票整合时合入本机 integration 分支（无冲突的合并不触发提交钩子）。有冲突不在本机手工解决，用 `rd resume` 让原会话在执行机合入 integration 最新提交、重跑钩子后再取回。代理的汇报和退出码 0 都只是线索，不等于验收通过。
-
-`rd status` 里出现下面两种提示时要处理：
-
-- “uncommitted file(s) left in worktree”：代理留下了没提交的文件，可能是漏提交。用 `--include` 发过去的文件也会算在内。
-- “PUSH FAILED”：远端没能把分支推回 `origin`，提交还在远端。看 `rd logs <job> --file push.log`，通常是凭据问题。
-
-跨发起会话查找当前员工尚未合入的成果：
-
-```bash
-rd status --unmerged [--into <REF>] [--project <项目>]
-```
-
-只列远端 head 相对派单 base 有新提交、且未进入目标 REF 的 job。REF 优先取 `--into`，否则取各 job 的 `source_branch`；缺少时标注“需指定 --into”，head 尚不在本地时标注“未取回”。不自动 fetch。指定 `--project` 时按记录中的项目筛选；否则在当前 Git 仓库内筛选，仓库外列当前员工的所有项目。可用 `-C <本地仓库>` 显式限定仓库；普通列表不受发起会话限制，`--details` 仍要求原发起会话。
-
-### 6. 清理与无价值工作树自动闭环
-
-准备远端前即登记 job；准备中失败会显示 job ID 和清理命令。核对失败任务后，`rd clean <job> --force --delete-branch` 可以移除其残留 worktree 和已确认由该派单创建的分支；归属未确认的分支保留。任务分支必须使用新名称，已有分支不会被覆盖。已进入启动阶段但结果不明时，先核对 `rd status` 与进程，保持运行中保护。
-
-```bash
-rd clean <job>                   # 先取回 reports，再删除远端 worktree 和日志，保留分支
-rd clean <job> --delete-branch   # 同时删除本任务创建的分支（远端，以及 origin 上的）
-rd clean <job> --discard-reports # 显式放弃 reports 备份
-rd clean --merged [--into <REF>] [--project <项目>] # 按合入关系批量清理
-rd clean --merged --dry-run      # 只列计划和跳过原因，不删除
-```
-
-`--merged` 只处理当前员工 ID 的已结束 job，范围及 REF 选择与 `status --unmerged` 相同。REF 必须可解析；无新提交，或实时 head 是 REF 的祖先；结果回执已收取或没有待收取结果（历史轮次也检查）；未提交路径全部在原 `--include` 范围内，才会清理。无法核验、运行中、准备中、未取回或未合入、回执待收取、白名单外修改均逐条输出跳过原因。默认备份 reports 并保留分支，不能与单个 job、`--force`、`--delete-branch` 或 `--discard-reports` 混用。单个 `rd clean <job>` 保持原有检查。
-
-默认将整个 `jobs/<job>/reports/` 取回到 `~/.local/share/remote-dispatch/reports/<job>/`，包含报告与复现脚本；`RD_REPORTS_DIR` 可以覆盖保存根目录。重复备份使用带时间后缀的新目录，保留旧副本，并输出实际路径。取回、解包或本机保存失败时保留远端和 job 登记；`--force` 仍保留报告备份，只有 `--discard-reports` 跳过。此备份仅覆盖 `reports/`，其他产物按原验收流程取回。
-
-有未取回的提交或未提交的文件时它会拒绝，除非加 `--force`。只对你自己这次派出的任务用 `--delete-branch`；测试类任务的临时分支用完就删，避免在 `origin` 上堆积。清理授权沿用当前用户指令及下列生命周期约定。
-
-#### 远程 Worktree 生命周期与用户二次确认规范
-- **续跑强复用**：任务若需 `rd resume` 续跑，必须复用原 job 与原 worktree 目录，严禁在任务流程未闭环前删除。
-- **员工 ID 归属隔离（默认只能清理自己 ID 下的 worktree）**：
-  清理操作默认且只能限定在当前生效员工 ID（`users/<ID>/`）下由自身任务创建的 job 与 worktree，**绝对严禁删除、修改或跨越至其他员工 ID 下的工作树**。他人 ID 目录视为只读隔离区，严禁清理。
-- **4 项必要安全条件前置核验**：
-  1. 远端对应任务进程已完全退出（非运行中）；
-  2. 远端 worktree 内 `git status --short` 无未暂存／未提交修改；
-  3. 分支成果已推送至远程仓库或已合并入主干，无孤立未同步 commit；
-  4. 该任务全流程（含验证）已交付，技术上确认无需后续 `rd resume` 续跑。
-- **主动提醒触发时机（仅在设备空间不足时提醒）**：
-  - 目标机磁盘空间充裕时，大模型**不得主动催促或频繁提示用户清理**已完成的远程 worktree，默认静默保留以备随时核查或复用。
-  - **仅在目标机可用磁盘空间不足**（`rd hosts` 报告磁盘吃紧、低于安全水位或不足以支撑新任务排单）时，大模型才可在汇报中主动向用户提出清理建议。
-- **默认说明删除后果并经用户二次确认；长期授权可用安全批量清理**：
-  - 默认仍须按以下要求说明后果并二次确认；即使上述 4 项条件全部满足且设备空间不足，也不能擅自清理。
-  - **必须向用户明确说明删除后果**：
-    1. **无法续跑**：远端 job 目录与执行上下文彻底清空，后续无法再通过 `rd resume` 续跑恢复；
-    2. **构建缓存清除**：该 worktree 下所有依赖与编译中间物被移除，未来若重派该分支需重新经历依赖安装与全量构建；
-    3. **临时日志与未跟踪文件丢弃**：远端临时文件删除，`reports/` 默认已有本机备份；其他未取回文件仍会丢失；
-    4. **已同步成果安全**：明确告知已 push 到仓库或已被发起端 `fetch` 合并的代码完全安全不受影响。
-  - **向用户发起二次确认**：汇报中列出远端机器、当前员工 ID、job ID、对应分支、工作树路径、占用空间及上述后果，明确询问：「该任务已交付、成果已取回合并，但远端设备空间不足。请确认是否不会再使用该 worktree 并授权清理？」。
-  - 默认仅在用户明确二次确认不再使用后，方可执行 `rd clean <job>`；未取得明确确认（包括沉默或含糊）时保留工作树。
-  - **长期清理授权例外**：用户已对某员工 ID／项目明确给过长期清理授权时，可在授权范围内直接执行 `rd clean --merged`，由命令的合入、回执、进程与未提交路径条件代替逐次确认及上述人工前置核验。项目授权须用 `--project <项目>` 限定；始终只清理当前员工 ID。没有来源分支的旧 job 需提供经核对的 `--into <REF>`。长期授权不等于允许 `--force`、删除分支或放弃报告；删除后果仍与上述一致。
-
-## 需要知道的边界
-
-- **`sync = origin` 会往 `origin` 推任务分支。** 用户没有同意过把分支推到远程仓库时，先问，或者改用 `direct`。无论哪种方式都只推任务分支，不要把主开发分支当任务分支用。
-- **Codex 使用员工配置包的权限设置**，后台要求 `approval_policy = "never"`。共享系统账号不是文件权限隔离。需要共享登录时，用主机 `codex_auth_file` 明确指定远端已授权认证文件，或在 `env_file` 提供配置引用的 API 环境变量；不自动复制派单端凭据、不回退默认认证文件。
-- **任务内不能再开代理会话。** 员工配置的沙箱只放行任务 worktree 等目录，任务里的代理写不了继承的 `CODEX_HOME`，嵌套 `codex exec` 会报 `Operation not permitted`（2026-10-16 实测）。整份规格按 `weicoz-agent-implement-spec` 由本机发起会话编排：每张票单独 `rd run --ref <integration 分支> --branch <票据分支>`，取回后在本机合并再派下一批；不要派一个“远端编排器”去开子会话，也不要为此放宽员工权限。
-- **未提交的东西默认不会过去。** 派单前看一眼 `git status`，需要的用 `--wip` 或 `--include`。
-- **正常 `workspace-write` 派单统一联网。** 依赖下载与真实连接测试使用任务网络；旧配置中的 `network_access=false` 不转成任务禁网。实际启动前确认当前员工 Git 元数据及机器级重任务锁可写，避免把权限拒绝误报为队列繁忙；不改系统代理、TUN 或机器全局安全配置。用户当次明确要求离线或平台强制限制时，按该限制执行并报告受阻部分。
-- 旧版只有 Codex 的启动与续跑实跑。新版员工隔离和平台适配必须分别验收；本地模拟、Linux 容器和真实 Windows 设备分开报告。其他代理模板未完成员工适配，不派单。模板说明见 `references/agents.md`。
-
-## 共享重任务锁兼容
-
-合票后需要回收已授权的自有中间缓存时，按[缓存保留与回收](references/cache-retention.md)运行随job提供的`rd_cache.py`。它默认只计划；应用前核实际关闭回执、合入关系、文件使用和保留产物，不删除worktree或job。
-
-`rd-heavy` 不自动回收带 `process-receipt.json` 的槽。监督器退出后仍有未知或存活后代时，必须保留回执和锁；包装器 PID 消失不证明整个任务结束。只有所属监督器／派单方确认本次自有工具已结束后才能释放，不删除他人的保留槽。与监督器共用锁目录的旧 helper 必须核对这项兼容；更新前保留副本，仅同步已授权的 helper。
-
-## 向用户汇报
-
-派出后说明：员工 ID、配置版本和目标机路径、job id、机器、分支、当时负载及发起方监控的所选周期和下一检查时间。未完成任务遵循上文默认 15 分钟、可配置的统一实查／汇报。结束后说明：退出码、新提交、验收范围与未验证项。同步前展示 ID 与清单并询问，不能把同步确认藏在派单确认里。没有可用机器时给出各机器不达标原因。
+- [代理适配与自定义](references/agents.md)
+- [平台差异（macOS / Linux / Windows）](references/platforms.md)
+- [目标机准备](references/worker-setup.md)
+- [员工配置包格式](references/user-profiles.md)
+- [多轮交接协议](references/handoff.md)
+- [运行状态与缓存保留](references/cache-retention.md)

@@ -1,8 +1,8 @@
 # 代理适配
 
-每个代理是一组命令模板。内置的定义在 `scripts/rd` 的 `AGENTS` 里，可以在机器清单里用同名小节覆盖，也可以新增。
+每个代理是一组命令模板。内置的定义在 `src/remote_dispatch/cli.py` 的 `AGENTS` 里，可以在机器清单里用同名小节覆盖，也可以新增。
 
-本版共享员工模式仅启用 Codex，其他模板保留但派单被阻止。员工 `CODEX_HOME`、路径映射、认证和续跑版本由 [Employee Profiles](user-profiles.md) 管理。Codex 的 sandbox 不再强制完全访问，使用员工配置；后台要求 `approval_policy = "never"`。新版员工模式须独立验收，旧版实际跑通不代表新版已在目标机实跑。
+本版共享员工模式启用 Codex 与 DSH（`dsh headless --json`）；其他模板保留但派单被阻止。员工 `CODEX_HOME`、路径映射、认证和续跑版本由 [Employee Profiles](user-profiles.md) 管理。Codex 的 sandbox 不再强制完全访问，使用员工配置；后台要求 `approval_policy = "never"`。新版员工模式须独立验收，旧版实际跑通不代表新版已在目标机实跑。
 
 ## 内置代理
 

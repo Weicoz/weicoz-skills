@@ -25,7 +25,7 @@ rd profile sync mini --confirm-user-id zhangsan --confirm-version <profile-check
 └── tools/              可选：配置引用的配套脚本
 ```
 
-使用 `assets/profile.example` 起步，将审阅后的个人差异合入。复制明确选定的 skills 实体文件；包内软链接被拒绝，避免指向派单端个人路径。脚本拒绝常见凭据文件、隐藏文件、个人运行状态和未支持的配置字段。支持字段以 `scripts/rd_profiles.py` 的 `CONFIG_KEYS` 为准。人工还必须检查技能正文和资源，脚本不能证明任意资源不含敏感内容。
+使用 `assets/profile.example` 起步，将审阅后的个人差异合入。复制明确选定的 skills 实体文件；包内软链接被拒绝，避免指向派单端个人路径。脚本拒绝常见凭据文件、隐藏文件、个人运行状态和未支持的配置字段。支持字段以 `src/remote_dispatch/rd_profiles.py` 的 `CONFIG_KEYS` 为准。人工还必须检查技能正文和资源，脚本不能证明任意资源不含敏感内容。
 
 检查目标机工具和 MCP 服务是否可用；派单端的 `localhost` 不代表目标机上的同一个服务。服务地址、环境变量和技能内部脚本须按目标平台准备，不自动猜测或改写业务接口。
 

@@ -66,8 +66,8 @@ rd profile check win
 当本机（派单控制端）为 Windows 时，需特别注意命令行环境与系统别名：
 
 1. **PowerShell 别名陷阱**：Windows PowerShell 和 PowerShell 7 默认将 `rd` 绑定为 `Remove-Item` 别名。如果在 PowerShell 中直接执行 `rd run ...`，会触发文件删除命令！
-   - **安全方案**：使用 `python scripts/rd <command>`，或调用包装脚本 `rd.cmd`、`rd-remote.cmd`、`rd-remote.ps1`，或在当前会话移除别名 `Remove-Item Alias:rd -Force`。
-2. **CMD 内置命令陷阱**：CMD 内置了 `rd`（`rmdir`）命令。请使用 `python scripts\rd` 或 `rd-remote.cmd`。
+   - **安全方案**：使用 `python -m remote_dispatch <command>`，或调用包装脚本 `rd.cmd`、`rd-remote.cmd`、`rd-remote.ps1`（包内 `bin/`），或在当前会话移除别名 `Remove-Item Alias:rd -Force`。
+2. **CMD 内置命令陷阱**：CMD 内置了 `rd`（`rmdir`）命令。请使用 `python -m remote_dispatch` 或 `rd-remote.cmd`。
 3. **本地仓库与目录自定义**：
    - 默认使用当前终端所在目录（`cwd`）。
    - 支持通过 `-C <路径>` 或 `--dir <路径>` 指定 Windows 绝对路径（例如 `-C D:\Projects\myrepo`）。
