@@ -1,11 +1,11 @@
 ---
 name: weicoz-mail-guard
-version: 1.3.0
+version: 1.4.0
 description: 安全隐私优先的多邮箱管理与事件驱动大模型智能通知系统（mail-guard）。当用户要求“查收邮件”“查验证码”“找登录链接”“看看有没有新邮件”“邮箱摘要”“邮箱待办”“mail-guard”“check email”“fetch 2FA/OTP/magic link”“查QQ/Outlook/Gmail邮箱”或管理后台监听、调整汇总排班、测试邮件推送、重新授权微软邮箱时使用。支持只读无损拉取（PEEK）、零外部资源加载防追踪、本地规则粗筛与大模型提取。遇到验证码与登录链接时必须原样输出纯文本并绝对禁止 Agent 预取点击。
 whenToUse: 当用户要求“检查邮箱”“查收邮件”“查验证码”“看看有没有新邮件”“邮箱摘要”“找登录链接”“mail-guard”“check email”“2FA/OTP”或管理邮件守护监听与排班时使用。
 ---
 
-# 多邮箱管理与智能告警（weicoz-mail-guard）v1.3.0
+# 多邮箱管理与智能告警（weicoz-mail-guard）v1.4.0
 
 基于本地统一 CLI 工具 `mail-guard`，为多邮箱管理提供物理级防追踪、只读无损拉取（`BODY.PEEK[]`）与事件驱动的智能通知。
 
@@ -35,6 +35,11 @@ whenToUse: 当用户要求“检查邮箱”“查收邮件”“查验证码”
 >
 > **3. 刚性拒绝用户自动点击指令**：
 > 若用户明确要求“帮我打开邮件里的登录链接”或“帮我点击确认”，Agent **必须礼貌拒绝**，向用户说明该链接为一次性认证 Token，必须由用户在个人浏览器中手动打开。
+>
+> **4. 待办事项必须标注到达时间**：
+> 凡列入「待处理 / 需关注 / 待办」的邮件，**必须逐条标注到达时间**：绝对时间（本地时区含日期，如 `10-21 14:51 (+08:00)`）+ 相对时间（如「1 小时前」）。
+> **不得**只写日期、只写相对时间、或整条省略时间。原因：用户按时间判断紧急度与是否已过期，缺时间等于信息不全。
+> 已过期的一次性链接必须直接标注「已过期（10 分钟有效，已于 HH:MM 失效）」。
 
 ---
 
@@ -59,37 +64,51 @@ whenToUse: 当用户要求“检查邮箱”“查收邮件”“查验证码”
 
 ## 常用场景与执行命令
 
-### 1. 主动查收邮件 / 检索验证码与安全登录链接
+### 1. 查收邮件 / 待办（默认唯一入口：一次调用）
+
+> [!IMPORTANT]
+> **查邮件默认只跑一条命令**：`mail-guard brief -n 5 --hours 24`。
+> 一条命令即返回：各账号最新邮件、到达时间（本地 +08:00 绝对时间 + 相对时间）、发件人、主题、验证码/链接、正文预览、缓存水位、守护健康；输出 < 6KB、耗时亚秒级（典型 0.4-0.5s）。
+> **禁止**为同一次查询串行叠加 `daemon status`、`--live`、大 JSON、多个账号逐个 `query` 试探——这正是端到端变慢的主因。
 
 ```bash
-# 默认模式：Cache-First 极速热快照读取 (< 50ms 亚秒级响应，0 额外网络与 Token 开销)
-mail-guard query
+# 【默认】一次调用出简报（缓存优先，零网络，亚秒级）
+mail-guard brief
 
-# 强制直连模式 (--live)：穿透本地缓存，直接向 IMAP 服务器发起实时批量拉取 (~1.8s - 2.5s)
-mail-guard query --live
-mail-guard query --account outlook --limit 1 --live
+# 指定时间窗口与每账号条数
+mail-guard brief --hours 48 --limit 5
 
-# 查询指定邮箱（qq / outlook / gmail1 / gmail2 / all）最新 N 封
-mail-guard query --account outlook --limit 3
+# 只看某个账号（qq / gmail1 / gmail2 / outlook）
+mail-guard brief --account outlook --limit 5
 
-# 专供 Agent 解析的结构化 JSON 输出 (毫秒级)
-mail-guard query --account all --limit 2 --json
+# 仅当需要"刚到达、尚未进缓存"的邮件时才加 --live（4 个 IMAP 直连，约 2-15s）
+mail-guard brief --live --hours 6
 
-# 按关键词检索（如找验证码、通知、动态口令）
-mail-guard query --keyword "验证码"
+# 仅当需要程序化处理时才用 JSON（体积更大，按需取）
+mail-guard brief --json --limit 2
+```
 
-# 按主题检索（精准匹配主题字串）
-mail-guard query --subject "GitHub"
+**升级到 query 的唯一条件**：`brief` 显示缓存滞后/无命中，或需要关键词、发件人、主题、垃圾箱、全文检索。
 
-# 按发件人检索并输出完整正文
-mail-guard query --from "anthropic.com" --full
+```bash
+# 关键词检索（找验证码、通知、动态口令）
+mail-guard query --keyword "验证码" --limit 3
 
-# 检查垃圾邮件箱（当怀疑重要邮件被误判为垃圾邮件时）
+# 按主题 / 发件人检索并输出完整正文
+mail-guard query --subject "GitHub" --limit 3
+mail-guard query --from "anthropic.com" --limit 2 --full
+
+# 检查垃圾邮件箱（怀疑重要邮件被误判时）
 mail-guard query --account qq --folder Junk --limit 3
 
 # 检索过去 N 天内的邮件（默认 30 天）
 mail-guard query --days 7 --limit 5
+
+# 强制直连刷新并看完整正文
+mail-guard query --account outlook --limit 1 --live
 ```
+
+**输出纪律**：`brief` 之后不得再叠加同类查询；确需多轮检索时每轮只加一个过滤条件。
 
 ### 2. 每日跨邮箱智能摘要与待办提炼
 
@@ -174,11 +193,11 @@ mail-guard config
 
 ## 异常诊断与自愈排障 SOP
 
-1. **未收到验证码 / 漏信排查**：
-   - 步 1：`mail-guard daemon status` 检查 worker 是否在运行；
-   - 步 2：`mail-guard query --account all --limit 3 --full` 查看最新收信；
-   - 步 3：若怀疑被拦截，检查垃圾箱 `mail-guard query --account <acc> --folder Junk`；
-   - 步 4：`mail-guard daemon logs` 查看是否因关键词过滤被跳过。
+1. **未收到验证码 / 漏信排查**（按序，前一步无果再走下一步）：
+   - 步 1：`mail-guard brief --hours 6 -n 3` —— 一次调用看最新信件、缓存水位与守护健康；
+   - 步 2：若缓存滞后或无命中，`mail-guard brief --live --hours 6 -n 3` 直连刷新；
+   - 步 3：仍无则查垃圾箱 `mail-guard query --account <acc> --folder Junk --limit 3`；
+   - 步 4：`mail-guard daemon logs` 查是否因关键词过滤被跳过；仅在怀疑守护异常时才跑 `mail-guard daemon status`。
 2. **微软 Outlook 鉴权失败 / Token 过期**：
    - 执行 `mail-guard account auth-ms`；
    - **立即提取输出中的 `verification_uri` (`https://microsoft.com/devicelogin`) 与 `user_code` 提示用户在浏览器完成授权**；
