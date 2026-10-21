@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# 提交前校验。
+#   - Skill 元数据不通过：阻止提交。
+#   - harness 软链漂移：只提示，不阻止（属于本机状态，不是仓库内容问题）。
+# 安装：./scripts/install-hooks.sh
+# 临时跳过：git commit --no-verify
+
+set -uo pipefail
+
+repo="$(cd "$(dirname "$0")/.." && pwd -P)"
+cd "$repo" || exit 1
+
+if [[ ! -x scripts/validate-skills.sh ]]; then
+  printf '跳过校验：找不到可执行的 scripts/validate-skills.sh\n' >&2
+  exit 0
+fi
+
+if ! scripts/validate-skills.sh --no-links; then
+  printf '\n提交被拦截：Skill 校验未通过。\n' >&2
+  printf '修正后重试；确需跳过用 git commit --no-verify\n' >&2
+  exit 1
+fi
+
+if [[ -x scripts/sync-skills.sh ]] && ! scripts/sync-skills.sh --quiet >/dev/null 2>&1; then
+  printf '\n提示：harness 软链有漂移，运行 ./scripts/sync-skills.sh --apply 修复（不阻止本次提交）。\n' >&2
+fi
+
+exit 0

@@ -21,14 +21,25 @@ cd weicoz-skills
 
 ```bash
 SKILL=weicoz-feishu-task-tracker
-ln -s "$PWD/skills/$SKILL" ~/.agents/skills/$SKILL      # 通用入口
-ln -s "$PWD/skills/$SKILL" ~/.codex/skills/$SKILL       # Codex
-ln -s "$PWD/skills/$SKILL" ~/.claude/skills/$SKILL      # Claude Code
-ln -s "$PWD/skills/$SKILL" ~/.kimi-code/skills/$SKILL   # Kimi Code
+ln -s "$PWD/skills/$SKILL" ~/.agents/skills/$SKILL         # 通用入口
+ln -s "$PWD/skills/$SKILL" ~/.dsh/skills/$SKILL            # DSH
+ln -s "$PWD/skills/$SKILL" ~/.codex/skills/$SKILL          # Codex
+ln -s "$PWD/skills/$SKILL" ~/.claude/skills/$SKILL         # Claude Code
+ln -s "$PWD/skills/$SKILL" ~/.kimi-code/skills/$SKILL      # Kimi Code
 ln -s "$PWD/skills/$SKILL" ~/.gemini/config/skills/$SKILL  # Antigravity
 ```
 
 只挂需要的，不必全量。同一 Skill 只维护一份源文件，多入口全部指向它。
+
+挂载数量多时用脚本一次建好，并随时检查有没有指错地方：
+
+```bash
+./scripts/sync-skills.sh           # 只检查：软链是否都指向本仓库
+./scripts/sync-skills.sh --apply   # 修复：重指漂移的软链、补上缺失挂载
+./scripts/sync-skills.sh --apply --skill weicoz-feishu-task-tracker   # 只处理一个
+```
+
+脚本只管理 `weicoz-*` 条目，不碰其他 Skill。harness 目录可用 `WEICOZ_SKILL_HARNESS_DIRS`（冒号分隔）覆盖。
 
 **3. 配置私有凭据**
 
@@ -224,11 +235,22 @@ skills/<skill-name>/
 ./scripts/validate-skills.sh
 ```
 
-脚本检查四项：
+脚本检查五项：
 
 1. `skills/weicoz-*/` 下必须有 `SKILL.md`。
 2. frontmatter 的 `name` 必须等于目录名。
-3. frontmatter 必须有 `version` 字段。
-4. 不得出现疑似凭据（私钥、`sk-`、`ghp_`、`xox[baprs]-`、`AIza`、`AKIA`）与 `.env`/`.pem`/`.key` 文件。
+3. frontmatter 必须有 `version` 字段，格式为 `X.Y.Z`。
+4. 必须被本 README 的清单收录。
+5. 不得出现疑似凭据（私钥、`sk-`、`ghp_`、`xox[baprs]-`、`AIza`、`AKIA`）与 `.env`/`.pem`/`.key` 文件。
+
+第 6 项由 `scripts/sync-skills.sh` 承担：各 harness 目录里的 `weicoz-*` 必须指向本仓库，而不是历史备份库。`validate-skills.sh` 会顺带调用它；本机没有 harness 目录时（例如 CI 或新克隆）自动跳过。
+
+**自动护栏**：安装 pre-commit hook，提交时自动跑校验。
+
+```bash
+./scripts/install-hooks.sh
+```
+
+安装后 `core.hooksPath` 指向 `.githooks/`。hook 提交前跑 `validate-skills.sh --no-links`（仓库内容不通过则阻止提交），再检查软链漂移——漂移属本机状态，只提示不阻止。用 `git commit --no-verify` 可临时跳过。
 
 更多 Agent 协作与开发约束，请参阅 [AGENTS.md](./AGENTS.md)。
