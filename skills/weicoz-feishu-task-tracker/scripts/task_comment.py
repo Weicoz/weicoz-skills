@@ -131,6 +131,15 @@ def v2_comments(tguid):
     return (d.get("data") or {}).get("items") or []
 
 
+def find_comment_id(tguid, content):
+    """+comment 不回传 comment id，用最近一条内容匹配反查。"""
+    items = v2_comments(tguid)
+    for c in sorted(items, key=lambda x: int(x.get("created_at") or 0), reverse=True):
+        if (c.get("content") or "").strip() == content.strip():
+            return c.get("id")
+    return None
+
+
 def verify(tguid, comment_id=None):
     """v2 回读仍是原始 <at> 标签；v1 会渲染成人名，是唯一可靠判据。
 
@@ -211,7 +220,10 @@ def main():
         d = lark(["task", "+comment", "--task-id", tguid,
                   "--content", content, "--as", "user", "--format", "json"])
         cid = ((d.get("data") or {}).get("comment") or {}).get("id")
-        print("已写入评论 " + str(cid))
+        if not cid:
+            # +comment 的返回体不含 comment id，回读最近一条按内容匹配
+            cid = find_comment_id(tguid, content)
+        print("已写入评论 " + str(cid or "（未能定位 id，见下方回读）"))
 
     print("回读校验：")
     rc = verify(tguid, cid)
