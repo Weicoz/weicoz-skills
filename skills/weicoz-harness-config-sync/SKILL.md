@@ -1,5 +1,6 @@
 ---
 name: weicoz-harness-config-sync
+version: 1.0.0
 description: 将 Codex、DSH 和 Shell 配置同步到用户指定机器，并安装对应平台的 CLI、插件及运行依赖。适用于换机、员工设备初始化、Linux 或 Windows 测试机配置迁移；保留模型、Hooks、MCP、插件，按用户要求迁移登录，排除个人会话和记忆。
 ---
 

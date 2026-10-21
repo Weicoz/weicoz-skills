@@ -1,5 +1,6 @@
 ---
 name: weicoz-wechat-save-template-deploy
+version: 1.0.0
 description: 按本机环境变量配置，将 wechat-save-template 完成本地预检、远端部署和会话存档入库验证。适用于 migration/build、git pull、pnpm install、pm2 restart --update-env 和 HTTP 验证。
 allowed-tools: Read, Write, Edit, Bash
 ---

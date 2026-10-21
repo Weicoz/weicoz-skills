@@ -1,5 +1,6 @@
 ---
 name: weicoz-last30days-cn-bridge
+version: 1.0.0
 description: Wrapper skill for Chinese last-30-days research that must not modify the official last30days-cn skill. Use when the user wants last30days-cn results plus local fixes for missing python command, playwright-cli/browser login fallback, source-level diagnostics, or external fallback search for Weibo, Xiaohongshu, Bilibili, Zhihu, Douyin, WeChat, Baidu, and Toutiao while preserving official skill update compatibility.
 ---
 

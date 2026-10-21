@@ -1,5 +1,6 @@
 ---
 name: weicoz-page-layout-ascii-guide
+version: 1.0.0
 description: Guide users who know what content they need on a page but do not know how to structure the page, choose layout skeletons, or produce a wireframe. Use this whenever the user is unclear about UI layout, page structure, information hierarchy, first-screen composition, module order, or asks for help turning content into an ASCII page skeleton.
 ---
 

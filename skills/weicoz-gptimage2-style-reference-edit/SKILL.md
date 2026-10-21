@@ -1,5 +1,6 @@
 ---
 name: weicoz-gptimage2-style-reference-edit
+version: 1.0.0
 description: 为 GPT-Image-2 生成风格化、参考图编辑、真实摄影、角色一致性和艺术玩法提示词。用户要做 photorealistic 摄影、胶片抓拍、参考图风格迁移、人物/宠物/产品身份保持、多图融合、表情包、四格漫画、纸雕、水彩、Knolling、长卷、趣味海报时使用。
 ---
 

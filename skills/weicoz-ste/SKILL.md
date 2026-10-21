@@ -1,5 +1,6 @@
 ---
 name: weicoz-ste
+version: 1.0.0
 description: >
   基于 ASD-STE100 (Simplified Technical English) 受控骨架与 caveman:full 极简内核的融合交付规范。
   用于向用户汇报结果、排查问题、请求决策与多项总结。确保结论先行、状态严谨（工作与验证解耦）、证据可查（文件:行号）、决策选项化，同时彻底消除寒暄废话与虚动词。

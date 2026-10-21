@@ -1,5 +1,6 @@
 ---
 name: weicoz-ego-browser-x
+version: 1.0.0
 description: |
   用 ego-browser 优先执行 x.com 查询、搜索、用户页读取、线程提取与结果归档。用户提到“用 ego-browser 查 x.com”“搜索 X 推文”“抓 x.com 帖子和回复”“看某个账号最近发了什么”“把 X 查询结果落盘成文件”“一边给我结果一边保存文档”时都应使用本 skill。它负责查询执行、结果整理、标准化落盘和对话内回报；不负责发帖、回复、点赞、转发或账号运营。
 allowed-tools: Bash(ego-browser:*), Bash(bsk:*), Bash(mkdir:*), Bash(date:*), Bash(cat:*), Bash(printf:*), Bash(test:*), Bash(pwd:*)

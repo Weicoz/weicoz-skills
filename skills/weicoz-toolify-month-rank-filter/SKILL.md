@@ -1,5 +1,6 @@
 ---
 name: weicoz-toolify-month-rank-filter
+version: 1.0.0
 description: >
   Use when the user wants to query Toolify's monthly AI-tool rankings for one month or a month-by-month set, filter by month_visited_count,
   growth, growth_rate, and Toolify category/site type, then return matching tools with both the Toolify detail page and the official website.

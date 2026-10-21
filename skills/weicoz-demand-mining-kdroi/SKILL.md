@@ -1,5 +1,6 @@
 ---
 name: weicoz-demand-mining-kdroi
+version: 1.0.0
 description: 基于 KDRoi（搜索量 x CPC / KD）执行出海工具站需求挖掘与四步验证。用于“选需求/选关键词/判断值不值得做”，目标是降低选错需求的概率并输出可直接执行的候选方向。
 ---
 

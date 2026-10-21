@@ -1,5 +1,6 @@
 ---
 name: weicoz-log-driven-ai-development
+version: 1.0.0
 description: >
   Use this skill whenever the user wants to make development behavior observable through logs that
   capture key flows and outcomes for later AI analysis, querying, debugging, verification, or API/data

@@ -1,5 +1,6 @@
 ---
 name: weicoz-goosedesigns
+version: 1.0.0
 description: Use when creating websites, web pages, web apps, dashboards, portfolios, posters, decks, interfaces, or other visual artifacts where design variety matters. Search the local GooseDesigns visual-reference catalog before deciding layout, color, motion, typography, or imagery.
 ---
 

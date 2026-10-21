@@ -1,5 +1,6 @@
 ---
 name: weicoz-pm-requirements-from-docs
+version: 1.0.0
 description: Use this skill when the user provides customer requirement documents, DOCX/PDF/files, business model notes, marketing reward plans, or says to整理需求/PM需求文档/商业模式解释/玩法/报价工期. This skill turns raw customer materials into a concise product-manager-readable requirements document with business model, industry terms, flows, identity rules, reward formulas, settlement cycles, open questions, and rough quote/timeline. Use it especially when the user complains output is too long, asks for报价/工期, or needs a document suitable for client confirmation.
 ---
 

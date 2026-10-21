@@ -1,5 +1,6 @@
 ---
 name: weicoz-custom-feature-checklist
+version: 1.0.0
 description: >
   把客户沟通记录、会议纪要、聊天内容整理成可交付的功能清单初稿。
   默认只保留定制部分，区分现成能力与待确认项，并优先按用户端/平台后台拆分。

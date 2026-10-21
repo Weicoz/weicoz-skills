@@ -1,5 +1,6 @@
 ---
 name: weicoz-project-quote-estimator
+version: 1.0.0
 description: >
   为客户软件项目生成可签约核对的逐项报价与第三方服务成本文档。用户要求项目报价、功能模块逐项价格、服务器配置/费用、云服务/API/SDK 价格、App Store/Google Play 上架费用、预算测算或成本拆分时使用；适合从 PRD、会议转写、需求文档和思维导图中提取范围，并将结果落盘到 jy-design 项目目录。
 ---

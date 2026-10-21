@@ -1,5 +1,6 @@
 ---
 name: weicoz-brd-kdroi-fusion
+version: 1.0.0
 description: >
   先用 KDRoi（Volume x CPC / KD）做关键词可达性 Gate，再执行 6 步 BRD 市场调研并输出 GO/NO-GO/HOLD。
   用于出海工具站、AI SaaS、Chrome 插件、SEO 工具站、micro SaaS 的需求筛选与商业决策一体化评估。

@@ -1,5 +1,6 @@
 ---
 name: weicoz-ego-browser-reddit
+version: 1.0.0
 description: |
   用 ego-browser 优先执行 Reddit 查询、搜索、帖子阅读、评论提取与结果归档。用户提到“用 ego-browser 查 Reddit”“打开 Reddit 帖子”“搜索 Reddit 关键词”“抓 Reddit 评论”“把 Reddit 查询结果落盘成文件”“一边给我结果一边保存文档”时都应使用本 skill。它负责查询执行、结果整理、标准化落盘和对话内回报；不负责发帖、评论、点赞或账号运营。
 allowed-tools: Bash(ego-browser:*), Bash(bsk:*), Bash(mkdir:*), Bash(date:*), Bash(cat:*), Bash(printf:*), Bash(test:*), Bash(pwd:*)

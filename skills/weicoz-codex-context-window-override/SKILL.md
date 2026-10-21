@@ -1,5 +1,6 @@
 ---
 name: weicoz-codex-context-window-override
+version: 1.0.0
 description: Use this skill when the user wants to patch Codex CLI model context-window limits with model_catalog_json, especially for making gpt-5.5 report a larger 1M context window, or when they ask how to back up, verify, or roll back a Codex context-window override. This is an experimental client-side override workflow and must always include backup, verification, and rollback steps.
 ---
 

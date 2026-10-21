@@ -1,5 +1,6 @@
 ---
 name: weicoz-semrush-ego-browser
+version: 1.0.0
 description: >
   Use when the user wants to operate a configured Semrush proxy through a real browser,
   especially Keyword Magic Tool, Keyword Overview, Keyword Strategy Builder, or filters

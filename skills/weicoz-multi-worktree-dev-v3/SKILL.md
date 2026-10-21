@@ -1,5 +1,6 @@
 ---
 name: weicoz-multi-worktree-dev-v3
+version: 1.0.0
 description: "用于用户明确要求多 Git worktree 开发、隔离 feature、协调现有并行会话或精确集成候选代码树的任务。按需隔离环境、风险分级验证并保留集成证据；不因普通 AI 功能开发或单模块修复自动创建 worktree 或引入发布治理。独立使用不启用 Comet；仅用户同时明确调用本技能和 $comet-native 时启用组合模式。"
 ---
 

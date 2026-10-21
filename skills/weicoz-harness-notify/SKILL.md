@@ -1,5 +1,6 @@
 ---
 name: weicoz-harness-notify
+version: 1.0.0
 description: 使用 harness-notify 安装、配置和验证 Codex、Claude Code、DSH、Antigravity (AGY) 的完成通知，或排查 Bark、Telegram、飞书 CLI、ntfy 推送问题。适用于任务结束推送、按 harness 选择渠道或接收人、通知路径与摘要设置；不用于业务提醒、群发运营或调整代理。
 ---
 

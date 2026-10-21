@@ -1,0 +1,74 @@
+# weicoz-feishu-task-tracker —— 私有配置模板
+#
+# 用法：
+#   mkdir -p ~/.config/weicoz-feishu-task-tracker
+#   cp config.example.yaml ~/.config/weicoz-feishu-task-tracker/config.yaml
+#   chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
+#   # 然后把下面的 <…> 全部换成真实值
+#
+# 也可以放在别处，用环境变量指过去：
+#   export WEICOZ_TASK_TRACKER_CONFIG=/path/to/config.yaml
+#
+# ⚠️ 本模板里的 guid、open_id、人名**全部是示例值**，不是真实配置。
+#    真实配置只应存在 ~/.config/ 下：不要提交进 git、不要粘进对话、不要随 skill 分发。
+#
+# 取值方式（每项怎么拿到）见 references/field-discovery.md。
+
+tasklist:
+  # 任务清单地址里的 guid，形如 https://applink.feishu.cn/client/todo/task_list?guid=<这一串>
+  guid: <tasklist_guid>
+
+# 新建任务与补齐关注人时默认写入的 open_id 列表。
+# 团队约定：梁梓荣、李嘉威、廖成邦（示例值，替换成你自己的）。
+followers:
+  default:
+    - <ou_xxx>
+    - <ou_yyy>
+    - <ou_zzz>
+
+# 姓名 → open_id。写评论 @ 人时按这里查，查不到就停下问用户，不要猜。
+members:
+  李嘉威: <ou_xxx>
+  梁梓荣: <ou_yyy>
+  廖成邦: <ou_zzz>
+
+# 任务清单级的自定义字段。guid 用
+#   lark-cli task custom_fields list --resource-type tasklist --resource-id <tasklist_guid> --as user
+# 读出；单选字段的 option_guid 用
+#   lark-cli task custom_fields get --custom-field-guid <field_guid> --as user
+# 从 single_select_setting.options 里取。
+fields:
+  status:
+    guid: <field_guid>
+    options:
+      1.待进行: <option_guid>
+      2.进行中: <option_guid>
+      3.待录屏: <option_guid>
+      4.待测试: <option_guid>
+      5.待部署: <option_guid>
+      6.待培训: <option_guid>
+      7.待验收: <option_guid>
+      8.售后中: <option_guid>
+      9.已完成: <option_guid>
+      0.已挂起: <option_guid>
+  progress:
+    guid: <field_guid>      # number 类型，写入用字符串，如 "0.4"
+  project:
+    guid: <field_guid>
+    options:
+      <项目名>: <option_guid>
+
+# 评论固定格式。首行前面会拼 @ 负责人标签。
+comment:
+  template: |
+    【任务跟踪｜{date}】
+    状态：{status}
+    进展：{progress}
+    问题/风险：{risk}
+    下一步：{next}
+    预计完成：{eta}
+
+# 催办阈值（可选，留空用默认值）
+reminder:
+  due_soon_hours: 24        # 临期判定阈值（小时）
+  stale_days: 3             # 连续多少天无评论触发提醒

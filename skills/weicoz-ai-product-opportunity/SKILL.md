@@ -1,5 +1,6 @@
 ---
 name: weicoz-ai-product-opportunity
+version: 1.0.0
 description: 用“购买理由 + 供需失衡 + MVP闭环 + Alpha窗口”方法评估 AI 产品机会。Use when judging whether an AI product idea, SaaS, tool, plugin, new-word site, or MVP is worth building; finding real demand from complaints, search terms, news windows, new tech releases, service marketplaces, or competitor pain; defining a sharp promise, smallest paid loop, pricing, traffic channel, and GO/NO-GO/HOLD decision.
 ---
 

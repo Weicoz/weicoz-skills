@@ -1,5 +1,6 @@
 ---
 name: weicoz-liu-xiaopai-perspective
+version: 1.0.0
 description: |
   刘小排的思维框架与表达方式。基于公开播客访谈、GitHub、产品官网与公开主页聚合信息的调研，
   提炼5个核心心智模型、8条决策启发式和可执行的表达DNA。

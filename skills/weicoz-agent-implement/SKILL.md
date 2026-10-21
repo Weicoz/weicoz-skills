@@ -1,5 +1,6 @@
 ---
 name: weicoz-agent-implement
+version: 1.0.0
 description: 把一张票据或明确限定的单个工作项委派给编码代理，按当前 implement 技能实现，由派单方监控和验收。用于“让代理实现这张票”“agent-implement”“codex-implement”等单票委派；整份规格及其依赖票据的编排使用 weicoz-agent-implement-spec。
 ---
 

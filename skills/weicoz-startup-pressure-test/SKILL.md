@@ -1,5 +1,6 @@
 ---
 name: weicoz-startup-pressure-test
+version: 1.0.0
 description: Brutally evaluate and refine startup ideas with practical early-stage startup frameworks. Use when Codex is asked to pressure-test a startup idea, validate whether the problem is real, map competitors and current customer behavior, find the first 10 customers, define an MVP, create a 2-week launch plan, assess founder-market fit, or give a direct strong/weak/pivot verdict.
 ---
 

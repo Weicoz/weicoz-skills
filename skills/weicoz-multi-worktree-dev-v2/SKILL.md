@@ -1,5 +1,6 @@
 ---
 name: weicoz-multi-worktree-dev-v2
+version: 1.0.0
 description: 仅用于用户明确指定 weicoz-multi-worktree-dev-v2 历史版本的多 worktree 流程或兼容维护。通用 worktree 隔离、并行开发和集成任务使用 weicoz-multi-worktree-dev-v3，不自动套用本历史版的固定数据库、全量测试和人工 main 流程。
 ---
 

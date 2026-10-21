@@ -1,5 +1,6 @@
 ---
 name: weicoz-reddit-research-automation
+version: 1.0.0
 description: >
   Use this skill when the user wants a scheduled or repeatable Reddit research workflow that mines Reddit threads and comments, turns them into evidence-backed markdown reports, and writes dated outputs into projects/reddit-research. Also use when the user asks to automate Reddit signal monitoring, run a recurring research job, archive results, or build a Codex-driven Reddit report pipeline. Do not use this skill for one-off Reddit pain evidence or Reddit+Semrush validation; use the dedicated Reddit evidence or Reddit opportunity skills for those jobs.
 ---

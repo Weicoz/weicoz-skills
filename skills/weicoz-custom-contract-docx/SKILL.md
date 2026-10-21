@@ -1,5 +1,6 @@
 ---
 name: weicoz-custom-contract-docx
+version: 1.0.0
 description: "基于现有 .docx 合同模板、客户信息、金额规则和功能清单图片或行数据，生成定制开发合同并完成渲染验收。Use when Codex needs to 读取并填写软件定制或功能定制合同模板、先输出预想内容给用户核对、插入功能清单图片、按总价和续费比例计算金额字段，或交付最终合同 .docx。"
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: weicoz-gpt-5-6-prompt-compiler
+version: 1.0.0
 description: 将用户提供的原始需求、草稿或零散指令编译成一段可直接发送给 GPT 的轻量提示词。仅当用户明确要求“生成给 GPT 的提示词”“优化 prompt”“把这段内容变成可直接发给 GPT 的提示词”时使用；不用于普通文案润色、直接回答、写作或实现任务。
 ---
 

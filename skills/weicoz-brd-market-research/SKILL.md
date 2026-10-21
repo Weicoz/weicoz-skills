@@ -1,5 +1,6 @@
 ---
 name: weicoz-brd-market-research
+version: 1.0.0
 description: 用 3 小时 BRD 流程评估独立开发产品机会并输出 GO/NO-GO 决策，默认赛道是 AI 工具、出海、SaaS（含 Chrome 插件和各类平台插件）。Use when deciding whether to build a new AI SaaS, plugin, extension, validating a pivot, or re-checking demand before coding MVP. Includes demand trend checks, competitor pain mining, ICP and willingness-to-pay validation, TAM/SAM/SOM sizing, pricing strategy, risk scoring, and evidence-based final decision. When keyword KD / Volume / CPC data is needed, use weicoz-semrush-ego-browser first.
 ---
 

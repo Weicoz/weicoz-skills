@@ -1,5 +1,6 @@
 ---
 name: weicoz-3a-game-manifest
+version: 1.0.0
 description: |
   专门用于从 3a.lol 游戏社区搜索、筛选、提取 Steam 游戏入库清单（.lua / manifest）及对应游戏本体资源，自动下载入库清单并规范归档至 steam-manifests 仓库。集成用户电脑硬件配置前置记忆与 doesitrun.com 画质/帧率预测流程，初次询问后永久免问，自动生成针对性画质调优指南并推送到 GitHub。
 allowed-tools: Bash(ego-browser:*), Bash(node:*), Bash(curl:*), Bash(unzip:*), Bash(mkdir:*), Bash(cp:*), Bash(mv:*), Bash(ls:*), Bash(git:*)

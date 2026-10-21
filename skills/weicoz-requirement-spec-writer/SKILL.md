@@ -1,5 +1,6 @@
 ---
 name: weicoz-requirement-spec-writer
+version: 1.0.0
 description: 通过追问澄清需求目标、边界条件、业务术语和关键决策，再生成并持续维护可执行的 SPEC.md / Requirement Spec / PRD / 技术边界说明。仅当用户明确调用 `$weicoz-requirement-spec-writer`，或明确要求“使用 weicoz-requirement-spec-writer skill”时使用；不得因用户仅提到需求文档、SPEC、PRD、产品文档或需求变更而自动触发。
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: weicoz-gptimage2-info-ui-text
+version: 1.0.0
 description: 为 GPT-Image-2 生成信息图、UI 截图和文字密集型图像提示词。用户要做中文长文字海报、科普信息图、教学步骤图、App/UI 截图、社交媒体截图、手写/书法、创意字体、多语言排版、漫画气泡或需要文字清晰可读的图像时使用。
 ---
 

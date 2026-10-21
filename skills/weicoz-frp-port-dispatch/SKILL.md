@@ -1,5 +1,6 @@
 ---
 name: weicoz-frp-port-dispatch
+version: 1.0.0
 description: Use when user wants to configure, migrate, verify, or troubleshoot FRP frps/frpc port dispatch, reverse access, or startup services on a server or local machine, especially when a configured public relay is used. 复用当前请求与已核验配置，仅对无法确定的目标、网络暴露范围或认证策略请求澄清；已有授权不重复确认。
 ---
 

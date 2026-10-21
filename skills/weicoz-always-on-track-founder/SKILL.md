@@ -1,5 +1,6 @@
 ---
 name: weicoz-always-on-track-founder
+version: 1.0.0
 description: 把三小时创业直播笔记转成可执行创业决策与行动系统。适用于AI出海独立开发者/小团队做方向选择、关键环节投入、快速验证、复盘纠偏。
 allowed-tools: Read, Write, Edit, Bash, WebSearch, WebFetch
 ---

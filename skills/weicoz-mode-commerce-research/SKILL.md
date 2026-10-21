@@ -1,5 +1,6 @@
 ---
 name: weicoz-mode-commerce-research
+version: 1.0.0
 description: Use this skill whenever the user asks to research "模式电商", 社群团购, 私域分销, 多层级批发/报单/团长体系, or wants to reverse-engineer a platform's business model, reward rules, user identities, business process, and how the process should be represented in a software system. Primary sources are 微信公众号, 小红书, and 知乎, but do not stop there; always widen to search engines, industry media, software-vendor breakdowns, complaint/legal/company records, and other credible channels when useful.
 ---
 

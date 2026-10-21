@@ -1,5 +1,6 @@
 ---
 name: weicoz-jy-design-demand-archive
+version: 1.0.0
 description: >
   把会议纪要、沟通记录、聊天内容或客户原话，整理并落盘到 `$WEICOZ_JY_DESIGN_ROOT` 对应项目目录，再按内容产出导图、需求文档或报价文档。
   当用户提到“保存到 jy-design”“把这段沟通记录存起来”“根据内容出导图”“会议纪要转 jy-design 文档”“把客户沟通整理到 jy-design 并输出需求材料”时必须使用；用户还要求报价、预算、服务器、第三方服务/API/SDK 价格或完整项目评估时，必须调用 `weicoz-project-quote-estimator` 输出逐项报价文档。

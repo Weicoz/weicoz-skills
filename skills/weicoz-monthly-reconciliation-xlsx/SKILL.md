@@ -1,5 +1,6 @@
 ---
 name: weicoz-monthly-reconciliation-xlsx
+version: 1.0.0
 description: 用固定的 Excel 对账单模板按月生成新的账单文件。用户提到“用这份作为模板”“按收款日期排序”“只改里面的数据不能改列”“输出某月账单 XLSX”“先预览再生成”时使用这个 skill。适合账单、对账单、收款表、结款表这类按模板批量填充的场景。
 ---
 

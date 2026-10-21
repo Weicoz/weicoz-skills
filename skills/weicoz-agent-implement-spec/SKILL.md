@@ -1,5 +1,6 @@
 ---
 name: weicoz-agent-implement-spec
+version: 1.0.0
 description: 将整份规格及其关联票据委派给编码代理实现，默认由本机发起会话担任编排器，按当前 implement-spec 技能编排依赖图、就绪票据、独立 worktree 和 integration 分支，每票派一个实现会话（本机或经 weicoz-remote-dispatch 派到远端），由发起方合并、审查与验收。用于“让代理实现整份 spec”“把规格的所有票做完”等整规格委派；单票实现使用 weicoz-agent-implement。
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: weicoz-session-hub
+version: 1.0.0
 description: 用一个总控会话协调多个独立的编码代理会话：总控派任务、补充指令、收汇报并验收，每个子会话用户也能直接对话。默认用 Herdr pane 跑 Claude Code、Codex、Kimi 等代理（DSH 等不能用 agent start 启动的代理先按普通命令启动），总控读 pane 输出验收，任何宿主都可当总控；Herdr 不可用、用户点名要会话消息，或子会话是云端／Remote Control 会话时，改用 Claude Code 的 ListAgents／SendMessage。用户说“多会话工作台”“开几个会话并行干、由一个会话汇总”“总控／主控会话”“给另一个会话发消息”“让那个会话做完告诉我”“用 Herdr pane 跑几个代理”“汇总几个会话的进度”时使用。单次委派一个子任务用宿主子代理或派单技能；多 worktree 开发与集成用 weicoz-multi-worktree-dev-v3；派到别的机器后台无人值守跑、经分支取回结果的用 weicoz-remote-dispatch；这三种情况不用本技能。
 ---
 

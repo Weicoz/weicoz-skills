@@ -1,5 +1,6 @@
 ---
 name: weicoz-gptimage2-prompts
+version: 1.0.0
 description: 生成 GPT-Image-2 提示词的总入口。用户要把自然语言图像需求改写成 GPT-Image-2 prompt、需要自动选择场景/风格/比例、或不确定该用商业图、信息图/UI、摄影/参考图编辑还是艺术玩法时使用。也用于用户指定风格时保留风格并补齐主体、文字、构图、光影、比例和风险提醒。
 ---
 

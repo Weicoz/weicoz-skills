@@ -1,5 +1,6 @@
 ---
 name: weicoz-first-keyword-free-tools
+version: 1.0.0
 description: 用 Google Keyword Planner、Ubersuggest、AnswerThePublic 和 Google 搜索，帮工具站或 SEO 新手从一个种子词里选出“值得先做的第一个关键词”。当用户说“帮我找第一个关键词”“用免费工具选词”“这个词值不值得做”“新站先做哪个长尾词”“给我从种子词筛一个可做词”时都应触发。尤其适合没有 Semrush 或 Ahrefs 付费账号，只想先锁定 1 个可落地关键词的人。
 ---
 

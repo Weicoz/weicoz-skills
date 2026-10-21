@@ -1,5 +1,6 @@
 ---
 name: weicoz-jev-ultrafast
+version: 1.0.0
 description: 用本机部署的 jev-ultrafast（Browser Use 的"选择而非生成"浏览器 agent）真实驱动浏览器完成任务、开 inspector 演示、做环境体检与端到端冒烟验证，并排查 chrome-not-running、浏览器没有 CDP、模型 401、文本层无输出等链路故障。执行层一律使用**用户自己的浏览器 profile**（登录态、cookie、扩展都在）：默认驱动 ego lite，没有 ego 就依次退到 Chrome → Edge → Brave → Chromium 等 Chromium 内核浏览器；选中品牌没开用户级远程调试开关时会**自动打开它**（会重启该浏览器一次）。无登录态的独立 profile 默认禁用，只在显式 JEV_ALLOW_FRESH=1 时使用。当用户说"用浏览器帮我做完这件事""跑一下那个浏览器 agent""看看 jev 还能不能用"时使用。不适用于 shadow DOM / iframe / canvas / 文件上传类页面，也不适用于云端或 CI（必须连本机浏览器）。
 whenToUse: 用户要求用浏览器真实完成一个操作（尤其是需要已登录态的站点），或要确认 / 排查本机 jev-ultrafast 的可用性与链路故障。
 ---

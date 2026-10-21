@@ -1,5 +1,6 @@
 ---
 name: weicoz-dsh-repos-update-check
+version: 1.0.0
 description: >
   只读检查 DeepSeek Harness (DSH) 本体、xiaobright/dsh-anchored-standard、
   yjh051108/dsh-routing-suite 的更新与本机实装差异；用户要求时审计已装 DSH 插件的兼容和可用性。

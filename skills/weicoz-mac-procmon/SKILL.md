@@ -1,5 +1,6 @@
 ---
 name: weicoz-mac-procmon
+version: 1.0.0
 description: >
   用 mac-procmon（procmon）查本机 CPU / 内存 / 磁盘占用异常，做异常进程深度归因、
   告警排查与数据库体积维护。适用于"谁在吃 CPU""内存不够""电脑卡""哪个进程失控"

@@ -1,5 +1,6 @@
 ---
 name: weicoz-demand-mindmap-organizer
+version: 1.0.0
 description: 把客户沟通记录、会议纪要、聊天内容、需求文档或已有导图整理成客户可读的需求思维导图，并默认直接交付可由 XMind 打开的真实 `.xmind` 文件。适用于模式电商、电商、供应链、SaaS、管理系统及已有 XMind 增量修改；支持继承客户手改术语、结构和母版主题样式。用户提到整理导图、思维导图、XMind、更新导图或需求层级梳理时使用。
 ---
 

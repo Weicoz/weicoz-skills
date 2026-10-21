@@ -1,5 +1,6 @@
 ---
 name: weicoz-reddit-pain-evidence
+version: 1.0.0
 description: |
   从 Reddit 挖掘真实用户痛点，并按“抱怨型痛点”标准判定“真需求”。当用户说“去 Reddit 找真实痛点”“如何判断 Reddit 用户痛点是真痛点”“看评论区交叉验证需求”“整理 Reddit 用户需求证据”“不要只看标题，要看评论区”时使用本 skill。它负责 Reddit 搜索、thread 阅读、评论证据抽取、痛点判定和证据报告；不自动替代 Semrush/KDRoi、产品机会评估或商业决策，除非用户另外要求。
 allowed-tools: Bash(ego-browser:*), Bash(bsk:*), Bash(rg:*), Bash(sed:*), Bash(mkdir:*), Bash(wc:*)

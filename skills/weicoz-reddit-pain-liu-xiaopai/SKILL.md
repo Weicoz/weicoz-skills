@@ -1,5 +1,6 @@
 ---
 name: weicoz-reddit-pain-liu-xiaopai
+version: 1.0.0
 description: |
   Reddit 真实痛点挖掘 + 刘小排视角评估 + 可持续交易判断的一体化工作流。用于“去 Reddit 找用户痛点并用刘小排视角评价”“last30days + Reddit 评论区证据 + 小排建议”“判断痛点是否值得做 MVP”“把抱怨型痛点收敛成可卖产品 wedge”“判断痛点能不能变成可持续交易/生意”等任务。先按 last30days / Reddit pain evidence 找真实抱怨和评论证据，再用刘小排的需求真实性、杠杆、SOP、低摩擦 MVP、模型分工、组织闭环和交易结构框架给评价与下一步建议。
 ---

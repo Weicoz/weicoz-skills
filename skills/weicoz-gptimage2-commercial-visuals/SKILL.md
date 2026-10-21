@@ -1,5 +1,6 @@
 ---
 name: weicoz-gptimage2-commercial-visuals
+version: 1.0.0
 description: 为 GPT-Image-2 生成商业视觉提示词。用户要做电商详情页、产品主图/白底精修、品牌海报、广告 Banner、多平台营销物料、公众号封面、产品套图、包装/品牌视觉系统、促销文案入图时使用。输出可直接复制给 GPT-Image-2 的商业图 prompt、选择理由、缺失信息和风险提醒。
 ---
 

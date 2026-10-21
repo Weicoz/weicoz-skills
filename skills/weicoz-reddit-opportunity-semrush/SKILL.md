@@ -1,5 +1,6 @@
 ---
 name: weicoz-reddit-opportunity-semrush
+version: 1.0.0
 description: |
   从 Reddit 真实抱怨和评论交叉验证里挖产品需求，再用 Semrush 关键词门槛筛选，并输出带 GO/HOLD/NO-GO、MVP、商业化和执行建议的产品机会报告。
   当用户说“从 Reddit 找真需求”“找痛点并用 Semrush 验证”“Reddit + Semrush 需求挖掘”“生成机会报告”“找 10 个能做的 AI Web 产品方向”“用 weicoz-ai-product-opportunity / 刘小排视角判断需求”时使用本 skill。

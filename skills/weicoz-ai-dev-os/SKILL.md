@@ -1,5 +1,6 @@
 ---
 name: weicoz-ai-dev-os
+version: 1.0.0
 description: 安装或同步项目级 AI 开发治理、宪法、SDD 与架构护栏；用于明确要求安装开发规范、对齐项目治理或执行 /weicoz-ai-dev-os。不用于用户级 AGENTS/Skills 审计、普通规则文字修订或单功能实现；这些任务不自动引入完整治理框架。
 ---
 
