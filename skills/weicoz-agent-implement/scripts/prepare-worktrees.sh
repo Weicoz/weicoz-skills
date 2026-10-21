@@ -2,7 +2,8 @@
 set -euo pipefail
 
 usage() {
-  printf '%s\n' '用法：prepare-worktrees.sh --branch 票据分支 --base 基线分支 --root 目录 --ticket 票名 --repo 简称=仓库路径 [--repo 简称=仓库路径]... --log-dir 目录'
+  printf '%s\n' '用法：prepare-worktrees.sh --branch 票据分支 --base 基线分支 --ticket 票名 --repo 简称=仓库路径 [--repo 简称=仓库路径]... --log-dir 目录 [--root 目录]' \
+    '默认放在各仓库根目录 .worktrees/<票名>，未被忽略时写入该仓库 .git/info/exclude；指定 --root 时放在 <root>/<票名>-<简称>。'
 }
 die() { printf '错误：%s\n' "$*" >&2; exit 1; }
 value() { [[ $# -ge 2 && -n $2 ]] || die "$1 缺少参数值。"; }
@@ -20,14 +21,17 @@ while (( $# )); do
     *) die "未知参数：$1；用 --help 查看用法。" ;;
   esac
 done
-[[ -n $branch && -n $base && -n $root && -n $ticket && -n $log_dir && ${#repos[@]} -gt 0 ]] || { usage >&2; die '请填写全部必需参数，至少指定一个 --repo。'; }
+[[ -n $branch && -n $base && -n $ticket && -n $log_dir && ${#repos[@]} -gt 0 ]] || { usage >&2; die '请填写全部必需参数，至少指定一个 --repo。'; }
 [[ $ticket != . && $ticket != .. && $ticket != *[![:alnum:]_.-]* ]] || die '票名仅使用字母、数字、下划线、点或连字符。'
 command -v git >/dev/null 2>&1 || die '未找到 git；请先安装 Git。'
 git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "分支名无效：$branch"
 
+# 相对 --root 按调用目录解析；目录在全部预检通过后才创建。
+[[ -z $root || $root == /* ]] || root="$PWD/$root"
 names=()
 paths=()
 commons=()
+targets=()
 # 全部仓库预检通过后才创建，避免后一个目标冲突时已改动前一个仓库。
 for entry in "${repos[@]}"; do
   [[ $entry == *=* ]] || die "--repo 格式应为 简称=仓库路径：$entry"
@@ -44,7 +48,11 @@ for entry in "${repos[@]}"; do
   for existing in "${names[@]+"${names[@]}"}"; do
     [[ $existing != "$name" ]] || die "仓库简称重复：$name"
   done
-  target="$root/$ticket-$name"
+  if [[ -n $root ]]; then
+    target="$root/$ticket-$name"
+  else
+    target="$path/.worktrees/$ticket"
+  fi
   [[ ! -e $target && ! -L $target ]] || die "目标目录已存在，保留原目录：$target"
   if git -C "$path" show-ref --verify --quiet "refs/heads/$branch"; then
     die "票据分支已存在，保留原分支：$name / $branch"
@@ -53,15 +61,22 @@ for entry in "${repos[@]}"; do
   names+=("$name")
   paths+=("$path")
   commons+=("$common")
+  targets+=("$target")
 done
-mkdir -p -- "$root" "$log_dir" || die '无法创建 worktree 根目录或日志目录。'
-root=$(cd -- "$root" && pwd -P)
+mkdir -p -- "$log_dir" || die '无法创建日志目录。'
+for (( i=0; i<${#names[@]}; i++ )); do
+  mkdir -p -- "$(dirname -- "${targets[$i]}")" || die "无法创建 worktree 根目录：${targets[$i]}"
+  if [[ -z $root ]] && ! git -C "${paths[$i]}" check-ignore -q ".worktrees/$ticket"; then
+    mkdir -p -- "${commons[$i]}/info"
+    printf '/.worktrees/\n' >>"${commons[$i]}/info/exclude"
+  fi
+done
 log_dir=$(cd -- "$log_dir" && pwd -P)
 status=0
 summaries=()
 for (( i=0; i<${#names[@]}; i++ )); do
   name=${names[$i]}
-  target="$root/$ticket-$name"
+  target=${targets[$i]}
   log="$log_dir/install-$ticket-$name.txt"
   git -C "${paths[$i]}" worktree add -b "$branch" -- "$target" "$base" >"$log" 2>&1 || die "创建 worktree 失败；已建目录保留，详情：$log"
   installs=()

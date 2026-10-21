@@ -5,8 +5,9 @@ usage() {
   cat <<'USAGE'
 用法：launch-local.sh --name 票名 --prompt 文件 --workdir 目录 --out 目录
   [--add-dir 目录]... [--max-load-per-core 数] [--poll-seconds 数]
-  [--no-wait-load] [--offline] [-- codex附加参数...]
+  [--max-sessions 数] [--no-wait-load] [--offline] [-- codex附加参数...]
 每核负载阈值：命令行 > RD_MAX_LOAD_PER_CORE > 1.5；轮询默认20秒。
+本机并发上限：命令行 > WEICOZ_MAX_LOCAL_SESSIONS > 2，按运行中 codex exec 的不同工作目录计数；0 表示不限。
 USAGE
 }
 die() { printf '错误：%s\n' "$*" >&2; exit 1; }
@@ -18,6 +19,7 @@ positive() {
 name= prompt= workdir= out=
 max_load=${RD_MAX_LOAD_PER_CORE:-1.5}
 poll=20
+max_sessions=${WEICOZ_MAX_LOCAL_SESSIONS:-2}
 wait_load=1
 network=true
 add_dirs=()
@@ -31,6 +33,7 @@ while (( $# )); do
     --add-dir) value "$@"; add_dirs+=("$2"); shift 2 ;;
     --max-load-per-core) value "$@"; max_load=$2; shift 2 ;;
     --poll-seconds) value "$@"; poll=$2; shift 2 ;;
+    --max-sessions) value "$@"; max_sessions=$2; shift 2 ;;
     --no-wait-load) wait_load=0; shift ;;
     --offline) network=false; shift ;;
     --help|-h) usage; exit 0 ;;
@@ -42,6 +45,7 @@ done
 [[ $name != . && $name != .. && $name != *[![:alnum:]_.-]* ]] || die '票名仅使用字母、数字、下划线、点或连字符。'
 positive "$max_load" || die '每核负载阈值必须为正数。'
 positive "$poll" || die '轮询秒数必须为正数。'
+[[ $max_sessions =~ ^[0-9]+$ ]] || die '并发上限必须为非负整数。'
 command -v codex >/dev/null 2>&1 || die '未找到 codex；请先安装 Codex CLI 并加入 PATH。'
 command -v git >/dev/null 2>&1 || die '未找到 git；请先安装 Git。'
 [[ -f $prompt && -r $prompt && -s $prompt ]] || die "提示词文件不存在、不可读或为空：$prompt"
@@ -66,6 +70,13 @@ result="$out/result-$name.md"
 log="$out/log-$name.txt"
 [[ ! -e $result && ! -e $log ]] || die '结果或日志已存在；请换票名或输出目录，保留原会话证据。'
 
+running_sessions() {
+  ps -axo command= 2>/dev/null | awk '
+    $0 ~ /codex/ && / exec / {
+      for (i = 1; i < NF; i++) if ($i == "-C") { seen[$(i + 1)] = 1 }
+    }
+    END { n = 0; for (d in seen) n++; print n }'
+}
 if (( wait_load )); then
   case "$(uname -s)" in
     Darwin) cores=$(sysctl -n hw.ncpu) || die '无法读取 CPU 核数；请核对运行环境的 sysctl 权限。' ;;
@@ -73,7 +84,15 @@ if (( wait_load )); then
     *) die '负载准入仅支持 macOS 与 Linux。' ;;
   esac
   [[ $cores =~ ^[1-9][0-9]*$ ]] || die '无法读取 CPU 核数。'
-  while :; do
+fi
+while (( wait_load || max_sessions > 0 )); do
+  ready=1
+  if (( max_sessions > 0 )); then
+    sessions=$(running_sessions)
+    printf '运行中会话 %s，上限 %s\n' "$sessions" "$max_sessions"
+    (( sessions < max_sessions )) || ready=0
+  fi
+  if (( wait_load )); then
     case "$(uname -s)" in
       Darwin) load=$(sysctl -n vm.loadavg | awk '{print $2}') || die '无法读取1分钟负载；请核对运行环境的 sysctl 权限。' ;;
       Linux) load=$(awk '{print $1}' /proc/loadavg) || die '无法读取 /proc/loadavg；请核对运行环境。' ;;
@@ -81,12 +100,11 @@ if (( wait_load )); then
     [[ $load =~ ^[0-9]+([.][0-9]+)?$ ]] || die '无法读取1分钟负载。'
     per_core=$(awk -v load="$load" -v cores="$cores" 'BEGIN { printf "%.3f", load / cores }')
     printf '负载 %s ÷ %s 核 = 每核 %s，阈值 %s\n' "$load" "$cores" "$per_core" "$max_load"
-    if awk -v load="$load" -v cores="$cores" -v limit="$max_load" 'BEGIN { exit !(load / cores < limit) }'; then
-      break
-    fi
-    sleep "$poll"
-  done
-fi
+    awk -v load="$load" -v cores="$cores" -v limit="$max_load" 'BEGIN { exit !(load / cores < limit) }' || ready=0
+  fi
+  (( ready )) && break
+  sleep "$poll"
+done
 
 command_args=(codex exec -s workspace-write -C "$workdir")
 for directory in "${writable[@]+"${writable[@]}"}"; do

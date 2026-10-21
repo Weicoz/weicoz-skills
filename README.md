@@ -132,7 +132,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-session-hub`](skills/weicoz-session-hub/) | 1.0.0 | 总控会话协调多个代理会话，派任务、收汇报、验收 |
 | [`weicoz-session-recall`](skills/weicoz-session-recall/) | 1.0.0 | 跨 harness 检索历史会话，回答“我以前做过什么” |
 | [`weicoz-remote-dispatch`](skills/weicoz-remote-dispatch/) | 1.0.0 | 把代理会话、测试与构建经 SSH 派到另一台机器执行 |
-| [`weicoz-agent-implement`](skills/weicoz-agent-implement/) | 1.1.0 | 把单张票据委派给编码代理实现，派单方监控与验收 |
+| [`weicoz-agent-implement`](skills/weicoz-agent-implement/) | 1.2.0 | 把单张票据委派给编码代理实现，派单方监控与验收 |
 | [`weicoz-agent-implement-spec`](skills/weicoz-agent-implement-spec/) | 1.1.0 | 按依赖图编排整份规格，每票一个实现会话并统一合并验收 |
 | [`weicoz-multi-worktree-dev-v3`](skills/weicoz-multi-worktree-dev-v3/) | 1.0.0 | 多 worktree 隔离开发与精确集成，按风险分级验证（当前版本） |
 | [`weicoz-multi-worktree-dev-v2`](skills/weicoz-multi-worktree-dev-v2/) | 1.0.0 | 历史版本，仅在用户明确指定 v2 时使用 |

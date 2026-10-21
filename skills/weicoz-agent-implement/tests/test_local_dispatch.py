@@ -27,6 +27,8 @@ class LocalDispatchTests(unittest.TestCase):
         self.env = dict(os.environ, PATH=f"{self.bin}{os.pathsep}{os.environ['PATH']}",
                         CAPTURE=str(self.capture))
         self.env.pop("RD_MAX_LOAD_PER_CORE", None)
+        self.env.pop("WEICOZ_MAX_LOCAL_SESSIONS", None)
+        self.mock_sessions()
         self.repo = self.make_repo("repo with spaces")
         self.prompt = self.root / "prompt.md"
         self.prompt.write_text("本票提示词：$HOME `literal` {{CONTEXT}}\n")
@@ -93,6 +95,10 @@ sys.exit(int(os.environ.get("MOCK_EXIT", "0")))
     def mock_load(self):
         self.executable("uname", "#!/bin/sh\nprintf 'Darwin\\n'\n")
         self.executable("sysctl", '#!/bin/sh\ncase "$2" in hw.ncpu) echo 4 ;; vm.loadavg) echo "{ 8.0 7.0 6.0 }" ;; esac\n')
+
+    def mock_sessions(self, *workdirs):
+        lines = "".join(f"node /opt/codex exec -s workspace-write -C {d} prompt\\n" for d in workdirs)
+        self.executable("ps", f"#!/bin/sh\nprintf '{lines}'\n")
 
     def stop_process(self, process):
         if process.poll() is None:
@@ -266,6 +272,37 @@ print(n * 301)
                             os.kill(pid, 0)
                 finally:
                     self.stop_process(process)
+
+    def test_default_root_is_repo_worktrees_and_ignored(self):
+        args = ["bash", SCRIPTS / "prepare-worktrees.sh", "--branch", "ticket/T02", "--base", "main",
+                "--ticket", "T02", "--log-dir", self.root / "logs", "--repo", f"app={self.repo}"]
+        result = self.run_command(args)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        worktree = self.repo / ".worktrees/T02"
+        self.assertTrue((worktree / "sample.txt").exists())
+        self.assertIn(f"worktree={worktree.resolve()}", result.stdout)
+        status = self.run_command(["git", "-C", self.repo, "status", "--porcelain"])
+        self.assertEqual(status.stdout, "", status.stdout)
+        exclude = (self.repo / ".git/info/exclude").read_text()
+        self.assertEqual(exclude.count("/.worktrees/"), 1)
+        again = self.run_command([*args[:3], "ticket/T03", *args[4:7], "T03", *args[8:]])
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertEqual((self.repo / ".git/info/exclude").read_text().count("/.worktrees/"), 1)
+
+    def test_session_limit_waits_and_counts_unique_workdirs(self):
+        self.mock_sessions("/w/a", "/w/a", "/w/b")
+        process = subprocess.Popen([str(arg) for arg in self.launch_args("--no-wait-load", "--poll-seconds", "0.05")],
+                                   env=self.env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            with self.assertRaises(subprocess.TimeoutExpired):
+                process.communicate(timeout=1.0)
+        finally:
+            stdout, stderr = self.stop_process(process)
+        self.assertIn("运行中会话 2，上限 2", stdout, stderr)
+        self.assertFalse(self.capture.exists())
+        result = self.run_command(self.launch_args("--no-wait-load", "--max-sessions", "3", name="T09"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("运行中会话 2，上限 3", result.stdout)
 
     def test_human_errors(self):
         for script in ("launch-local.sh", "prepare-worktrees.sh"):

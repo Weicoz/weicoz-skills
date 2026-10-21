@@ -1,6 +1,6 @@
 ---
 name: weicoz-agent-implement
-version: 1.1.0
+version: 1.2.0
 description: 把一张票据或明确限定的单个工作项委派给编码代理，按当前 implement 技能实现，由派单方监控和验收。用于“让代理实现这张票”“agent-implement”“codex-implement”等单票委派；整份规格及其依赖票据的编排使用 weicoz-agent-implement-spec。
 ---
 
@@ -36,16 +36,16 @@ description: 把一张票据或明确限定的单个工作项委派给编码代�
 ```bash
 skill="$HOME/.agents/skills/weicoz-agent-implement"
 bash "$skill/scripts/prepare-worktrees.sh" --branch ticket/T01 --base "$base" \
-  --root "$worktree_root" --ticket T01 --repo "app=$repo" --log-dir "$out"
+  --ticket T01 --repo "app=$repo" --log-dir "$out"
 python3 "$skill/scripts/render-prompt.py" --template "$skill/templates/ticket-prompt.md" \
-  --set TICKET=T01 --set "WORKDIRS=app=$worktree_root/T01-app；分支 ticket/T01" \
+  --set TICKET=T01 --set "WORKDIRS=app=$repo/.worktrees/T01；分支 ticket/T01" \
   --set "CONTEXT=$ticket_file" --set "IMPLEMENT_SKILL=$skill/SKILL.md" \
   --set-file "EXTRA=$extra_file" --set-file "CHECKS=$checks_file" --out "$out/prompt-T01.md"
 bash "$skill/scripts/launch-local.sh" --name T01 --prompt "$out/prompt-T01.md" \
-  --workdir "$worktree_root/T01-app" --out "$out"
+  --workdir "$repo/.worktrees/T01" --out "$out"
 ```
 
-多仓准备重复传 `--repo`；启动时用 `--add-dir` 传入其他本票 worktree 和必要的上下文目录。保留 `workspace-write` 隔离，默认开启任务网络；明确要求离线时传 `--offline`。正常联网仅用于任务依赖与隔离连接测试，保留现有代理、TUN 和机器全局安全配置。模型等 Codex 参数放在 `--` 后，按用户要求传入；附加参数不得覆盖已约定的目录、沙箱、联网和结果路径。
+worktree 统一放在各仓库根目录的 `.worktrees/<票名>`：所有工具按同一位置查找，`du -sh <仓库>/.worktrees` 即可统计占用。脚本在该目录未被忽略时写入仓库的 `.git/info/exclude`；仓库自身的测试、lint、类型检查和镜像构建配置也须排除 `.worktrees/`。在主仓库清理时只用不带 `-x` 的 `git clean`，因为 `-x` 会删除被忽略的整个 `.worktrees/`。跨仓票在每个仓库用同一票名。`--root` 仅在项目另有约定时使用。多仓准备重复传 `--repo`；启动时用 `--add-dir` 传入其他本票 worktree 和必要的上下文目录。脚本按运行中 `codex exec` 的不同工作目录计数，达到 `--max-sessions`（默认读 `WEICOZ_MAX_LOCAL_SESSIONS`，再缺省 2）时等待。保留 `workspace-write` 隔离，默认开启任务网络；明确要求离线时传 `--offline`。正常联网仅用于任务依赖与隔离连接测试，保留现有代理、TUN 和机器全局安全配置。模型等 Codex 参数放在 `--` 后，按用户要求传入；附加参数不得覆盖已约定的目录、沙箱、联网和结果路径。
 
 Git 分工（本机）：worktree 的 Git 目录在主仓库 `.git/worktrees/` 下，不在沙箱可写根内，实现会话 `git add` 报 `index.lock: Operation not permitted`；追加 `--add-dir <git 公共目录>` 实测时好时坏（2026-10-21），不作依赖。实现会话只改工作区；编排方审查后在本票分支提交，需要时先合入 integration 最新提交并按影响重检，再串行合入 integration。远端 rd 会话按 rd 流程在执行机提交。完成判据：本票提交由编排方生成，验收证据对应该提交。
 
