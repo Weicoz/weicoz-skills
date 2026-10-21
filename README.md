@@ -66,7 +66,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-feishu-task-tracker`](skills/weicoz-feishu-task-tracker/) | 2.1.0 | 读飞书任务清单、盘点逾期临期、写评论并 @ 负责人、改状态与进度、同步关注人；含只读盘点与评论写入两个脚本 |
 | [`weicoz-feishu-receipt-base`](skills/weicoz-feishu-receipt-base/) | 1.0.0 | 飞书多维表财务收款入账、渠道返点对账与开发绩效核算 |
 | [`weicoz-feishu-salary-base`](skills/weicoz-feishu-salary-base/) | 1.0.0 | 飞书工资多维表读写、按月生成草稿、导入个税表回填社保与个税 |
-| [`weicoz-mail-guard`](skills/weicoz-mail-guard/) | 1.4.3 | 多邮箱只读拉取、单次调用 brief 简报、子代理执行且模型不变、验证码与登录链接提取、时间与来源邮箱强制标注 |
+| [`weicoz-mail-guard`](skills/weicoz-mail-guard/) | 1.4.4 | 多邮箱只读拉取、单次调用 brief 简报、默认直跑可选子代理、验证码与登录链接提取、时间与来源邮箱强制标注 |
 | [`weicoz-monthly-reconciliation-xlsx`](skills/weicoz-monthly-reconciliation-xlsx/) | 1.0.0 | 按固定 Excel 模板生成月度对账单，不改列、先预览后生成 |
 | [`weicoz-harness-notify`](skills/weicoz-harness-notify/) | 1.0.0 | 为 Codex / Claude Code / DSH / AGY 安装并验证完成通知（Bark、TG、飞书、ntfy） |
 
