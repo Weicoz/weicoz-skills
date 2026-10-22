@@ -1,6 +1,6 @@
 # 第三方许可与基线
 
-本 Skill 1.1.0 在 Oil UI Free 0.23.9 的 MIT 开源版基础上二次开发。官方包 SHA-256：`66b97458ef31fc5ec363cdfcf6a9f2b5e3beca17998d0fdd04fde47bf0eff3a1`。完整原包文件和逐文件摘要见 `upstream/oil-ui/`、`upstream.lock.json`。
+本 Skill 1.1 系列 在 Oil UI Free 0.23.9 的 MIT 开源版基础上二次开发。官方包 SHA-256：`66b97458ef31fc5ec363cdfcf6a9f2b5e3beca17998d0fdd04fde47bf0eff3a1`。完整原包文件和逐文件摘要见 `upstream/oil-ui/`、`upstream.lock.json`。
 
 上游 SKILL.md 原字节存为 ENTRYPOINT.source.md，锁文件 archive_paths 记录映射，防止宿主递归发现第二个自动入口；其余原包路径不变。
 

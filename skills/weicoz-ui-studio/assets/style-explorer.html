@@ -330,7 +330,7 @@ function t(key, values={}) {
   if(key!==loupeKey){
    loupeKey=key;dir=0;
    $('#track').replaceChildren(...list.map(c=>{const sl=el('div','slide');sl.dataset.id=c.id;sl.append(stage(c,true));return sl;}));
-   $('#film').replaceChildren(el('span','film-ind'),...list.map(c=>{const b=el('button');b.type='button';b.dataset.id=c.id;b.append(el('span','fn',no(c)),el('span','ft',c.name),stripMini(c));b.addEventListener('click',()=>go(c.id));return b;}));
+   $('#film').replaceChildren(el('span','film-ind'),...list.map(c=>{const b=el('button');b.type='button';b.dataset.id=c.id;b.append(el('span','fn',no(c)),el('span','ft',c.name));const mini=stripMini(c);if(mini)b.append(mini);b.addEventListener('click',()=>go(c.id));return b;}));
   }
   if(!list.some(c=>c.id===st.current))st.current=list[0].id;
   const i=list.findIndex(c=>c.id===st.current),track=$('#track');

@@ -47,5 +47,11 @@
   },
   "archive_paths": {
     "SKILL.md": "ENTRYPOINT.source.md"
+  },
+  "runtime_overrides": {
+    "assets/style-explorer.html": {
+      "sha256": "802bc305497338821819d22a0da83d56d99ac78b79d42b62eddd48346e46b2a8",
+      "reason": "候选未提供色板时，不把空节点附加为 null 文本；上游原始模板保留不变"
+    }
   }
 }

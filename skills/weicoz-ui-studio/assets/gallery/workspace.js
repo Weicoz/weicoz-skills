@@ -59,6 +59,8 @@ function buttonFor(project) {
   return button;
 }
 function saveURL(push = false) {
+  // 离线对比页使用不透明 srcdoc，状态仍可操作，但没有可写的页面 URL。
+  if (location.protocol === "about:") return;
   const p = new URLSearchParams();
   ["search", "status-filter", "layout", "sort"].forEach((id) =>
     p.set(id, $("#" + id).value),

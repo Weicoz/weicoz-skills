@@ -20,7 +20,12 @@ class FreeBaselineTest(unittest.TestCase):
             self.assertEqual((ROOT / "scripts" / name).read_bytes(), (base / "scripts" / name).read_bytes())
         for path in (base / "assets").rglob("*"):
             if path.is_file() and "readme" not in path.parts:
-                self.assertEqual(path.read_bytes(), (ROOT / "assets" / path.relative_to(base / "assets")).read_bytes())
+                runtime = ROOT / "assets" / path.relative_to(base / "assets")
+                approved = lock.get("runtime_overrides", {}).get(str(runtime.relative_to(ROOT)))
+                if approved:
+                    self.assertEqual(hashlib.sha256(runtime.read_bytes()).hexdigest(), approved["sha256"])
+                else:
+                    self.assertEqual(path.read_bytes(), runtime.read_bytes())
         for path in (base / "references").glob("*.md"):
             self.assertEqual(path.read_bytes(), (ROOT / "references/free" / path.name).read_bytes())
 
