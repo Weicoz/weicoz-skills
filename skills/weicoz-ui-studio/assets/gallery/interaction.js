@@ -1,16 +1,152 @@
-const $ = selector => document.querySelector(selector);
-const initial={title:'河岸阅读计划',email:'reader@example.com',description:'每周六，一起读二十页。'};
-let plan={...initial}; let persistence=true; let pending=null; let timer=null;
-try { const stored=JSON.parse(localStorage.getItem('ui-studio-plan')||'null'); if(stored && ['title','email','description'].every(k=>typeof stored[k]==='string')) plan=stored; } catch { persistence=false; }
-const states={loading:['正在加载计划','请稍候，内容即将出现。'],empty:['还没有阅读计划','从一个小小的约定开始。'],error:['暂时无法加载','保留当前内容，稍后重试。'],offline:['当前处于离线状态','网络恢复后可以继续，未提交的输入仍保留。'],denied:['当前账号没有访问权限','请联系项目管理员。']};
-const requested=new URLSearchParams(location.search).get('state'); if(requested && (requested==='ready'||states[requested])) $('#view-state').value=requested;
-function render() { const state=$('#view-state').value; const panel=$('#state-panel');panel.replaceChildren(); const title=document.createElement('h3'); const body=document.createElement('p'); if(state==='ready'){title.textContent=plan.title;body.textContent=plan.description;}else{[title.textContent,body.textContent]=states[state];}panel.append(title,body); if(state==='loading'){panel.setAttribute('aria-busy','true');const bars=document.createElement('div');bars.className='loading-bars';bars.setAttribute('aria-hidden','true');bars.innerHTML='<span></span><span></span><span></span>';panel.append(bars);}else panel.removeAttribute('aria-busy'); if(['error','offline'].includes(state)){const retry=document.createElement('button');retry.textContent='重新加载';retry.onclick=()=>{$('#view-state').value='ready';render();};panel.append(retry);} $('#open-dialog').disabled=['loading','offline','denied'].includes(state); $('#open-dialog').textContent=state==='empty'?'创建计划':'编辑计划'; $('#persist-status').textContent=persistence?'保存在当前浏览器的本地存储中。':'本地存储不可用，当前更改只保留在页面内存。'; }
-$('#view-state').onchange=render;
-$('#open-dialog').onclick=()=>{const empty=$('#view-state').value==='empty';['title','email','description'].forEach(key=>$('#'+key).value=empty?'':plan[key]);$('#form-error').hidden=true;$('#save-status').textContent='';$('#editor').showModal();$('#title').focus();};
-function cancelPending(){pending?.abort();pending=null;clearTimeout(timer);timer=null;$('#save').disabled=false;$('#save').textContent='保存计划';}
-function close(){cancelPending();$('#editor').close();}
-$('#close-dialog').onclick=close;$('#cancel').onclick=close;
-$('#editor').addEventListener('cancel',cancelPending);$('#editor').addEventListener('close',()=>{$('#open-dialog').focus();});
-$('#edit-form').onsubmit=event=>{event.preventDefault();const form=event.target;$('#title').value=$('#title').value.trim();if(!form.reportValidity())return;cancelPending();const controller=new AbortController();pending=controller;const next=Object.fromEntries(new FormData(form));$('#save').disabled=true;$('#save').textContent='保存中…';$('#save-status').textContent='正在保存，请稍候。';$('#form-error').hidden=true;const fail=$('#fail-save').checked;timer=setTimeout(()=>{if(controller.signal.aborted)return;pending=null;$('#save').disabled=false;$('#save').textContent='保存计划';if(fail){$('#form-error').hidden=false;$('#form-error').textContent='保存失败。输入已保留，请重试。';$('#form-error').tabIndex=-1;$('#form-error').focus();$('#save-status').textContent='';return;}plan=next;try{localStorage.setItem('ui-studio-plan',JSON.stringify(plan));persistence=true;}catch{persistence=false;}$('#view-state').value='ready';render();$('#editor').close();$('#page-status').textContent=persistence?'计划已保存。':'已在页面内更新，浏览器未允许持久保存。';},350);};
-$('#reset').onclick=()=>{plan={...initial};try{localStorage.removeItem('ui-studio-plan');}catch{persistence=false;}$('#view-state').value='ready';render();$('#page-status').textContent='已恢复初始计划。';};
-window.addEventListener('pagehide',cancelPending);render();
+const $ = (selector) => document.querySelector(selector);
+const initial = {
+  title: "河岸阅读计划",
+  email: "reader@example.com",
+  description: "每周六，一起读二十页。",
+};
+let plan = { ...initial };
+let persistence = true;
+let pending = null;
+let timer = null;
+try {
+  const stored = JSON.parse(localStorage.getItem("ui-studio-plan") || "null");
+  if (
+    stored &&
+    ["title", "email", "description"].every(
+      (k) => typeof stored[k] === "string",
+    )
+  )
+    plan = stored;
+} catch {
+  persistence = false;
+}
+const states = {
+  loading: ["正在加载计划", "请稍候，内容即将出现。"],
+  empty: ["还没有阅读计划", "从一个小小的约定开始。"],
+  error: ["暂时无法加载", "保留当前内容，稍后重试。"],
+  offline: ["当前处于离线状态", "网络恢复后可以继续，未提交的输入仍保留。"],
+  denied: ["当前账号没有访问权限", "请联系项目管理员。"],
+};
+const requested = new URLSearchParams(location.search).get("state");
+if (requested && (requested === "ready" || states[requested]))
+  $("#view-state").value = requested;
+function render() {
+  const state = $("#view-state").value;
+  const panel = $("#state-panel");
+  panel.replaceChildren();
+  const title = document.createElement("h3");
+  const body = document.createElement("p");
+  if (state === "ready") {
+    title.textContent = plan.title;
+    body.textContent = plan.description;
+  } else {
+    [title.textContent, body.textContent] = states[state];
+  }
+  panel.append(title, body);
+  if (state === "loading") {
+    panel.setAttribute("aria-busy", "true");
+    const bars = document.createElement("div");
+    bars.className = "loading-bars";
+    bars.setAttribute("aria-hidden", "true");
+    bars.innerHTML = "<span></span><span></span><span></span>";
+    panel.append(bars);
+  } else panel.removeAttribute("aria-busy");
+  if (["error", "offline"].includes(state)) {
+    const retry = document.createElement("button");
+    retry.textContent = "重新加载";
+    retry.onclick = () => {
+      $("#view-state").value = "ready";
+      render();
+    };
+    panel.append(retry);
+  }
+  $("#open-dialog").disabled = ["loading", "offline", "denied"].includes(state);
+  $("#open-dialog").textContent = state === "empty" ? "创建计划" : "编辑计划";
+  $("#persist-status").textContent = persistence
+    ? "保存在当前浏览器的本地存储中。"
+    : "本地存储不可用，当前更改只保留在页面内存。";
+}
+$("#view-state").onchange = render;
+$("#open-dialog").onclick = () => {
+  const empty = $("#view-state").value === "empty";
+  ["title", "email", "description"].forEach(
+    (key) => ($("#" + key).value = empty ? "" : plan[key]),
+  );
+  $("#form-error").hidden = true;
+  $("#save-status").textContent = "";
+  $("#editor").showModal();
+  $("#title").focus();
+};
+function cancelPending() {
+  pending?.abort();
+  pending = null;
+  clearTimeout(timer);
+  timer = null;
+  $("#save").disabled = false;
+  $("#save").textContent = "保存计划";
+}
+function close() {
+  cancelPending();
+  $("#editor").close();
+}
+$("#close-dialog").onclick = close;
+$("#cancel").onclick = close;
+$("#editor").addEventListener("cancel", cancelPending);
+$("#editor").addEventListener("close", () => {
+  $("#open-dialog").focus();
+});
+$("#edit-form").onsubmit = (event) => {
+  event.preventDefault();
+  const form = event.target;
+  $("#title").value = $("#title").value.trim();
+  if (!form.reportValidity()) return;
+  cancelPending();
+  const controller = new AbortController();
+  pending = controller;
+  const next = Object.fromEntries(new FormData(form));
+  $("#save").disabled = true;
+  $("#save").textContent = "保存中…";
+  $("#save-status").textContent = "正在保存，请稍候。";
+  $("#form-error").hidden = true;
+  const fail = $("#fail-save").checked;
+  timer = setTimeout(() => {
+    if (controller.signal.aborted) return;
+    pending = null;
+    $("#save").disabled = false;
+    $("#save").textContent = "保存计划";
+    if (fail) {
+      $("#form-error").hidden = false;
+      $("#form-error").textContent = "保存失败。输入已保留，请重试。";
+      $("#form-error").tabIndex = -1;
+      $("#form-error").focus();
+      $("#save-status").textContent = "";
+      return;
+    }
+    plan = next;
+    try {
+      localStorage.setItem("ui-studio-plan", JSON.stringify(plan));
+      persistence = true;
+    } catch {
+      persistence = false;
+    }
+    $("#view-state").value = "ready";
+    render();
+    $("#editor").close();
+    $("#page-status").textContent = persistence
+      ? "计划已保存。"
+      : "已在页面内更新，浏览器未允许持久保存。";
+  }, 350);
+};
+$("#reset").onclick = () => {
+  plan = { ...initial };
+  try {
+    localStorage.removeItem("ui-studio-plan");
+  } catch {
+    persistence = false;
+  }
+  $("#view-state").value = "ready";
+  render();
+  $("#page-status").textContent = "已恢复初始计划。";
+};
+window.addEventListener("pagehide", cancelPending);
+render();

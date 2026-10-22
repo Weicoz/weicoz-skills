@@ -1,1 +1,69 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>界面工作室 · 工作区</title><link rel="stylesheet" href="studio.css"><link rel="stylesheet" href="workspace.css"><link rel="icon" href="data:,"></head><body><a class="skip" href="#main">跳到内容</a><header class="mast"><a class="brand" href="index.html">界面工作室 <span>／ 工作区</span></a><nav aria-label="主导航"><a href="index.html">组件</a><a href="workspace.html" aria-current="page">工作区</a><a href="interaction.html">交互</a><a href="effects.html">动效</a></nav></header><main id="main"><div class="intro"><p class="eyebrow">把注意力放在当前任务</p><h1>阅读计划，正在发生。</h1><p>筛选、选择、处理。让工作台顺着你的思路展开。</p></div><div class="toolbar"><label>搜索项目<input id="search" type="search" placeholder="名称或负责人"></label><label>状态<select id="status-filter"><option value="all">全部</option><option value="待开始">待开始</option><option value="进行中">进行中</option><option value="已完成">已完成</option></select></label><label>布局<select id="layout"><option value="list">列表与详情</option><option value="board">看板</option><option value="table">表格</option></select></label><label>排序<select id="sort"><option value="asc">名称升序</option><option value="desc">名称降序</option></select></label><p role="status" id="results"></p></div><div id="workspace" class="workspace" data-layout="list"><section id="items" aria-label="项目列表"></section><aside id="inspector" class="notice" aria-label="项目详情"><h2 id="detail-title"></h2><p id="detail-owner"></p><p id="detail-state"></p><p id="detail-description"></p><button id="move">推进状态</button><button id="back-list" class="quiet">返回列表</button></aside></div><p id="workspace-result" role="status"></p></main><script src="workspace.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>界面工作室 · 工作区</title>
+    <link rel="stylesheet" href="studio.css" />
+    <link rel="stylesheet" href="workspace.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <a class="skip" href="#main">跳到内容</a>
+    <header class="mast">
+      <a class="brand" href="index.html">界面工作室 <span>／ 工作区</span></a>
+      <nav aria-label="主导航">
+        <a href="index.html">组件</a
+        ><a href="workspace.html" aria-current="page">工作区</a
+        ><a href="interaction.html">交互</a><a href="effects.html">动效</a>
+      </nav>
+    </header>
+    <main id="main">
+      <div class="intro">
+        <p class="eyebrow">把注意力放在当前任务</p>
+        <h1>阅读计划，正在发生。</h1>
+        <p>筛选、选择、处理。让工作台顺着你的思路展开。</p>
+      </div>
+      <div class="toolbar">
+        <label
+          >搜索项目<input
+            id="search"
+            type="search"
+            placeholder="名称或负责人" /></label
+        ><label
+          >状态<select id="status-filter">
+            <option value="all">全部</option>
+            <option value="待开始">待开始</option>
+            <option value="进行中">进行中</option>
+            <option value="已完成">已完成</option>
+          </select></label
+        ><label
+          >布局<select id="layout">
+            <option value="list">列表与详情</option>
+            <option value="board">看板</option>
+            <option value="table">表格</option>
+          </select></label
+        ><label
+          >排序<select id="sort">
+            <option value="asc">名称升序</option>
+            <option value="desc">名称降序</option>
+          </select></label
+        >
+        <p role="status" id="results"></p>
+      </div>
+      <div id="workspace" class="workspace" data-layout="list">
+        <section id="items" aria-label="项目列表"></section>
+        <aside id="inspector" class="notice" aria-label="项目详情">
+          <h2 id="detail-title"></h2>
+          <p id="detail-owner"></p>
+          <p id="detail-state"></p>
+          <p id="detail-description"></p>
+          <button id="move">推进状态</button
+          ><button id="back-list" class="quiet">返回列表</button>
+        </aside>
+      </div>
+      <p id="workspace-result" role="status"></p>
+    </main>
+    <script src="workspace.js"></script>
+  </body>
+</html>

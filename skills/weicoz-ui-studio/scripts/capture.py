@@ -86,7 +86,10 @@ def main():
                 run("video-start", str(output / "walkthrough.webm"))
             template = (ROOT / "scripts/capture-browser.js").read_text(encoding="utf-8")
             script = output / "capture-run.js"
-            script.write_text(template.replace("/*SPEC*/null", json.dumps(spec, ensure_ascii=False)), encoding="utf-8")
+            script_text, replacements = re.subn(r"/\*SPEC\*/\s*null", lambda _: json.dumps(spec, ensure_ascii=False), template, count=1)
+            if replacements != 1:
+                raise ValueError("截图模板缺少清单入口")
+            script.write_text(script_text, encoding="utf-8")
             transcript = run("run-code", "--filename=" + str(script))
             (output / "capture-transcript.txt").write_text(transcript, encoding="utf-8")
             match = re.search(r"### Result\n([^\n]+)", transcript)
