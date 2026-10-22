@@ -5,12 +5,14 @@ repo="$(cd "$(dirname "$0")/.." && pwd -P)"
 root="$repo/skills"
 fail=0
 check_links=1
+tracked_only=0
 
 while (( $# > 0 )); do
   case "$1" in
     --no-links) check_links=0 ;;
+    --tracked-only) tracked_only=1 ;;
     -h|--help)
-      printf '用法: %s [--no-links]\n  --no-links  跳过 harness 软链指向校验（只查仓库内容）\n' "$(basename "$0")"
+      printf '用法: %s [--no-links] [--tracked-only]\n  --no-links      跳过 harness 软链指向校验（只查仓库内容）\n  --tracked-only  只校验已纳入索引（已跟踪或已暂存）的 skill，跳过他人进行中的未跟踪目录\n' "$(basename "$0")"
       exit 0
       ;;
     *)
@@ -23,6 +25,10 @@ done
 
 while IFS= read -r -d '' dir; do
   name="$(basename "$dir")"
+  if (( tracked_only )) && [[ -z "$(git -C "$repo" ls-files --cached -- "skills/$name")" ]]; then
+    printf '跳过未跟踪目录: %s\n' "$name" >&2
+    continue
+  fi
   skill="$dir/SKILL.md"
   if [[ ! -f "$skill" ]]; then
     printf '缺少 SKILL.md: %s\n' "$name" >&2

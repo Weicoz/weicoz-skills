@@ -15,7 +15,8 @@ if [[ ! -x scripts/validate-skills.sh ]]; then
   exit 0
 fi
 
-if ! scripts/validate-skills.sh --no-links; then
+# 只校验已纳入索引的 skill：未跟踪目录可能是其他会话进行中的工作，不应阻止本次提交。
+if ! scripts/validate-skills.sh --no-links --tracked-only; then
   printf '\n提交被拦截：Skill 校验未通过。\n' >&2
   printf '修正后重试；确需跳过用 git commit --no-verify\n' >&2
   exit 1
