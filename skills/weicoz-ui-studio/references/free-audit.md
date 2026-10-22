@@ -69,3 +69,5 @@ Free 的原有测试直接指向当前运行层。对比页浏览器探针用可
 Pro 的公开功能类别已有实现入口。私有原型清单、原始规范、同任务输出与评分基线未取得；现有 19 套为独立原型，不声称等于原版那 19 套。真实项目效果仍按完整手册与任务验收，原版效果完全一致仍未验证。
 
 来源：[Free 开源功能与 Pro 公开差异](https://github.com/oil-oil/oil-ui/blob/main/README.zh-CN.md)、upstream.lock.json、upstream/oil-ui/ENTRYPOINT.source.md、各命令实际回执。
+
+许可原文校验：两个 OFL.txt 保留上游完整字节（包含原有行尾空格），补丁空白检查只精确排除这两个许可文件；其余本轮改动通过。未修改字体许可文本以迎合格式检查。
