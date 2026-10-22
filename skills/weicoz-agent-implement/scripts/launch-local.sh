@@ -5,8 +5,9 @@ usage() {
   cat <<'USAGE'
 用法：launch-local.sh --name 票名 --prompt 文件 --workdir 目录 --out 目录
   [--add-dir 目录]... [--max-load-per-core 数] [--poll-seconds 数]
-  [--max-sessions 数] [--no-wait-load] [--offline] [-- codex附加参数...]
+  [--max-sessions 数] [--min-free-gb 数] [--no-wait-load] [--offline] [-- codex附加参数...]
 每核负载阈值：命令行 > RD_MAX_LOAD_PER_CORE > 1.5；轮询默认20秒。
+工作盘最低可用空间：命令行 > WEICOZ_MIN_FREE_GB > 10（GiB）；不足时等待，不自动清理。
 本机并发上限：命令行 > WEICOZ_MAX_LOCAL_SESSIONS > 2，按运行中 codex exec 的不同工作目录计数；0 表示不限。
 USAGE
 }
@@ -20,6 +21,7 @@ name= prompt= workdir= out=
 max_load=${RD_MAX_LOAD_PER_CORE:-1.5}
 poll=20
 max_sessions=${WEICOZ_MAX_LOCAL_SESSIONS:-2}
+min_free_gb=${WEICOZ_MIN_FREE_GB:-10}
 wait_load=1
 network=true
 add_dirs=()
@@ -34,6 +36,7 @@ while (( $# )); do
     --max-load-per-core) value "$@"; max_load=$2; shift 2 ;;
     --poll-seconds) value "$@"; poll=$2; shift 2 ;;
     --max-sessions) value "$@"; max_sessions=$2; shift 2 ;;
+    --min-free-gb) value "$@"; min_free_gb=$2; shift 2 ;;
     --no-wait-load) wait_load=0; shift ;;
     --offline) network=false; shift ;;
     --help|-h) usage; exit 0 ;;
@@ -46,6 +49,7 @@ done
 positive "$max_load" || die '每核负载阈值必须为正数。'
 positive "$poll" || die '轮询秒数必须为正数。'
 [[ $max_sessions =~ ^[0-9]+$ ]] || die '并发上限必须为非负整数。'
+[[ $min_free_gb =~ ^[0-9]+$ ]] || die '最低可用空间必须为非负整数（GiB）。'
 command -v codex >/dev/null 2>&1 || die '未找到 codex；请先安装 Codex CLI 并加入 PATH。'
 command -v git >/dev/null 2>&1 || die '未找到 git；请先安装 Git。'
 [[ -f $prompt && -r $prompt && -s $prompt ]] || die "提示词文件不存在、不可读或为空：$prompt"
@@ -85,8 +89,15 @@ if (( wait_load )); then
   esac
   [[ $cores =~ ^[1-9][0-9]*$ ]] || die '无法读取 CPU 核数。'
 fi
-while (( wait_load || max_sessions > 0 )); do
+# 按实际可用块计；pnpm 在 APFS 上克隆依赖，du 会重复计数，不能用 du 判断占用。
+free_gb() { df -Pk -- "$workdir" | awk 'NR == 2 { printf "%d", $4 / 1048576 }'; }
+while :; do
   ready=1
+  if (( min_free_gb > 0 )); then
+    free=$(free_gb) || die '无法读取工作盘可用空间。'
+    printf '工作盘可用 %s GiB，下限 %s GiB\n' "$free" "$min_free_gb"
+    (( free >= min_free_gb )) || ready=0
+  fi
   if (( max_sessions > 0 )); then
     sessions=$(running_sessions)
     printf '运行中会话 %s，上限 %s\n' "$sessions" "$max_sessions"

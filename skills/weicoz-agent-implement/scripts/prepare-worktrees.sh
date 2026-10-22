@@ -3,7 +3,8 @@ set -euo pipefail
 
 usage() {
   printf '%s\n' '用法：prepare-worktrees.sh --branch 票据分支 --base 基线分支 --ticket 票名 --repo 简称=仓库路径 [--repo 简称=仓库路径]... --log-dir 目录 [--root 目录]' \
-    '默认放在各仓库根目录 .worktrees/<票名>，未被忽略时写入该仓库 .git/info/exclude；指定 --root 时放在 <root>/<票名>-<简称>。'
+    '默认放在各仓库根目录 .worktrees/<票名>，未被忽略时写入该仓库 .git/info/exclude；指定 --root 时放在 <root>/<票名>-<简称>。' \
+    '工作盘可用空间低于 WEICOZ_MIN_FREE_GB（默认 10 GiB）时拒绝创建；汇总里的 disk 为安装前后实际可用空间差，不用 du。'
 }
 die() { printf '错误：%s\n' "$*" >&2; exit 1; }
 value() { [[ $# -ge 2 && -n $2 ]] || die "$1 缺少参数值。"; }
@@ -63,6 +64,13 @@ for entry in "${repos[@]}"; do
   commons+=("$common")
   targets+=("$target")
 done
+min_free_gb=${WEICOZ_MIN_FREE_GB:-10}
+[[ $min_free_gb =~ ^[0-9]+$ ]] || die 'WEICOZ_MIN_FREE_GB 必须为非负整数（GiB）。'
+free_kb() { df -Pk -- "$1" | awk 'NR == 2 { print $4 }'; }
+for path in "${paths[@]}"; do
+  free=$(( $(free_kb "$path") / 1048576 ))
+  (( free >= min_free_gb )) || die "工作盘可用 ${free} GiB，低于下限 ${min_free_gb} GiB：${path}。先清理已合入的 worktree 或其他占用（需用户确认），不自动删除。"
+done
 mkdir -p -- "$log_dir" || die '无法创建日志目录。'
 for (( i=0; i<${#names[@]}; i++ )); do
   mkdir -p -- "$(dirname -- "${targets[$i]}")" || die "无法创建 worktree 根目录：${targets[$i]}"
@@ -78,6 +86,7 @@ for (( i=0; i<${#names[@]}; i++ )); do
   name=${names[$i]}
   target=${targets[$i]}
   log="$log_dir/install-$ticket-$name.txt"
+  before=$(free_kb "${paths[$i]}")
   git -C "${paths[$i]}" worktree add -b "$branch" -- "$target" "$base" >"$log" 2>&1 || die "创建 worktree 失败；已建目录保留，详情：$log"
   installs=()
   if [[ -f $target/pnpm-lock.yaml ]]; then
@@ -104,7 +113,8 @@ for (( i=0; i<${#names[@]}; i++ )); do
     summary="${summary}${summary:+; }$manager exit=$code"
     (( code == 0 )) || status=1
   done
-  summaries+=("worktree=$target install=$summary log=$log")
+  used_mb=$(( (before - $(free_kb "${paths[$i]}")) / 1024 ))
+  summaries+=("worktree=$target install=$summary disk=+${used_mb}MB log=$log")
 done
 printf '%s\n' "${summaries[@]}"
 exit "$status"
