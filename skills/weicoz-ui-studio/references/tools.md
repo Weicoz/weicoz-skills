@@ -1,5 +1,15 @@
 # 工具与运行
 
+## 默认完整能力
+
+先用 [完整继承工具](free/tools.md)：`build_explorer.py` 生成完整对比页，`curate-media.mjs` 完成多信源搜索/预览/下载与 PBR/视频，`shoot.mjs` 完成默认取证。下面的 studio.py 和 capture.py 是兼容或补充入口，不能替代完整方法。
+
+截图默认可见窗口，所有 Free 取证选项保留；仅用户明确要求时使用 `--headless`。评审和交付用 `shoot.mjs --evidence`，包含遮字、并排、2 倍图、动效探测和录屏；精确动作清单或宿主浏览器场景再用 capture.py 补充。录屏需要 ffmpeg，缺少时按真实输出标未完成。
+
+素材服务可通过可选 `UI_STUDIO_MEDIA_ORIGINS` JSON 对象覆盖 origin，未配置时保持原有公开端点。可用 `CHROME_PATH` 指定本机浏览器。变量示例在主仓库 `.env.example`；无需 LLM API 凭据。
+
+## 兼容与补充工具
+
 Python 3.10+；组件馆无构建、无网络依赖，直接打开 HTML。`studio.py` 不调用模型、登录服务或外部 API。
 
 ```sh
@@ -12,7 +22,9 @@ python3 <skill>/scripts/studio.py parity <一致性清单.json> --output <新报
 
 同名输出默认拒绝覆盖；`--force` 允许替换本工具管理的输出。组件馆导出到新目录，后续自行编辑；`gallery` 不替换既有目录，即使传了 `--force`。
 
-## 候选对比页
+## 轻量兼容对比页
+
+新的多方向任务默认用 build_explorer.py，支持完整方向字段、baseline、nativeViewport、interactive、离线资源内嵌、轮次与实际尺寸。以下仅说明旧版 studio.py compare 的兼容输入。
 
 清单相对路径以清单所在目录为根。每个候选使用独立 HTML、图片或 HTTP(S) 页面；本地 HTML 资源目录整体复制，目录与清单同级或在其下。避免把含凭据、仓库根或无关用户数据的目录作为素材树。输出目录必须在这些候选树之外。
 

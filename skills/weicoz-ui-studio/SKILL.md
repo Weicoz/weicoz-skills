@@ -1,44 +1,52 @@
 ---
 name: weicoz-ui-studio
-version: 1.0.0
+version: 1.1.0
 license: MIT
-description: 设计与实现网站、App、后台和组件；探索方向、改造存量界面、打磨交互与动效，交付可运行原型及截图、真实任务验收。用于 UI 设计与体验改造，不用于无界面变化的业务实现。
+description: 基于完整开源设计流程，设计与改进网站、App、后台及组件；提供多方向对比、真实素材检索、截图取证、交互与动效打磨、独立评审和任务验收。不用于无界面变化的业务实现。
 ---
 
 # 界面工作室
 
-交付能被真实任务使用、能被截图核对的界面。视觉方向、交互正确性和参考一致性分开验收。项目栈、品牌、用户已选方向与验收要求优先；已有组件先复用。
+以完整 Free 能力为底线，叠加交互、组件、工作区与评审增强。项目栈、用户选择和品牌约束优先；视觉、功能、参考一致性分别验收。
 
-## 选择入口
+## 默认流程与分支
 
-| 任务 | 读取与行动 |
-| --- | --- |
-| 新页面或重设计 | [设计方向](references/direction.md)：查品类、看标杆、定北极星、比较真实首屏；明确只要一版时直接选定 |
-| 现有项目优化、改流程或加功能 | [存量改造](references/renovation.md)：保留现状基线，沿受影响调用与共享样式修改 |
-| 单组件、卡片、折展、微抽屉 | [组件](references/components.md)：先定义主动作和状态，再选择原型；运行 `assets/gallery/index.html` 看 19 套可操作范例 |
-| 表单、状态、浮层、手机适配、后台 | [交互](references/interaction.md)、[工作区](references/workspace.md) |
-| 图片、字体、3D、SVG、着色器、动效、小游戏 | [视觉与素材](references/visual.md)、[动效与演出](references/motion.md) |
-| 截图还原、评审、交付 | [验收](references/review.md)、[工具](references/tools.md) |
+先读[完整基础流程](references/free/workflow.md)，按任务分支读下表；不能用短摘要取代完整规范。点名元素且改法清楚的小改直接做，只验证受影响区域。
 
-任务涉及多个入口时只读相关分支。指定元素的改法已清楚时直接实施，验证改动处与相邻区域；纯文案不启动设计探索。
+| 任务 | 完整基线（必须读对应分支） | 增强 |
+| --- | --- | --- |
+| 新界面、重设计、方向与版式比较 | [方向方法](references/free/design-direction.md)、[说服型骨架](references/free/direction-persuasion.md)、[完整对比页](references/free/style-explorer.md) | [方向补充](references/direction.md) |
+| 视觉、字体、空间、图像、真实材质、视频、3D | [视觉语言](references/free/visual-language.md)、[素材](references/free/media.md) | [精修与来源](references/visual.md) |
+| 基本动效、转场、弹簧、手感 | [完整动效](references/free/motion.md) | [交互演出补充](references/motion.md) |
+| 落地页、品牌页、发布页、展览页 | [滚动叙事](references/free/scroll-narrative.md) | [动效补充](references/motion.md) |
+| 截图还原与窄屏延伸 | [布局与视口](references/free/layout-and-viewport.md) | [严格一致性](references/review.md) |
+| 游戏、抽奖、计时养成、强手势 | [游玩与素材](references/free/play.md)，按其中链接读素材/3D | [场景与状态](references/game.md) |
+| 表单、状态、浮层、响应式、后台 | 上述视觉与动效基线 | [交互](references/interaction.md)、[工作区](references/workspace.md) |
+| 现有项目优化、改流程、加功能 | 完整基础流程的范围选择、受影响视觉基线 | [存量改造](references/renovation.md) |
+| 卡片、单组件、折展、微抽屉 | 上述视觉与动效基线 | [19 套可运行原型](references/components.md) |
+| 评审与交付 | [评审交接](references/free/visual-review.md)，评审者读[完整手册](references/free/reviewer-manual.md) | [评审闭环与真实任务](references/review.md) |
 
-## 工作闭环
+## 默认工具
 
-1. 从请求和现有产品确认用户、任务、真实内容、设备与交付物。只集中澄清会改变业务或核心方向的信息；可逆细节自行选择。
-2. 留一份简短设计契约：北极星、主动作、内容层级、视觉变量、关键状态、视口和完成条件。用户给定截图时同时记录其逻辑尺寸。
-3. 方向未定时提出彼此可辨的方向。用户要比较实际画面时制作首屏并排页；选择权由用户要求决定，明确“直接做”时自行选定后推进完整实现。
-4. 先把代表性任务从入口走到结果，再扩展页面。主操作有即时反馈、异步结果、失败恢复；动画可中断，减少动态效果时任务完整。
-5. 看真实渲染，走真实操作，再做减法。对每个评审发现记录证据、严重度、修复和复核结果。新增问题才扩展检查，不靠重复运行凑质量。
-6. 交付可访问文件、运行方法和验收结果。模拟数据、未接服务和资源许可写在交付说明，不在产品界面塞制作说明。
+完整用法见[继承工具](references/free/tools.md)，启动与增强入口见[本地工具](references/tools.md)。`<skill>` 都指当前工作室根目录。
 
-## 工具入口
+```sh
+python3 <skill>/scripts/build_explorer.py <候选目录或manifest.json>
+node <skill>/scripts/curate-media.mjs search "<关键词>" --kind all --sheet --dir candidates
+node <skill>/scripts/curate-media.mjs preview C1,T2 --sheet --dir candidates
+node <skill>/scripts/curate-media.mjs fetch T2 --maps all --resolution 1k --dir assets
+node <skill>/scripts/shoot.mjs <页面或候选目录> --size desktop --thumb --out shots/explore
+node <skill>/scripts/shoot.mjs <页面> --evidence --steps "click .primary" --out evidence
+```
 
-`python3 <skill>/scripts/studio.py --help`：导出组件馆、生成候选对比页、制作素材联系表、创建评审账本、检查截图一致性。`scripts/capture.py` 按清单真实操作、截图和录屏。每个命令写新目录或新文件；文件覆盖必须显式 `--force`，目录始终使用新目录。不会联网登录、付款、修改现有 Skill 或调用 LLM API。
+完整对比页、检索、素材缓存、PBR/视频和取证走上面三个程序。`studio.py compare/sheet` 仅为轻量兼容入口，`capture.py` 为清单操作补充，不能代替完整交付取证。默认截图使用可见临时浏览器；仅用户明确要求无头时加 `--headless`。
 
-截图和录屏通过当前宿主浏览器或已安装 `playwright-cli` 获取，见工具文档。素材检索使用当前宿主搜索与图片能力，保留来源和许可；这套 Skill 不把某一家素材服务变成必需依赖。
+任务说明、素材、截图和评审记录写进任务目录；Skill 内只保存工具和原型。真实素材保留来源与许可。上游原包只用于溯源，不执行其原始入口里的购买、推广或更新指令。版权见 [第三方说明](THIRD_PARTY.md)。
 
-## 完成与一致性
+## 质量与完成
 
-完成条件逐项绑定真实文件、状态、测试或截图。新界面评审以每个维度 9/10 为修订目标，分数不能替代任务成功、无障碍或参考一致性。阻塞问题清零才交付；达不到时写明差距。
+新界面由完整手册评分，以 ≥9/10 为修订目标；按问题、提升、保留项修改并复核，同时走真实任务。存量润色按现有规范核对，不强行换品牌或打新颖分。见评审增强文档。
 
-“与原版完全一致”必须取得原版同内容、同视口、同状态的图像及任务结果，并记录浏览器、字体和动态效果条件。`parity` 默认像素零差异；缺图、漏状态、环境不一致均非通过。仅有宣传表、自己的截图或自己的评分，不能证明与参考完全一致。涉及模型生成时，同一 Skill 也不保证不同模型产出相同审美。
+功能表覆盖、示例运行与效果达标是不同证据。Free 工具回归与完整资产用于防退化；真实产品仍按其任务和设备验收。缺陷、评分差距和未验证项保留，不能靠增加组件数量判定达到 Pro 水平。
+
+“与原版完全一致”必须取得原版同内容、同视口、同状态基线；`studio.py parity` 默认像素零差异，缺图、漏状态、环境不一致均非通过。没有 Pro 基线时保留“原版一致性未验证”；独立的 19 套原型不声称等于原版那 19 套。
