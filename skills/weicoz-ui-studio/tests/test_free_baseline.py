@@ -16,8 +16,14 @@ class FreeBaselineTest(unittest.TestCase):
                  for path in base.rglob("*") if path.is_file() and "__pycache__" not in path.parts}
         self.assertEqual(files, lock["files"])
         self.assertFalse(list(base.rglob("SKILL.md")), "上游入口必须归档，避免递归发现为第二个 Skill")
-        for name in ["build_explorer.py"]:
-            self.assertEqual((ROOT / "scripts" / name).read_bytes(), (base / "scripts" / name).read_bytes())
+        overrides = lock.get("runtime_overrides", {})
+        for name in ["build_explorer.py", "shoot.mjs", "curate-media.mjs"]:
+            runtime = ROOT / "scripts" / name
+            approved = overrides.get("scripts/" + name)
+            if approved:
+                self.assertEqual(hashlib.sha256(runtime.read_bytes()).hexdigest(), approved["sha256"], name)
+            else:
+                self.assertEqual(runtime.read_bytes(), (base / "scripts" / name).read_bytes(), name)
         for path in (base / "assets").rglob("*"):
             if path.is_file() and "readme" not in path.parts:
                 runtime = ROOT / "assets" / path.relative_to(base / "assets")

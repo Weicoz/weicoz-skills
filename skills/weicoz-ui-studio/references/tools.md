@@ -20,7 +20,7 @@ python3 <skill>/scripts/studio.py review --output <新账本.json>
 python3 <skill>/scripts/studio.py parity <一致性清单.json> --output <新报告.json>
 ```
 
-同名输出默认拒绝覆盖；`--force` 允许替换本工具管理的输出。组件馆导出到新目录，后续自行编辑；`gallery` 不替换既有目录，即使传了 `--force`。
+同名输出默认拒绝覆盖；`review` 与 `parity` 可用 `--force` 替换本工具管理的报告文件。组件馆只导出到不存在的新目录，后续自行编辑；`gallery` 不提供 `--force`，不会替换既有目录。
 
 ## 轻量兼容对比页
 

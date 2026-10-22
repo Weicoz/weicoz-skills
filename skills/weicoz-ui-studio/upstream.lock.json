@@ -52,6 +52,14 @@
     "assets/style-explorer.html": {
       "sha256": "802bc305497338821819d22a0da83d56d99ac78b79d42b62eddd48346e46b2a8",
       "reason": "候选未提供色板时，不把空节点附加为 null 文本；上游原始模板保留不变"
+    },
+    "scripts/shoot.mjs": {
+      "sha256": "f959175f282bba8272185a6f99149321f04459fb7ae70d092f0a22eb303e7e04",
+      "reason": "默认可见窗口、显式 --headless、固定 sRGB 与 1x 设备像素比，评审交接指向 references/free；取证逻辑不删减"
+    },
+    "scripts/curate-media.mjs": {
+      "sha256": "7e056d8032f7de52a8829ff3be2fa7b3a9c07d5ea4bd0b4519c274eaff5e778b",
+      "reason": "导出 httpUrl 并支持可选 UI_STUDIO_MEDIA_ORIGINS origin 覆盖；未配置时保持公开端点"
     }
   }
 }

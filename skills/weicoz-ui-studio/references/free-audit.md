@@ -1,6 +1,6 @@
 # Free 基线复查
 
-版本：1.1.1（包含 1.1.0 基线复查记录）。日期：2026-10-22。结论分为能力继承、运行验证、质量目标和原版效果一致性。
+版本：1.1.2（包含 1.1.0、1.1.1 基线复查记录）。日期：2026-10-22。结论分为能力继承、运行验证、质量目标和原版效果一致性。
 
 ## 原版 1.0.0 的退化与修复
 
@@ -21,8 +21,8 @@
 
 - 官方发布包：Oil UI Free 0.23.9，SHA-256 `66b97458ef31fc5ec363cdfcf6a9f2b5e3beca17998d0fdd04fde47bf0eff3a1`。
 - 39 个原包文件完整保留并逐文件锁定。上游入口仅改名为 ENTRYPOINT.source.md，原字节不变，锁文件记录路径映射；防止递归发现成第二个 Skill。
-- build_explorer.py、Alpine、字体和 Free 参考文档保留原字节；1.1.1 运行模板修复缺省色板的 null 文本，摘要与原因记录在 runtime_overrides。完整原始模板仍保留在 upstream。MIT 与 OFL 见 THIRD_PARTY.md。
-- shoot.mjs 增加可见窗口默认、显式 --headless、完整评审交接路径；临时浏览器固定 sRGB，避免 Mac 广色域屏把原色转成不同截图像素。取证逻辑不删减。
+- build_explorer.py、Alpine、字体和 Free 参考文档保留原字节；1.1.1 运行模板修复缺省色板的 null 文本；改过的 shoot.mjs、curate-media.mjs 与模板都在 runtime_overrides 登记摘要与原因，基线测试据此拦截未登记的漂移。完整原始模板仍保留在 upstream。MIT 与 OFL 见 THIRD_PARTY.md。
+- shoot.mjs 增加可见窗口默认、显式 --headless、完整评审交接路径；临时浏览器固定 sRGB，避免 Mac 广色域屏把原色转成不同截图像素；1.1.2 再固定 1x 设备像素比，避免高分屏可见窗口的录屏帧与截图栅格化不同而误报“末帧未拍全”。取证逻辑不删减。
 - curate-media.mjs 增加可选 origin 环境覆盖，未配置时保持公开端点和原有行为；不加 LLM 调用或付费服务。
 - 上游完整设计流程移除推广、购买和自动更新提示，再与增强入口整合；不执行原始上游 Skill 入口。
 

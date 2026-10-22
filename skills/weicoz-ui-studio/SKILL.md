@@ -1,6 +1,6 @@
 ---
 name: weicoz-ui-studio
-version: 1.1.1
+version: 1.1.2
 license: MIT
 description: 基于完整开源设计流程，设计与改进网站、App、后台及组件；提供多方向对比、真实素材检索、截图取证、交互与动效打磨、独立评审和任务验收。不用于无界面变化的业务实现。
 ---

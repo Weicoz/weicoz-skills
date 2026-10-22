@@ -106,6 +106,10 @@ td button {
   .board {
     grid-template-columns: 1fr;
   }
+  /* 三列在窄屏内放得下；状态列不能藏到无提示的横向滚动后面。 */
+  table {
+    min-width: 0;
+  }
   .workspace.show-detail #items {
     display: none;
   }

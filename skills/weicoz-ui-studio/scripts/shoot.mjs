@@ -595,7 +595,7 @@ process.on("SIGINT", async () => { await cleanup(); process.exit(130); });
 process.on("SIGTERM", async () => { await cleanup(); process.exit(143); });
 async function launchChrome() {
   profile = mkdtempSync(join(tmpdir(), "oil-shoot-")); handedOff = false;
-  chrome = spawn(chromePath, [...(flags.has("headless") ? ["--headless=new"] : []), "--force-color-profile=srgb", "--enable-unsafe-swiftshader", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run",
+  chrome = spawn(chromePath, [...(flags.has("headless") ? ["--headless=new"] : []), "--force-color-profile=srgb", "--force-device-scale-factor=1", "--enable-unsafe-swiftshader", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run",
     "--no-default-browser-check", "--hide-scrollbars", "--mute-audio", "--disable-extensions", "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
   const portFile = join(profile, "DevToolsActivePort");
   const fromPortFile = () => {

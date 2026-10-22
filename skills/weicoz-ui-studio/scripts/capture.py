@@ -102,7 +102,11 @@ def main():
             print(json.dumps(report, ensure_ascii=False, indent=2))
             return 0 if report["captured"] else 1
         finally:
-            run("close")
+            # 关闭失败只提示，不覆盖截图结果或先前的真实错误。
+            try:
+                run("close")
+            except (ValueError, subprocess.TimeoutExpired) as error:
+                print(f"关闭浏览器会话失败：{error}")
     except (OSError, ValueError, TypeError, subprocess.TimeoutExpired) as error:
         print(f"截图失败：{error}")
         return 2
