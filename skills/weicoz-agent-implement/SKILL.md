@@ -1,6 +1,6 @@
 ---
 name: weicoz-agent-implement
-version: 1.3.0
+version: 1.4.0
 description: 把一张票据或明确限定的单个工作项委派给编码代理，按当前 implement 技能实现，由派单方监控和验收。用于“让代理实现这张票”“agent-implement”“codex-implement”等单票委派；整份规格及其依赖票据的编排使用 weicoz-agent-implement-spec。
 ---
 
@@ -31,7 +31,7 @@ description: 把一张票据或明确限定的单个工作项委派给编码代�
 
 ## 启动与运行环境
 
-本机 Codex 使用本技能三个脚本：`prepare-worktrees.sh` 建票据分支与 worktree、按锁文件准备依赖；`render-prompt.py` 渲染固定模板；`launch-local.sh` 做负载准入并启动会话。参数与默认值以各脚本 `--help` 为准。最短调用示例（仓库、路径和基线变量由编排方填写）：
+本机 Codex 使用本技能四个脚本：`prepare-worktrees.sh` 建票据分支与 worktree、按锁文件准备依赖；`render-prompt.py` 渲染固定模板；`launch-local.sh` 做负载与磁盘准入并启动会话；`cleanup-merged.sh` 合入后按票名前缀移除已合入的 worktree。参数与默认值以各脚本 `--help` 为准。最短调用示例（仓库、路径和基线变量由编排方填写）：
 
 ```bash
 skill="$HOME/.agents/skills/weicoz-agent-implement"
@@ -45,7 +45,7 @@ bash "$skill/scripts/launch-local.sh" --name T01 --prompt "$out/prompt-T01.md" \
   --workdir "$repo/.worktrees/T01" --out "$out"
 ```
 
-worktree 统一放在各仓库根目录的 `.worktrees/<票名>`：所有工具按同一位置查找，`du -sh <仓库>/.worktrees` 即可统计占用。脚本在该目录未被忽略时写入仓库的 `.git/info/exclude`；仓库自身的测试、lint、类型检查和镜像构建配置也须排除 `.worktrees/`。在主仓库清理时只用不带 `-x` 的 `git clean`，因为 `-x` 会删除被忽略的整个 `.worktrees/`。跨仓票在每个仓库用同一票名。`--root` 仅在项目另有约定时使用。多仓准备重复传 `--repo`；启动时用 `--add-dir` 传入其他本票 worktree 和必要的上下文目录。脚本按运行中 `codex exec` 的不同工作目录计数，达到 `--max-sessions`（默认读 `WEICOZ_MAX_LOCAL_SESSIONS`，再缺省 2）时等待。保留 `workspace-write` 隔离，默认开启任务网络；明确要求离线时传 `--offline`。正常联网仅用于任务依赖与隔离连接测试，保留现有代理、TUN 和机器全局安全配置。模型等 Codex 参数放在 `--` 后，按用户要求传入；附加参数不得覆盖已约定的目录、沙箱、联网和结果路径。
+worktree 统一放在各仓库根目录的 `.worktrees/<票名>`：所有工具按同一位置查找，占用按实际可用空间差统计（`du` 会重复计数 APFS 克隆的依赖）。脚本在该目录未被忽略时写入仓库的 `.git/info/exclude`；仓库自身的测试、lint、类型检查和镜像构建配置也须排除 `.worktrees/`。在主仓库清理时只用不带 `-x` 的 `git clean`，因为 `-x` 会删除被忽略的整个 `.worktrees/`。跨仓票在每个仓库用同一票名。`--root` 仅在项目另有约定时使用。多仓准备重复传 `--repo`；启动时用 `--add-dir` 传入其他本票 worktree 和必要的上下文目录。脚本按运行中 `codex exec` 的不同工作目录计数，达到 `--max-sessions`（默认读 `WEICOZ_MAX_LOCAL_SESSIONS`，再缺省 2）时等待。保留 `workspace-write` 隔离，默认开启任务网络；明确要求离线时传 `--offline`。正常联网仅用于任务依赖与隔离连接测试，保留现有代理、TUN 和机器全局安全配置。模型等 Codex 参数放在 `--` 后，按用户要求传入；附加参数不得覆盖已约定的目录、沙箱、联网和结果路径。
 
 Git 分工（本机）：worktree 的 Git 目录在主仓库 `.git/worktrees/` 下，不在沙箱可写根内，实现会话 `git add` 报 `index.lock: Operation not permitted`；追加 `--add-dir <git 公共目录>` 实测时好时坏（2026-10-21），不作依赖。实现会话只改工作区；编排方审查后在本票分支提交，需要时先合入 integration 最新提交并按影响重检，再串行合入 integration。远端 rd 会话按 rd 流程在执行机提交。完成判据：本票提交由编排方生成，验收证据对应该提交。
 
@@ -95,7 +95,7 @@ Git 分工（本机）：worktree 的 Git 目录在主仓库 `.git/worktrees/` �
 
 逐条对照验收项，核实 TDD 接缝与代码审查确实执行且发现已处理，检查越界文件、提交内容与实际副作用，能运行的关键路径做必要冒烟。问题交回原会话返修。单票完成不自动允许合并其他分支或关闭外部票据；按已有授权处理，并区分“实现完成”“验收通过”“已提交／已合入”。
 
-单票创建独立 worktree 时，验收交付后处理 worktree、或设备空间不足时，先读 [Worktree 清理与用户二次确认规范](../weicoz-agent-implement-spec/references/worktree-cleanup.md)，按其中安全条件、归属与二次确认要求处理。
+票据合入并验收后，按 [合入后的工作树与远端任务清理](../weicoz-agent-implement-spec/references/worktree-cleanup.md) 自动清理本次创建的 worktree（`scripts/cleanup-merged.sh`，须带本次票名前缀）与 rd 任务（`rd clean --merged`）；用户持续授权，满足安全条件时不再逐次询问。
 
 已授权的自有中间缓存按[缓存保留与回收](../weicoz-remote-dispatch/references/cache-retention.md)运行工具并留回执；这不包含删除工作树、job、当前产品、依赖或备份。
 
