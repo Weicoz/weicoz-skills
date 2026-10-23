@@ -1,6 +1,6 @@
 ---
 name: weicoz-agent-implement
-version: 1.4.0
+version: 1.4.1
 description: 把一张票据或明确限定的单个工作项委派给编码代理，按当前 implement 技能实现，由派单方监控和验收。用于“让代理实现这张票”“agent-implement”“codex-implement”等单票委派；整份规格及其依赖票据的编排使用 weicoz-agent-implement-spec。
 ---
 
@@ -47,7 +47,7 @@ bash "$skill/scripts/launch-local.sh" --name T01 --prompt "$out/prompt-T01.md" \
 
 worktree 统一放在各仓库根目录的 `.worktrees/<票名>`：所有工具按同一位置查找，占用按实际可用空间差统计（`du` 会重复计数 APFS 克隆的依赖）。脚本在该目录未被忽略时写入仓库的 `.git/info/exclude`；仓库自身的测试、lint、类型检查和镜像构建配置也须排除 `.worktrees/`。在主仓库清理时只用不带 `-x` 的 `git clean`，因为 `-x` 会删除被忽略的整个 `.worktrees/`。跨仓票在每个仓库用同一票名。`--root` 仅在项目另有约定时使用。多仓准备重复传 `--repo`；启动时用 `--add-dir` 传入其他本票 worktree 和必要的上下文目录。脚本按运行中 `codex exec` 的不同工作目录计数，达到 `--max-sessions`（默认读 `WEICOZ_MAX_LOCAL_SESSIONS`，再缺省 2）时等待。保留 `workspace-write` 隔离，默认开启任务网络；明确要求离线时传 `--offline`。正常联网仅用于任务依赖与隔离连接测试，保留现有代理、TUN 和机器全局安全配置。模型等 Codex 参数放在 `--` 后，按用户要求传入；附加参数不得覆盖已约定的目录、沙箱、联网和结果路径。
 
-Git 分工（本机）：worktree 的 Git 目录在主仓库 `.git/worktrees/` 下，不在沙箱可写根内，实现会话 `git add` 报 `index.lock: Operation not permitted`；追加 `--add-dir <git 公共目录>` 实测时好时坏（2026-10-21），不作依赖。实现会话只改工作区；编排方审查后在本票分支提交，需要时先合入 integration 最新提交并按影响重检，再串行合入 integration。远端 rd 会话按 rd 流程在执行机提交。完成判据：本票提交由编排方生成，验收证据对应该提交。
+Git 分工（本机）：worktree 的 Git 目录在主仓库 `.git/worktrees/` 下，不在沙箱可写根内，实现会话 `git add` 报 `index.lock: Operation not permitted`；追加 `--add-dir <git 公共目录>` 实测时好时坏（2026-10-21），不作依赖。实现会话只改工作区；编排方审查后在本票分支提交，需要时先合入 integration 最新提交并按影响重检，再串行合入 integration。远端 rdispatch 会话按 rdispatch 流程在执行机提交。完成判据：本票提交由编排方生成，验收证据对应该提交。
 
 保留用户指定的代理和模型；未指定时可默认 Codex，并使用该环境当前配置，不硬编码模型、上下文窗口或推理强度。先看本次宿主工具及 CLI 帮助再选启动方式：原生子代理能满足模型、目录、权限与隔离要求时可直接委派；否则使用实际可用的 CLI。原生代理不能满足明确模型要求时不得静默降级，查可用 CLI；都不支持就说明缺口。
 
@@ -65,15 +65,15 @@ Git 分工（本机）：worktree 的 Git 目录在主仓库 `.git/worktrees/` �
 
 巡检必须有具体载体，不得只靠「下次想起再查」。开工先记录本宿主的两项能力：任务完成通知、定时唤醒（后台作业或等价机制）。
 
-- **有定时唤醒能力时**：派单后立即把一次 `rd watch <job>` 放进后台作业。它默认 900 秒返回一次，退出码 0＝完成、1＝告警、2＝该报进度（可用 `--timeout` 或 `RD_REPORT_INTERVAL_SECONDS` 调整周期）。退出码 2 时读 `rd status --details` 与 `rd logs` 尾部，向用户报一行真实进展（阶段、文件数、提交、阻塞、执行机资源），然后重新挂下一次 `rd watch`；0／1 时取回结果并进入验收。任务结束后终结对应巡检作业，避免重复监控。
-- **只有完成通知、没有定时唤醒时**：用后台作业承载完成通知，并另挂一个「超时兜底」作业（如 `sleep <周期>` 后查一次 `rd status`，无进展则打印状态并以非零退出），让卡死也能触发一次唤醒。启动时如实说明「卡死只能靠兜底周期发现」这一边界。
+- **有定时唤醒能力时**：派单后立即把一次 `rdispatch watch <job>` 放进后台作业。它默认 900 秒返回一次，退出码 0＝完成、1＝告警、2＝该报进度（可用 `--timeout` 或 `RD_REPORT_INTERVAL_SECONDS` 调整周期）。退出码 2 时读 `rdispatch status --details` 与 `rdispatch logs` 尾部，向用户报一行真实进展（阶段、文件数、提交、阻塞、执行机资源），然后重新挂下一次 `rdispatch watch`；0／1 时取回结果并进入验收。任务结束后终结对应巡检作业，避免重复监控。
+- **只有完成通知、没有定时唤醒时**：用后台作业承载完成通知，并另挂一个「超时兜底」作业（如 `sleep <周期>` 后查一次 `rdispatch status`，无进展则打印状态并以非零退出），让卡死也能触发一次唤醒。启动时如实说明「卡死只能靠兜底周期发现」这一边界。
 - **两者都没有时**：在派单回报里写明无法定时巡检，只能靠用户发起或下一次操作时检查；不得声称已按周期监控。
 
 无通知且超过周期时，查日志与进程后向用户汇报真实进展、文件／提交／检查、阻塞、下一步及执行机资源。阶段完成或异常及时提醒。远端任务同时采用 [Remote Dispatch 的发起方统一巡检约定](../weicoz-remote-dispatch/SKILL.md#派单流程)。用户指定的周期及宿主更高优先级沟通频率优先；用户汇报由派单方负责。
 
 超时先检查进程、日志、工作区与检查状态；支持恢复时在同一会话续跑，带上已有结果和剩余项。续跑前用 `<CLI> exec resume --help` 核对参数（Codex 的 `resume` 不接受 `-s`，沙箱改用 `-c sandbox_mode="..."`）；续跑后读日志开头，确认会话 ID、模型和沙箱与原会话一致，再计为已续跑。不要重复启动仍在跑的任务。确认属于本任务且已无用的残留进程才清理；会话无法恢复时才新建并交接上下文。持续无进展按新证据修复启动条件或更换可用路径，不机械重试。业务／授权阻塞只暂停相关动作，继续独立部分。
 
-远端模型故障先读 `rd result <job> --summary`；同类且无工作迹象的故障遵守现有续跑预算，纯上下文故障才显式接替会话。模型不可用时继续已授权的独立收尾，不改全局代理或凭据来绕过故障。
+远端模型故障先读 `rdispatch result <job> --summary`；同类且无工作迹象的故障遵守现有续跑预算，纯上下文故障才显式接替会话。模型不可用时继续已授权的独立收尾，不改全局代理或凭据来绕过故障。
 
 ## 检查与验收
 
@@ -95,7 +95,7 @@ Git 分工（本机）：worktree 的 Git 目录在主仓库 `.git/worktrees/` �
 
 逐条对照验收项，核实 TDD 接缝与代码审查确实执行且发现已处理，检查越界文件、提交内容与实际副作用，能运行的关键路径做必要冒烟。问题交回原会话返修。单票完成不自动允许合并其他分支或关闭外部票据；按已有授权处理，并区分“实现完成”“验收通过”“已提交／已合入”。
 
-票据合入并验收后，按 [合入后的工作树与远端任务清理](../weicoz-agent-implement-spec/references/worktree-cleanup.md) 自动清理本次创建的 worktree（`scripts/cleanup-merged.sh`，须带本次票名前缀）与 rd 任务（`rd clean --merged`）；用户持续授权，满足安全条件时不再逐次询问。
+票据合入并验收后，按 [合入后的工作树与远端任务清理](../weicoz-agent-implement-spec/references/worktree-cleanup.md) 自动清理本次创建的 worktree（`scripts/cleanup-merged.sh`，须带本次票名前缀）与 rdispatch 任务（`rdispatch clean --merged`）；用户持续授权，满足安全条件时不再逐次询问。
 
 已授权的自有中间缓存按[缓存保留与回收](../weicoz-remote-dispatch/references/cache-retention.md)运行工具并留回执；这不包含删除工作树、job、当前产品、依赖或备份。
 

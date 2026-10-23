@@ -1,6 +1,6 @@
 ---
 name: weicoz-session-hub
-version: 1.0.0
+version: 1.0.1
 description: 用一个总控会话协调多个独立的编码代理会话：总控派任务、补充指令、收汇报并验收，每个子会话用户也能直接对话。默认用 Herdr pane 跑 Claude Code、Codex、Kimi 等代理（DSH 等不能用 agent start 启动的代理先按普通命令启动），总控读 pane 输出验收，任何宿主都可当总控；Herdr 不可用、用户点名要会话消息，或子会话是云端／Remote Control 会话时，改用 Claude Code 的 ListAgents／SendMessage。用户说“多会话工作台”“开几个会话并行干、由一个会话汇总”“总控／主控会话”“给另一个会话发消息”“让那个会话做完告诉我”“用 Herdr pane 跑几个代理”“汇总几个会话的进度”时使用。单次委派一个子任务用宿主子代理或派单技能；多 worktree 开发与集成用 weicoz-multi-worktree-dev-v3；派到别的机器后台无人值守跑、经分支取回结果的用 weicoz-remote-dispatch；这三种情况不用本技能。
 ---
 
@@ -23,12 +23,12 @@ description: 用一个总控会话协调多个独立的编码代理会话：总�
 ## 开工前
 
 1. **列出工作线**：每条线写清目标、输入、产出、范围、完成判据。判据必须能验证（文件、提交、测试命令、页面），不能只写“做完”。
-   一条工作线也可以是一个 `weicoz-remote-dispatch` 远端任务：按该技能派出，总控用 `rd status` 监看、`rd fetch` 后审查验收；远端任务的派发仍须用户要求或授权。
+   一条工作线也可以是一个 `weicoz-remote-dispatch` 远端任务：按该技能派出，总控用 `rdispatch status` 监看、`rdispatch fetch` 后审查验收；远端任务的派发仍须用户要求或授权。
 2. **定唯一写入者**：同一文件、同一分支、同一外部状态（数据库、部署、对外消息）只能由一个会话写。并行改代码时，每条线用独立分支或 worktree。
-3. **准入检查**：每次新开会话或派重活前，运行本技能目录下的 `scripts/hub-gate`。它检查四项，任一不达标即不放行：每核负载（1 分钟负载 ÷ 核数）超过 1.5、空闲内存低于 10%、可用磁盘低于 10 GB、已用交换超过 15 GB。阈值与 `weicoz-remote-dispatch` 的 `rd` 默认值一致，可用 `SESSION_HUB_*` 环境变量覆盖。
+3. **准入检查**：每次新开会话或派重活前，运行本技能目录下的 `scripts/hub-gate`。它检查四项，任一不达标即不放行：每核负载（1 分钟负载 ÷ 核数）超过 1.5、空闲内存低于 10%、可用磁盘低于 10 GB、已用交换超过 15 GB。阈值与 `weicoz-remote-dispatch` 的 `rdispatch` 默认值一致，可用 `SESSION_HUB_*` 环境变量覆盖。
    - 退出码 0 放行；3 不放行，默认不新开会话，把脚本输出的算法和结论原样告诉用户，用户明确要求强制时才开；2 表示有指标无法采集，由用户决定。
    - 偏高时附上占用最高的进程。没有会话数上限，只看这四项。
-   - Windows 没有负载均值，脚本改用 CPU 采样利用率（上限 85%，与 `rd` 的 `max_cpu_pct` 一致，`SESSION_HUB_MAX_CPU_PCT` 可覆盖），交换取页面文件已用量。Windows 上用 `python scripts\hub-gate` 运行（无法直接执行无扩展名脚本）。
+   - Windows 没有负载均值，脚本改用 CPU 采样利用率（上限 85%，与 `rdispatch` 的 `max_cpu_pct` 一致，`SESSION_HUB_MAX_CPU_PCT` 可覆盖），交换取页面文件已用量。Windows 上用 `python scripts\hub-gate` 运行（无法直接执行无扩展名脚本）。
    - 脚本无法运行时，按同样四项人工检查并写出算法。
 4. **授权不扩大**：子会话只继承本次已授权的范围。提交、推送、部署、付费、对外发送照旧要用户授权，派单时写明。
 
@@ -50,7 +50,7 @@ description: 用一个总控会话协调多个独立的编码代理会话：总�
 - **何时写**：`agent start` 或 `pane run` 成功后立即 `herdr pane rename <pane_id> "<标签>"`；派单、收到汇报、验收、打回时更新状态字段。
 - **恢复**：总控换会话或上下文被压缩后，先 `herdr pane list`（不带 `--workspace`，可列出全部工作区），筛出以 `hub|<总控 pane ID>|` 开头的标签，即为全部在途工作线。用本技能的 `scripts/hub-ls [前缀]` 列出（Windows：`python scripts\hub-ls`），每行给出 pane ID、代理状态、工作线、登记状态和会话名。
   总控换了 pane 时，筛 `hub|` 前缀，把列表给用户确认后再接管，并把标签里的总控 ID 改成新的。
-- **范围**：完成判据和派单原文不放进标签，写在派单说明文件里，恢复时按工作线名找回。远端 `rd` 任务由 `rd status` 登记，云端会话写进分支或 PR，都不用 pane 标签。
+- **范围**：完成判据和派单原文不放进标签，写在派单说明文件里，恢复时按工作线名找回。远端 `rdispatch` 任务由 `rdispatch status` 登记，云端会话写进分支或 PR，都不用 pane 标签。
 - **Herdr 重启后**（2026-10-15 在 Mac mini 上停止并重启一个独立会话实测）：标签、布局和 pane ID 都恢复，但 pane 里的进程全部结束，只剩新 shell。所以恢复时，标签为“已派单”或“待验收”的线，必须用 `hub-ls` 的代理状态或 `herdr pane process-info --pane <pane_id>` 核对代理是否还在运行；不在的改为“受阻”，在原 pane 里用代理自己的续跑命令接回原会话（例如 Codex 的 resume、Claude Code 的 `--resume`），已写入文件和提交的成果不受影响。
 
 ### 已识别代理（`herdr agent` 类型清单里有的，如 claude、codex、kimi）

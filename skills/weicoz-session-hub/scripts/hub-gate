@@ -2,7 +2,7 @@
 """会话总控准入检查：判断本机是否还能新开会话或派重活。支持 macOS、Linux、Windows。
 
 四项任一不达标即不放行（退出码 3）；全部达标退出码 0；有指标无法采集退出码 2。
-阈值与 weicoz-remote-dispatch 的 rd 默认值一致，可用环境变量覆盖：
+阈值与 weicoz-remote-dispatch 的 rdispatch 默认值一致，可用环境变量覆盖：
   SESSION_HUB_MAX_LOAD_PER_CORE  默认 1.5（macOS、Linux：1 分钟负载 ÷ 核数）
   SESSION_HUB_MAX_CPU_PCT        默认 85（Windows 没有负载均值，改用 CPU 采样利用率）
   SESSION_HUB_MIN_FREE_MEM_PCT   默认 10
