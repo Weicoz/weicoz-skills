@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>界面工作室 · 组件馆</title>
+    <title>青椿版画社 · 组件图录｜界面工作室示例</title>
     <link rel="stylesheet" href="studio.css" />
     <link rel="icon" href="data:," />
   </head>
   <body>
     <a class="skip" href="#main">跳到内容</a>
     <header class="mast">
-      <a class="brand" href="index.html">界面工作室 <span>／ 组件馆</span></a>
+      <a class="brand" href="index.html">青椿版画社 <span>／ 组件图录</span></a>
       <nav aria-label="主导航">
         <a aria-current="page" href="index.html">组件</a
         ><a href="workspace.html">工作区</a><a href="interaction.html">交互</a
@@ -18,64 +18,99 @@
       </nav>
     </header>
     <main id="main">
-      <div class="intro">
-        <p class="eyebrow">十九个动作，十九种构图</p>
-        <h1>从一个好用的细节开始。</h1>
-        <p>阅读、选择、编辑、完成。让每一张卡片回应眼前的任务。</p>
-        <div class="toolbar">
-          <label
-            >查找组件
-            <input
-              id="filter"
-              type="search"
-              placeholder="搜索名称或编号" /></label
-          ><label
-            >外观
-            <select id="theme">
-              <option value="paper">纸面</option>
-              <option value="night">夜间</option>
-            </select></label
-          >
-          <p id="count" role="status">19 个组件</p>
+      <section class="cover" aria-labelledby="cover-title">
+        <div class="cover-plate">
+          <h1 class="cover-title" id="cover-title">
+            青椿图录<span class="slip-seal" aria-hidden="true">青椿</span>
+          </h1>
+          <figure class="plate">
+          <img
+            src="media/winter-basket.webp"
+            width="1600"
+            height="1307"
+            alt="清代江南彩色版画：镂空竹篮里插着水仙、山茶与腊梅"
+          />
+          <figcaption>
+            《冬篮：水仙、山茶与腊梅》，江南彩色版画，约 1700–1750 ·
+            克利夫兰艺术博物馆 · CC0
+          </figcaption>
+          </figure>
         </div>
-      </div>
+        <div class="cover-aside">
+          <p class="lede">
+            十九个可以直接复制的组件，都来自同一间版画社的日常：卖一张版画、排一场套色课、印完一批订单。
+          </p>
+          <div>
+            <div class="toolbar">
+              <label
+                >查找组件
+                <input
+                  id="filter"
+                  type="search"
+                  placeholder="名称、编号或动作，如“画轴”" /></label
+              ><label
+                >外观
+                <select id="theme">
+                  <option value="paper">纸面</option>
+                  <option value="night">夜间</option>
+                </select></label
+              >
+              <p id="count" role="status">19 个组件</p>
+            </div>
+          </div>
+        </div>
+      </section>
       <div class="cards" id="cards">
         <section
-          class="specimen"
+          class="specimen wide"
           id="editorial"
-          data-name="01 编辑推荐 阅读 收藏"
+          data-name="01 编辑推荐 阅读 收藏 图文"
         >
           <header>
             <span>01</span>
             <h2>编辑推荐</h2>
           </header>
-          <article class="card editorial">
-            <p class="eyebrow">城市漫游 · 8 分钟</p>
-            <h3>把下午，<br />留给一条小路。</h3>
-            <p>
-              不赶时间的时候，城市会显露另一种尺度。沿河走走，找到属于自己的停留。
-            </p>
-            <div class="row">
-              <span>林青 · 十月札记</span
-              ><button data-action="bookmark" aria-pressed="false">收藏</button>
+          <article class="card editorial open">
+            <img
+              src="media/blue-bird.webp"
+              width="900"
+              height="1236"
+              alt="歌川广重版画：靛蓝色的山茶枝上停着一只小鸟"
+            />
+            <div class="copy">
+              <h3>一只鸟，三块版。</h3>
+              <p class="meta">本周图版 · 6 分钟</p>
+              <p>
+                广重用靛、红、墨三块版印出这张小品。我们照着重刻了一遍，把每块版落下的先后记了下来。
+              </p>
+              <p class="caption">图：歌川广重《椿与鸟》，约 1833 · 大都会艺术博物馆 · CC0</p>
+              <div class="row">
+                <span class="meta">刻版师 林青</span
+                ><button data-action="bookmark" class="quiet" aria-pressed="false">收藏</button>
+              </div>
             </div>
           </article>
         </section>
-        <section class="specimen" id="product" data-name="02 商品 数量 购买">
+        <section class="specimen" id="product" data-name="02 商品 数量 购买 版画">
           <header>
             <span>02</span>
             <h2>商品选择</h2>
           </header>
           <article class="card product">
-            <div class="object" role="img" aria-label="陶土色直筒花器">
-              <div class="vase"></div>
+            <div class="object">
+              <img
+                src="media/red-camellia.webp"
+                width="900"
+                height="1134"
+                alt="手工上色铜版画：一枝重瓣红山茶"
+              />
             </div>
             <div class="row">
-              <h3>一枝花器</h3>
+              <h3>红椿 · 复刻版画</h3>
               <strong>¥128</strong>
             </div>
-            <p>手工陶土 · 砂岩色</p>
-            <div class="row">
+            <p class="meta">楮皮纸 · 24 × 30 cm · 限印 90 张</p>
+            <div class="row push">
               <div class="stepper">
                 <button id="less" aria-label="减少数量" disabled>−</button
                 ><output id="quantity" aria-live="polite">1</output
@@ -83,7 +118,7 @@
               </div>
               <button id="add">加入 · ¥128</button>
             </div>
-            <p id="cart-result" role="status"></p>
+            <p id="cart-result" class="seal-result" role="status"></p>
           </article>
         </section>
         <section class="specimen" id="metric" data-name="03 业务指标 趋势 数据">
@@ -91,82 +126,79 @@
             <span>03</span>
             <h2>业务指标</h2>
           </header>
-          <article class="card metric">
+          <article class="card metric open">
             <div class="row">
-              <h3>有效交付</h3>
+              <h3>发出的版画</h3>
               <label class="sr" for="period">统计周期</label
               ><select id="period">
                 <option value="week">本周</option>
                 <option value="month">本月</option>
               </select>
             </div>
-            <strong id="metric-value">24<span> 件</span></strong
+            <strong id="metric-value">24<span> 张</span></strong
             ><svg viewBox="0 0 300 80" role="img" aria-labelledby="trend-title">
-              <title id="trend-title">本周交付从 2 件逐步增长到 6 件</title>
+              <title id="trend-title">本周每天发出 2 到 6 张，逐日增加</title>
               <path
                 id="trend"
                 d="M0 68 L50 54 L100 60 L150 32 L200 38 L250 18 L300 4"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="3"
+                stroke-width="2"
+                stroke-linejoin="round"
               />
             </svg>
-            <p id="metric-caption">较上周增加 6 件，按时交付率 96%。</p>
+            <p id="metric-caption" class="push">较上周多 6 张，套色一次合格率 96%。</p>
           </article>
         </section>
-        <section class="specimen" id="profile" data-name="04 人物 关注 简介">
+        <section class="specimen" id="profile" data-name="04 人物 关注 简介 刻版师">
           <header>
             <span>04</span>
             <h2>人物卡</h2>
           </header>
-          <article class="card profile">
+          <article class="card profile open">
             <div class="avatar" aria-hidden="true">青</div>
             <h3>林青</h3>
-            <p>把复杂问题，变成清晰的日常工具。</p>
+            <p>刻版师。十二年只刻花卉，最熟悉山茶叶脉的走向。</p>
             <div class="row">
-              <span id="followers">128 人关注</span
-              ><button id="follow" aria-pressed="false">关注</button>
+              <span id="followers" class="meta">128 人关注</span
+              ><button id="follow" class="quiet" aria-pressed="false">关注</button>
             </div>
           </article>
         </section>
-        <section class="specimen" id="pricing" data-name="05 套餐 价格 订阅">
+        <section class="specimen" id="pricing" data-name="05 套餐 价格 订阅 会员">
           <header>
             <span>05</span>
             <h2>套餐</h2>
           </header>
           <article class="card pricing">
-            <p class="eyebrow">为专注创作的人</p>
-            <h3>个人工作室</h3>
-            <label
-              ><input id="annual" type="checkbox" /> 按年计费，省 20%</label
-            >
+            <h3>印友会</h3>
+            <label><input id="annual" type="checkbox" /> 按年付，省 20%</label>
             <p class="price">
               <strong id="price">¥30</strong><span id="billing"> / 月</span>
             </p>
             <ul>
-              <li>无限项目与笔记</li>
-              <li>导出开放格式</li>
-              <li>个人素材库</li>
+              <li>每月一张会员限定版画</li>
+              <li>套色课优先报名</li>
+              <li>图版高清扫描文件</li>
             </ul>
-            <button id="plan">选择月付</button>
-            <p id="plan-result" role="status"></p>
+            <button id="plan" class="push">选择月付</button>
+            <p id="plan-result" class="seal-result" role="status"></p>
           </article>
         </section>
-        <section class="specimen" id="task" data-name="06 任务 完成 进度">
+        <section class="specimen" id="task" data-name="06 任务 完成 进度 印制">
           <header>
             <span>06</span>
             <h2>任务清单</h2>
           </header>
           <article class="card task">
-            <h3>今天，完成这三件事。</h3>
+            <h3>今天要印完的三件事。</h3>
             <label
-              ><input type="checkbox" class="task-check" /> 整理采访记录</label
+              ><input type="checkbox" class="task-check" /> 红版：调好椿红</label
+            ><label
+              ><input type="checkbox" class="task-check" /> 对位：校准十字线</label
             ><label
               ><input type="checkbox" class="task-check" />
-              给首页选一张照片</label
-            ><label
-              ><input type="checkbox" class="task-check" />
-              检查手机上的阅读体验</label
+              压印：二十张楮皮纸</label
             ><progress
               id="task-progress"
               max="3"
@@ -176,61 +208,75 @@
             <p id="task-result" role="status">0 / 3 已完成</p>
           </article>
         </section>
-        <section class="specimen" id="timeline" data-name="07 过程 时间线 步骤">
+        <section class="specimen" id="timeline" data-name="07 过程 时间线 步骤 工序">
           <header>
             <span>07</span>
             <h2>过程</h2>
           </header>
-          <article class="card timeline">
-            <h3>一本书的旅程</h3>
+          <article class="card timeline open">
+            <h3>一张版画的三道工序</h3>
             <ol id="steps">
-              <li aria-current="step">编辑校对</li>
-              <li>印刷装订</li>
-              <li>送到你手中</li>
+              <li aria-current="step">刻版</li>
+              <li>套色</li>
+              <li>装裱</li>
             </ol>
-            <button id="next-step">完成当前步骤</button
-            ><button id="reset-step" class="quiet">重新开始</button>
-            <p id="step-result" role="status">当前：编辑校对</p>
+            <div class="row">
+              <button id="next-step">完成这一步</button
+              ><button id="reset-step" class="quiet">重来</button>
+            </div>
+            <p id="step-result" role="status">当前：刻版</p>
           </article>
         </section>
-        <section class="specimen" id="file" data-name="08 文件 下载 资源">
+        <section class="specimen" id="file" data-name="08 文件 下载 资源 色票">
           <header>
             <span>08</span>
             <h2>文件</h2>
           </header>
-          <article class="card file">
-            <div class="file-icon" aria-hidden="true">CSV</div>
-            <h3>十月项目清单</h3>
-            <p>CSV · UTF-8 · 3 条记录</p>
-            <a class="button" href="projects.csv" download="十月项目清单.csv"
-              >下载清单</a
+          <article class="card file open">
+            <div class="swatches" aria-hidden="true">
+              <i style="background: #a8302a"></i><i style="background: #2e4a3b"></i
+              ><i style="background: #2b4866"></i><i style="background: #a87a2c"></i
+              ><i style="background: #1d211e"></i>
+            </div>
+            <h3>十月套色色票</h3>
+            <p class="meta">CSV · UTF-8 · 5 种墨色与配比</p>
+            <a class="button text-link" href="projects.csv" download="十月套色色票.csv"
+              >下载色票</a
             >
           </article>
         </section>
-        <section class="specimen" id="event" data-name="09 活动 报名 日历">
+        <section class="specimen" id="event" data-name="09 活动 报名 日历 工作坊">
           <header>
             <span>09</span>
             <h2>活动</h2>
           </header>
           <article class="card event">
-            <div class="date"><span>十月</span><strong>24</strong></div>
+            <div class="date">十月<strong>24</strong></div>
             <div>
-              <p class="eyebrow">周六 14:00 · 河岸书店</p>
-              <h3>和陌生人，一起读诗。</h3>
+              <h3>套色入门课</h3>
+              <p class="meta">周六 14:00 · 版画社二楼</p>
+              <p>三块版，印一张自己的山茶。</p>
               <p id="seats">还剩 8 个座位</p>
-              <button id="rsvp" aria-pressed="false">预留座位</button>
-              <p id="rsvp-result" role="status"></p>
+              <button id="rsvp" class="push" aria-pressed="false">预留座位</button>
+              <p id="rsvp-result" class="seal-result" role="status"></p>
             </div>
           </article>
         </section>
-        <section class="specimen" id="media" data-name="10 播放器 音频 进度">
+        <section class="specimen" id="media" data-name="10 播放器 音频 进度 声音">
           <header>
             <span>10</span>
             <h2>播放器</h2>
           </header>
           <article class="card media">
-            <div class="record" aria-hidden="true"></div>
-            <h3>三个音，休息一下。</h3>
+            <div class="wave" aria-hidden="true">
+              <i style="--h: 30%; --d: 0"></i><i style="--h: 62%; --d: 1"></i
+              ><i style="--h: 44%; --d: 2"></i><i style="--h: 80%; --d: 3"></i
+              ><i style="--h: 54%; --d: 4"></i><i style="--h: 92%; --d: 5"></i
+              ><i style="--h: 38%; --d: 6"></i><i style="--h: 70%; --d: 7"></i
+              ><i style="--h: 48%; --d: 8"></i><i style="--h: 26%; --d: 9"></i>
+            </div>
+            <h3>三声铃，开课了。</h3>
+            <p class="meta">工作坊 · 开课提示音</p>
             <audio id="audio" src="notes.wav" preload="metadata"></audio>
             <div class="row">
               <button id="play">播放</button
@@ -242,7 +288,7 @@
                 max="100"
                 value="0"
                 step="1"
-              /><output id="audio-time" aria-live="off">0:00</output>
+              /><output id="audio-time" aria-live="off">0:00 / 0:03</output>
             </div>
             <p id="audio-result" role="status"></p>
           </article>
@@ -257,34 +303,30 @@
             <h2>证言</h2>
           </header>
           <article class="card testimonial">
-            <blockquote id="quote">“终于可以把注意力放回作品本身。”</blockquote>
-            <p id="quote-author">陈述 · 独立摄影师</p>
+            <blockquote id="quote">“装框挂上墙，才看出红版压得有多准。”</blockquote>
+            <p id="quote-author">夏禾 · 印友会第二年</p>
             <div class="row">
-              <button id="quote-prev" aria-label="上一条证言">←</button
+              <button id="quote-prev" class="quiet" aria-label="上一条证言">←</button
               ><output id="quote-page" aria-live="polite">1 / 3</output
-              ><button id="quote-next" aria-label="下一条证言">→</button>
+              ><button id="quote-next" class="quiet" aria-label="下一条证言">→</button>
             </div>
           </article>
         </section>
-        <section class="specimen" id="comparison" data-name="12 对比 决策 选择">
+        <section class="specimen" id="comparison" data-name="12 对比 决策 选择 纸张">
           <header>
             <span>12</span>
             <h2>对比决策</h2>
           </header>
           <article class="card comparison">
-            <h3>下一次出发</h3>
-            <div class="choices" role="group" aria-label="旅行方式">
-              <button data-trip="山间" aria-pressed="true">
-                <span aria-hidden="true">△</span>山间<br /><small
-                  >两日 · 步行</small
-                ></button
-              ><button data-trip="海边" aria-pressed="false">
-                <span aria-hidden="true">≈</span>海边<br /><small
-                  >三日 · 骑行</small
-                >
+            <h3>这张用哪种纸？</h3>
+            <div class="choices" role="group" aria-label="纸张">
+              <button data-choice="楮皮纸" aria-pressed="true">
+                <span class="grain" aria-hidden="true" style="background: #e9dcc2 radial-gradient(#cdbb98 1px, transparent 1.5px) 0 0 / 7px 5px"></span>楮皮纸<small>吸墨匀，印大色块</small></button
+              ><button data-choice="竹纸" aria-pressed="false">
+                <span class="grain" aria-hidden="true" style="background: #efe6cf repeating-linear-gradient(90deg, #d9cba7 0 1px, transparent 1px 4px)"></span>竹纸<small>纸面细，印细线</small>
               </button>
             </div>
-            <p id="trip-result" role="status">已选择山间：适合安静地走一走。</p>
+            <p id="trip-result" role="status">已选楮皮纸：红版的大色块会更匀。</p>
           </article>
         </section>
         <section
@@ -296,54 +338,56 @@
             <span>13</span>
             <h2>通知</h2>
           </header>
-          <article class="card notification">
+          <article class="card notification open">
             <div class="row">
-              <h3>项目动态</h3>
+              <h3>工坊动态</h3>
               <output id="unread" aria-live="polite">2 条未读</output>
             </div>
             <ul>
               <li>
-                <span>青禾提交了首页设计</span
+                <span>红版 3 号待试印</span
                 ><button class="read">标为已读</button>
               </li>
               <li>
-                <span>周末走查已安排</span
+                <span>周六课 2 人改期</span
                 ><button class="read">标为已读</button>
               </li>
             </ul>
           </article>
         </section>
-        <section class="specimen" id="form" data-name="14 行内表单 校验 保存">
+        <section class="specimen" id="form" data-name="14 行内表单 校验 保存 题签">
           <header>
             <span>14</span>
             <h2>行内表单</h2>
           </header>
           <article class="card">
-            <h3>给项目起个名字。</h3>
-            <form id="inline-form">
-              <label for="project-name">项目名称</label
+            <h3>给新图版题签。</h3>
+            <form id="inline-form" novalidate>
+              <label for="project-name">图版名称</label
               ><input
                 id="project-name"
                 name="name"
                 required
                 maxlength="60"
                 autocomplete="off"
-                placeholder="例如：河岸阅读计划"
-              /><button type="submit">保存名称</button>
-              <p id="inline-result" role="status"></p>
+                placeholder="例如：雪中椿"
+                aria-describedby="inline-error"
+              /><p id="inline-error" class="field-error" hidden></p
+              ><button type="submit">保存题签</button>
+              <p id="inline-result" class="seal-result" role="status"></p>
             </form>
           </article>
         </section>
-        <section class="specimen" id="empty" data-name="15 空状态 创建 项目">
+        <section class="specimen" id="empty" data-name="15 空状态 创建 收藏">
           <header>
             <span>15</span>
             <h2>空状态</h2>
           </header>
-          <article class="card empty">
-            <div aria-hidden="true" class="empty-art">＋</div>
-            <h3>第一条想法，从这里开始。</h3>
-            <p>给还没成形的灵感，留一个位置。</p>
-            <button id="create-note">创建笔记</button>
+          <article class="card empty open">
+            <div aria-hidden="true" class="empty-art"></div>
+            <h3>收藏夹还是一张白纸。</h3>
+            <p>看到喜欢的图版就收下，它们会排在这里。</p>
+            <button id="create-note" class="push">收下第一张</button>
             <ul id="notes" aria-live="polite"></ul>
           </article>
         </section>
@@ -352,62 +396,76 @@
             <span>16</span>
             <h2>看板任务</h2>
           </header>
-          <article class="card kanban">
-            <p class="eyebrow" id="kanban-state">待开始</p>
-            <h3>让搜索结果更好读。</h3>
-            <p>内容设计 / 本周</p>
+          <article class="card kanban" data-stage="0">
+            <h3>雪中椿：第二版试印</h3>
+            <p class="state" id="kanban-state">待开始</p>
+            <p class="meta">印制 · 本周</p>
             <div class="row">
-              <span>青禾 · 2 项检查</span><button id="advance">开始任务</button>
+              <span class="meta">林青 · 3 块版</span><button id="advance" class="quiet">开始任务</button>
             </div>
           </article>
         </section>
-        <section class="specimen" id="folding" data-name="17 空间 折展 容器">
+        <section class="specimen wide" id="folding" data-name="17 空间 折展 容器 画轴">
           <header>
             <span>17</span>
             <h2>空间折展</h2>
           </header>
           <article class="card folding">
-            <h3>一封写给未来的信。</h3>
-            <p>展开，看看那些被认真保留的话。</p>
+            <div class="scroll">
+              <img
+                src="media/sparrows-snow.webp"
+                width="640"
+                height="1357"
+                alt="歌川广重竖幅版画：雪落在山茶枝上，两只麻雀停在枝间"
+              />
+            </div>
+            <h3>雪中雀与椿</h3>
+            <p>广重的竖长条幅，卷着只露一截。</p>
             <button
               id="fold-toggle"
+              class="quiet"
               aria-expanded="false"
               aria-controls="fold-body"
             >
-              展开信件
+              展开画轴
             </button>
             <div id="fold-body" class="fold-body" hidden>
               <div>
-                <p>愿你仍然有好奇心，也有停下来看看天空的时间。</p>
-                <p>把最重要的事，放在最前面。</p>
+                <p class="caption">
+                  歌川广重，约 1831–33 · 芝加哥艺术博物馆 · CC0。自上而下：落雪、山茶、两只麻雀。
+                </p>
               </div>
             </div>
           </article>
         </section>
-        <section class="specimen" id="drawer" data-name="18 微抽屉 编辑 详情">
+        <section class="specimen" id="drawer" data-name="18 微抽屉 编辑 详情 装裱">
           <header>
             <span>18</span>
             <h2>卡片微抽屉</h2>
           </header>
-          <article class="card drawer">
-            <h3>河岸阅读计划</h3>
-            <p id="drawer-summary">每周六，一起读二十页。</p>
+          <article class="card drawer open">
+            <div class="frame">
+              <img src="media/red-camellia.webp" width="900" height="1134" alt="装裱预览：红椿版画衬着米色衬纸，外面是原木细框" />
+            </div>
+            <p class="meta">红椿 · 装裱说明</p>
+            <p id="drawer-summary">原木细框，不加玻璃，四边留 4 cm 衬纸。</p>
             <button
               id="drawer-toggle"
+              class="quiet"
               aria-expanded="false"
               aria-controls="drawer-body"
             >
-              编辑介绍
+              编辑说明
             </button>
             <div id="drawer-body" hidden>
               <form id="drawer-form">
-                <label for="drawer-text">计划介绍</label
-                ><input
+                <label for="drawer-text">装裱说明</label
+                ><textarea
                   id="drawer-text"
-                  value="每周六，一起读二十页。"
+                  rows="3"
                   required
                   maxlength="100"
-                />
+                >原木细框，不加玻璃，四边留 4 cm 衬纸。</textarea>
                 <div class="row">
                   <button type="submit">保存</button
                   ><button type="button" id="drawer-close" class="quiet">
@@ -416,32 +474,40 @@
                 </div>
               </form>
             </div>
-            <p id="drawer-result" role="status"></p>
+            <p id="drawer-result" class="seal-result" role="status"></p>
           </article>
         </section>
         <section
-          class="specimen"
+          class="specimen full"
           id="spotlight"
-          data-name="19 聚光 焦点 主操作"
+          data-name="19 聚光 焦点 主操作 夜印"
         >
           <header>
             <span>19</span>
             <h2>聚光主操作</h2>
           </header>
           <article class="card spotlight">
-            <p class="eyebrow">留一段不被打扰的时间</p>
-            <h3>只做，<br />眼前这一件。</h3>
-            <button id="focus-start">开始专注</button>
-            <p id="focus-result" role="status">准备好时，再出发。</p>
+            <div class="copy">
+              <h3>灯只照着，<br />这一块版。</h3>
+              <p>夜里印墨版时，工作台只留一盏灯。指针移到画上，灯跟着走。</p>
+              <button id="focus-start">开始夜印</button>
+              <p id="focus-result" role="status">准备好了，再点亮工作台。</p>
+            </div>
+            <div
+              class="art"
+              role="img"
+              aria-label="伊藤若冲图样版画：墨底上一只燕子掠过粉色山茶"
+            ></div>
           </article>
         </section>
       </div>
-      <p id="no-matches" hidden>没有匹配的组件。换一个关键词。</p>
+      <p id="no-matches" hidden>没有对得上的组件。换一个词，比如“表单”或“画轴”。</p>
     </main>
     <footer class="page-footer">
-      把复杂留给设计，把清晰留给使用的人。<a href="interaction.html"
-        >检查关键状态 →</a
-      >
+      <span
+        >界面工作室示例馆。图版均为公有领域馆藏，来源与许可见
+        media/SOURCES.md。</span
+      ><a href="interaction.html">看表单与状态 →</a>
     </footer>
     <script src="cards.js"></script>
   </body>

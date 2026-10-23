@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>界面工作室 · 动效与演出</title>
+    <title>青椿版画社 · 动效｜界面工作室示例</title>
     <link rel="stylesheet" href="studio.css" />
     <link rel="stylesheet" href="effects.css" />
     <link rel="icon" href="data:," />
@@ -11,7 +11,7 @@
   <body>
     <a class="skip" href="#main">跳到内容</a>
     <header class="mast">
-      <a class="brand" href="index.html">界面工作室 <span>／ 动效</span></a>
+      <a class="brand" href="index.html">青椿版画社 <span>／ 动效</span></a>
       <nav aria-label="主导航">
         <a href="index.html">组件</a><a href="workspace.html">工作区</a
         ><a href="interaction.html">交互</a
@@ -19,112 +19,177 @@
       </nav>
     </header>
     <main id="main">
-      <div class="intro">
-        <p class="eyebrow">动作有来处，也有终点</p>
-        <h1>让画面，回应此刻。</h1>
-        <p>把流动、光线与空间留给有意义的地方。</p>
-        <button id="motion-toggle" aria-pressed="false">暂停动态效果</button>
-        <p role="status" id="motion-status"></p>
+      <div class="intro fx-intro">
+        <h1>墨落在纸上的那一下。</h1>
+        <p>
+          四种特效，各对应印坊里一个真实的动作。都能暂停；系统开启减少动态效果时，画面直接停在完成后的样子。
+        </p>
+        <div class="row fx-controls">
+          <button id="motion-toggle" class="quiet" aria-pressed="false">
+            暂停动态效果
+          </button>
+          <p role="status" id="motion-status"></p>
+        </div>
       </div>
       <div class="effects-grid">
-        <section class="notice">
-          <h2>沿着路径的光</h2>
-          <svg
-            class="light-path"
-            viewBox="0 0 460 200"
-            role="img"
-            aria-labelledby="light-title"
-          >
-            <title id="light-title">一束光沿弯曲路径流动</title>
-            <defs>
-              <linearGradient id="line-color">
-                <stop stop-color="#8abc8f" />
-                <stop offset="1" stop-color="#efc189" />
-              </linearGradient>
-            </defs>
-            <path d="M20 150 Q120 10 230 110 T440 50" class="track" />
-            <path d="M20 150 Q120 10 230 110 T440 50" class="runner" />
-          </svg>
-          <p>轨迹保留，光线强调正在发生的位置。</p>
+        <section class="fx fx-halftone">
+          <div class="fx-stage">
+            <canvas
+              id="dots"
+              width="1380"
+              height="480"
+              role="img"
+              aria-label="《红椿》版画转成的印刷网点，指针靠近处网点放大"
+              >不支持 Canvas，网点仅作装饰。</canvas
+            >
+          </div>
+          <h2>放大镜下的网点</h2>
+          <p>网点取自《红椿》版画的明暗。指针靠近就放大；触摸与键盘不依赖它。</p>
         </section>
-        <section class="notice">
-          <h2>点阵里的微风</h2>
-          <canvas
-            id="dots"
-            width="460"
-            height="200"
-            role="img"
-            aria-label="点阵随指针轻微散开"
-            >你的浏览器不支持 Canvas。静态点阵是可选装饰。</canvas
-          >
-          <p>指针靠近时响应，触摸与键盘不依赖它。</p>
+        <section class="fx fx-carve">
+          <div class="fx-stage">
+            <svg
+              class="light-path"
+              viewBox="0 0 460 220"
+              role="img"
+              aria-labelledby="light-title"
+            >
+              <title id="light-title">刻刀沿一片山茶叶的轮廓和叶脉走过，刻完在右边印出一张左右相反的试印</title>
+              <path class="track" d="M30 118 L56.0 114.0 L60.1 108.4 L64.1 103.9 L68.2 99.8 L72.3 96.0 L76.3 92.3 L80.4 88.9 L84.5 85.6 L88.5 82.5 L92.6 79.5 L96.7 74.1 L100.7 74.0 L104.8 71.5 L108.9 66.6 L112.9 66.9 L117.0 64.9 L121.1 60.4 L125.1 61.2 L129.2 59.6 L133.3 55.5 L137.3 56.8 L141.4 55.6 L145.5 52.0 L149.5 53.7 L153.6 53.0 L157.7 49.8 L161.7 51.9 L165.8 51.6 L169.9 48.8 L173.9 51.3 L178.0 51.4 L182.1 48.9 L186.1 51.8 L190.2 52.3 L194.3 50.2 L198.3 53.5 L202.4 54.2 L206.5 52.5 L210.5 56.0 L214.6 57.1 L218.7 55.6 L222.7 59.4 L226.8 60.7 L230.9 59.5 L234.9 63.6 L239.0 65.1 L243.1 64.1 L247.1 68.3 L251.2 70.0 L255.3 69.1 L259.3 73.4 L263.4 75.2 L267.5 74.5 L271.5 78.9 L275.6 80.8 L279.7 80.0 L283.7 84.5 L287.8 86.4 L291.9 88.3 L295.9 90.1 L300.0 92.0 L295.9 95.0 L291.9 98.0 L287.8 101.0 L283.7 103.9 L279.7 109.4 L275.6 109.8 L271.5 112.6 L267.5 118.0 L263.4 118.2 L259.3 121.0 L255.3 126.3 L251.2 126.3 L247.1 128.8 L243.1 133.9 L239.0 133.8 L234.9 136.1 L230.9 141.0 L226.8 140.6 L222.7 142.7 L218.7 147.3 L214.6 146.6 L210.5 148.4 L206.5 152.7 L202.4 151.7 L198.3 153.2 L194.3 157.2 L190.2 155.8 L186.1 156.9 L182.1 160.5 L178.0 158.8 L173.9 159.5 L169.9 162.7 L165.8 160.6 L161.7 160.9 L157.7 163.7 L153.6 161.1 L149.5 161.0 L145.5 163.3 L141.4 160.3 L137.3 159.7 L133.3 161.6 L129.2 158.2 L125.1 157.1 L121.1 158.6 L117.0 154.6 L112.9 153.2 L108.9 154.1 L104.8 149.7 L100.7 147.8 L96.7 148.3 L92.6 143.4 L88.5 141.0 L84.5 138.4 L80.4 135.7 L76.3 132.8 L72.3 129.7 L68.2 126.4 L64.1 122.8 L60.1 118.9 L56.0 114.0 L56 114 Z" />
+              <path class="track vein" d="M30 118 L56 114 L64.1 114.0 L72.3 113.9 L80.4 113.8 L88.5 113.6 L96.7 113.4 L104.8 113.1 L112.9 112.8 L121.1 112.4 L129.2 112.0 L137.3 111.6 L145.5 111.0 L153.6 110.5 L161.7 109.9 L169.9 109.2 L178.0 108.5 L186.1 107.7 L194.3 106.9 L202.4 106.1 L210.5 105.2 L218.7 104.2 L226.8 103.2 L234.9 102.2 L243.1 101.1 L251.2 99.9 L259.3 98.7 L267.5 97.5 L275.6 96.2 L283.7 94.8 L291.9 93.4 L296.3 92.7 M99.9 113.3 Q107.2 92.0 131.6 70.4 M99.9 113.3 Q107.2 132.0 131.6 148.4 M139.0 111.5 Q146.3 81.1 170.7 64.1 M139.0 111.5 Q146.3 138.1 170.7 148.8 M178.0 108.5 Q185.3 77.1 209.7 66.7 M178.0 108.5 Q185.3 136.2 209.7 139.2 M217.0 104.4 Q224.4 78.8 248.8 75.8 M217.0 104.4 Q224.4 127.0 248.8 121.8 M251.2 99.9 Q258.5 83.4 282.9 86.5 M251.2 99.9 Q258.5 114.4 282.9 102.4" />
+              <path class="cut" d="M30 118 L56.0 114.0 L60.1 108.4 L64.1 103.9 L68.2 99.8 L72.3 96.0 L76.3 92.3 L80.4 88.9 L84.5 85.6 L88.5 82.5 L92.6 79.5 L96.7 74.1 L100.7 74.0 L104.8 71.5 L108.9 66.6 L112.9 66.9 L117.0 64.9 L121.1 60.4 L125.1 61.2 L129.2 59.6 L133.3 55.5 L137.3 56.8 L141.4 55.6 L145.5 52.0 L149.5 53.7 L153.6 53.0 L157.7 49.8 L161.7 51.9 L165.8 51.6 L169.9 48.8 L173.9 51.3 L178.0 51.4 L182.1 48.9 L186.1 51.8 L190.2 52.3 L194.3 50.2 L198.3 53.5 L202.4 54.2 L206.5 52.5 L210.5 56.0 L214.6 57.1 L218.7 55.6 L222.7 59.4 L226.8 60.7 L230.9 59.5 L234.9 63.6 L239.0 65.1 L243.1 64.1 L247.1 68.3 L251.2 70.0 L255.3 69.1 L259.3 73.4 L263.4 75.2 L267.5 74.5 L271.5 78.9 L275.6 80.8 L279.7 80.0 L283.7 84.5 L287.8 86.4 L291.9 88.3 L295.9 90.1 L300.0 92.0 L295.9 95.0 L291.9 98.0 L287.8 101.0 L283.7 103.9 L279.7 109.4 L275.6 109.8 L271.5 112.6 L267.5 118.0 L263.4 118.2 L259.3 121.0 L255.3 126.3 L251.2 126.3 L247.1 128.8 L243.1 133.9 L239.0 133.8 L234.9 136.1 L230.9 141.0 L226.8 140.6 L222.7 142.7 L218.7 147.3 L214.6 146.6 L210.5 148.4 L206.5 152.7 L202.4 151.7 L198.3 153.2 L194.3 157.2 L190.2 155.8 L186.1 156.9 L182.1 160.5 L178.0 158.8 L173.9 159.5 L169.9 162.7 L165.8 160.6 L161.7 160.9 L157.7 163.7 L153.6 161.1 L149.5 161.0 L145.5 163.3 L141.4 160.3 L137.3 159.7 L133.3 161.6 L129.2 158.2 L125.1 157.1 L121.1 158.6 L117.0 154.6 L112.9 153.2 L108.9 154.1 L104.8 149.7 L100.7 147.8 L96.7 148.3 L92.6 143.4 L88.5 141.0 L84.5 138.4 L80.4 135.7 L76.3 132.8 L72.3 129.7 L68.2 126.4 L64.1 122.8 L60.1 118.9 L56.0 114.0 L56 114 Z" />
+              <path class="cut" d="M30 118 L56 114 L64.1 114.0 L72.3 113.9 L80.4 113.8 L88.5 113.6 L96.7 113.4 L104.8 113.1 L112.9 112.8 L121.1 112.4 L129.2 112.0 L137.3 111.6 L145.5 111.0 L153.6 110.5 L161.7 109.9 L169.9 109.2 L178.0 108.5 L186.1 107.7 L194.3 106.9 L202.4 106.1 L210.5 105.2 L218.7 104.2 L226.8 103.2 L234.9 102.2 L243.1 101.1 L251.2 99.9 L259.3 98.7 L267.5 97.5 L275.6 96.2 L283.7 94.8 L291.9 93.4 L296.3 92.7" />
+              <path class="cut" d="M99.9 113.3 Q107.2 92.0 131.6 70.4" />
+              <path class="cut" d="M99.9 113.3 Q107.2 132.0 131.6 148.4" />
+              <path class="cut" d="M139.0 111.5 Q146.3 81.1 170.7 64.1" />
+              <path class="cut" d="M139.0 111.5 Q146.3 138.1 170.7 148.8" />
+              <path class="cut" d="M178.0 108.5 Q185.3 77.1 209.7 66.7" />
+              <path class="cut" d="M178.0 108.5 Q185.3 136.2 209.7 139.2" />
+              <path class="cut" d="M217.0 104.4 Q224.4 78.8 248.8 75.8" />
+              <path class="cut" d="M217.0 104.4 Q224.4 127.0 248.8 121.8" />
+              <path class="cut" d="M251.2 99.9 Q258.5 83.4 282.9 86.5" />
+              <path class="cut" d="M251.2 99.9 Q258.5 114.4 282.9 102.4" />
+              <circle class="tip" r="4.5" cx="30" cy="118" />
+              <g class="impression" aria-hidden="true">
+                <rect x="318" y="40" width="124" height="140" rx="2" />
+                <g transform="translate(437 110) scale(-0.42 0.42) translate(-30 -104)">
+                  <path class="ink" d="M30 118 L56.0 114.0 L60.1 108.4 L64.1 103.9 L68.2 99.8 L72.3 96.0 L76.3 92.3 L80.4 88.9 L84.5 85.6 L88.5 82.5 L92.6 79.5 L96.7 74.1 L100.7 74.0 L104.8 71.5 L108.9 66.6 L112.9 66.9 L117.0 64.9 L121.1 60.4 L125.1 61.2 L129.2 59.6 L133.3 55.5 L137.3 56.8 L141.4 55.6 L145.5 52.0 L149.5 53.7 L153.6 53.0 L157.7 49.8 L161.7 51.9 L165.8 51.6 L169.9 48.8 L173.9 51.3 L178.0 51.4 L182.1 48.9 L186.1 51.8 L190.2 52.3 L194.3 50.2 L198.3 53.5 L202.4 54.2 L206.5 52.5 L210.5 56.0 L214.6 57.1 L218.7 55.6 L222.7 59.4 L226.8 60.7 L230.9 59.5 L234.9 63.6 L239.0 65.1 L243.1 64.1 L247.1 68.3 L251.2 70.0 L255.3 69.1 L259.3 73.4 L263.4 75.2 L267.5 74.5 L271.5 78.9 L275.6 80.8 L279.7 80.0 L283.7 84.5 L287.8 86.4 L291.9 88.3 L295.9 90.1 L300.0 92.0 L295.9 95.0 L291.9 98.0 L287.8 101.0 L283.7 103.9 L279.7 109.4 L275.6 109.8 L271.5 112.6 L267.5 118.0 L263.4 118.2 L259.3 121.0 L255.3 126.3 L251.2 126.3 L247.1 128.8 L243.1 133.9 L239.0 133.8 L234.9 136.1 L230.9 141.0 L226.8 140.6 L222.7 142.7 L218.7 147.3 L214.6 146.6 L210.5 148.4 L206.5 152.7 L202.4 151.7 L198.3 153.2 L194.3 157.2 L190.2 155.8 L186.1 156.9 L182.1 160.5 L178.0 158.8 L173.9 159.5 L169.9 162.7 L165.8 160.6 L161.7 160.9 L157.7 163.7 L153.6 161.1 L149.5 161.0 L145.5 163.3 L141.4 160.3 L137.3 159.7 L133.3 161.6 L129.2 158.2 L125.1 157.1 L121.1 158.6 L117.0 154.6 L112.9 153.2 L108.9 154.1 L104.8 149.7 L100.7 147.8 L96.7 148.3 L92.6 143.4 L88.5 141.0 L84.5 138.4 L80.4 135.7 L76.3 132.8 L72.3 129.7 L68.2 126.4 L64.1 122.8 L60.1 118.9 L56.0 114.0 L56 114 Z" />
+                  <path class="blank" d="M30 118 L56 114 L64.1 114.0 L72.3 113.9 L80.4 113.8 L88.5 113.6 L96.7 113.4 L104.8 113.1 L112.9 112.8 L121.1 112.4 L129.2 112.0 L137.3 111.6 L145.5 111.0 L153.6 110.5 L161.7 109.9 L169.9 109.2 L178.0 108.5 L186.1 107.7 L194.3 106.9 L202.4 106.1 L210.5 105.2 L218.7 104.2 L226.8 103.2 L234.9 102.2 L243.1 101.1 L251.2 99.9 L259.3 98.7 L267.5 97.5 L275.6 96.2 L283.7 94.8 L291.9 93.4 L296.3 92.7 M99.9 113.3 Q107.2 92.0 131.6 70.4 M99.9 113.3 Q107.2 132.0 131.6 148.4 M139.0 111.5 Q146.3 81.1 170.7 64.1 M139.0 111.5 Q146.3 138.1 170.7 148.8 M178.0 108.5 Q185.3 77.1 209.7 66.7 M178.0 108.5 Q185.3 136.2 209.7 139.2 M217.0 104.4 Q224.4 78.8 248.8 75.8 M217.0 104.4 Q224.4 127.0 248.8 121.8 M251.2 99.9 Q258.5 83.4 282.9 86.5 M251.2 99.9 Q258.5 114.4 282.9 102.4" />
+                </g>
+                <text x="380" y="170" text-anchor="middle">试印</text>
+              </g>
+            </svg>
+          </div>
+          <h2>刻刀走过木版</h2>
+          <p>入刀慢、行刀快、收刀再慢。刻掉的叶脉，印出来是留白；右边的试印和版左右相反，就是下面墨版的做法。</p>
         </section>
-        <section class="notice gradient-panel">
-          <h2>缓慢流动的色场</h2>
-          <div class="gradient-field" aria-hidden="true"></div>
-          <p>文字保持在稳定的实色区域。</p>
+        <section class="fx fx-ink">
+          <div class="fx-stage">
+            <canvas
+              id="shader"
+              width="920"
+              height="360"
+              role="img"
+              aria-label="WebGL 实时模拟一滴靛墨在楮皮纸上洇开"
+              >静态图像替代实时画面。</canvas
+            >
+          </div>
+          <h2>一滴墨，洇进楮皮纸</h2>
+          <p>一滴靛墨落在楮皮纸上，十二秒洇开一次，干边略深。</p>
+          <p id="shader-status" class="fx-status" role="status">正在准备 WebGL…</p>
         </section>
-        <section class="notice">
-          <h2>实时空间</h2>
-          <canvas
-            id="shader"
-            width="460"
-            height="250"
-            role="img"
-            aria-label="由 WebGL 着色器实时绘制的旋转立方体"
-            >静态立方体替代实时画面。</canvas
-          >
-          <p id="shader-status" role="status">正在准备 WebGL…</p>
+        <section class="fx fx-wash gradient-panel">
+          <div class="fx-stage">
+            <div class="gradient-field" aria-hidden="true"></div>
+            <svg class="filters" aria-hidden="true" focusable="false">
+              <filter id="bleed-warp" x="-10%" y="-10%" width="120%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.011 0.018" numOctaves="3" seed="7" />
+                <feDisplacementMap in="SourceGraphic" scale="46" xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+            </svg>
+          </div>
+          <h2>水印晕染</h2>
+          <p>靛与红两版水印慢慢互相渗开。文字始终放在晕染之外的纸面上。</p>
         </section>
       </div>
       <section class="story" aria-labelledby="story-title">
         <div class="story-stage">
-          <p class="eyebrow">一个完整的下午</p>
-          <h2 id="story-title">从街角，到河岸。</h2>
-          <div class="story-window" aria-hidden="true">
-            <div class="story-sun"></div>
-            <div class="story-river"></div>
+          <h2 id="story-title">从墨稿，到套色。</h2>
+          <div class="story-window">
+            <img class="story-key" src="media/story-key.webp" width="800" height="986" alt="清代江南彩色版画：铜瓶里插着梅花与山茶，随滚动逐版套色" />
+            <img class="story-cool" src="media/story-cool.webp" width="800" height="986" alt="" />
+            <img class="story-red" src="media/story-red.webp" width="800" height="986" alt="" />
+            <div class="story-roller" aria-hidden="true"></div>
           </div>
+          <p class="caption">
+            《铜瓶梅椿》，江南彩色版画，约 1700–1750 · 克利夫兰艺术博物馆 · CC0
+          </p>
           <progress
             id="story-progress"
             max="1"
             value="0"
-            aria-label="故事阅读进度"
+            aria-label="套色进度"
           ></progress>
         </div>
         <div class="story-chapters">
           <article>
-            <h3>先走出去。</h3>
-            <p>从最熟悉的街角，换一个方向。</p>
+            <h3><span class="num">一</span>先刻墨版。</h3>
+            <p>所有轮廓都在这一块上。之后的每一版颜色，都要对准它。</p>
+            <figure class="plate-detail">
+              <img src="media/plate-key.webp" width="400" height="250" loading="lazy" alt="香炉与果盘局部，只有墨线" />
+              <figcaption>香炉与果盘局部 · 墨版</figcaption>
+            </figure>
           </article>
           <article>
-            <h3>经过一片树影。</h3>
-            <p>让脚步慢下来，听一段属于城市的声音。</p>
+            <h3><span class="num">二</span>再上石绿。</h3>
+            <p>叶子和果盘的绿先印。滚筒每过一次，只多一种颜色。</p>
+            <figure class="plate-detail">
+              <img src="media/plate-cool.webp" width="400" height="250" loading="lazy" alt="同一处局部，果盘里填上了石绿" />
+              <figcaption>同一处 · 墨版 + 石绿</figcaption>
+            </figure>
           </article>
           <article>
-            <h3>到河岸坐一会。</h3>
-            <p>结束一段路，也为下一段留一点期待。</p>
+            <h3><span class="num">三</span>最后一版，椿红与藤黄。</h3>
+            <p>花瓣、瓶耳和屏风的暖色压在最上面，最先被看见。</p>
+            <figure class="plate-detail">
+              <img src="media/plate-red.webp" width="400" height="250" loading="lazy" alt="同一处局部，香炉与果盘边压上椿红与藤黄" />
+              <figcaption>同一处 · 三版套完</figcaption>
+            </figure>
           </article>
         </div>
       </section>
-      <section class="notice game" aria-labelledby="game-title">
-        <div class="row">
+      <section class="game" aria-labelledby="game-title">
+        <div class="game-head">
           <div>
-            <p class="eyebrow">一次小小的练习</p>
-            <h2 id="game-title">抓住五个小光点。</h2>
+            <h2 id="game-title">对准了，再压下去。</h2>
+            <p>
+              红版在墨版上来回漂移。看准两版重合时按“压印”，或聚焦后按 Enter / 空格。一共印五张。
+            </p>
           </div>
           <div class="row">
-            <button id="game-pause" aria-pressed="false">暂停练习</button
+            <button id="game-pause" class="quiet" aria-pressed="false">暂停练习</button
             ><button id="game-reset" class="quiet">重新开始</button>
           </div>
         </div>
-        <p>点击光点，或聚焦后按 Enter / 空格。</p>
         <div class="game-field">
-          <button id="target" aria-label="命中光点">＋</button>
+          <div class="press-bed" aria-hidden="true">
+            <img class="layer-key" src="media/red-camellia.webp" alt="" />
+            <img class="layer-red" src="media/red-camellia.webp" alt="" />
+            <span class="reg reg-a"></span><span class="reg reg-b"></span>
+          </div>
+          <div class="game-side">
+            <button id="target">压印</button>
+            <p class="press-note" id="press-note" aria-hidden="true"></p>
+          </div>
         </div>
+        <ol class="prints" id="prints" aria-label="已印的张数与偏差"></ol>
         <p id="game-status" role="status">0 / 5，准备好就出发。</p>
       </section>
     </main>
+    <footer class="page-footer">
+      <span>界面工作室示例馆。图版均为公有领域馆藏，来源与许可见 media/SOURCES.md。</span
+      ><a href="index.html">回到组件图录 →</a>
+    </footer>
     <script src="effects.js"></script>
   </body>
 </html>

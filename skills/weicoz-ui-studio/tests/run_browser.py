@@ -62,6 +62,9 @@ def main():
     finally:
         try:
             run("close", timeout=20)
+        except (RuntimeError, subprocess.TimeoutExpired) as error:
+            # 清理失败要提示，但不覆盖已经得到的验证结论或先前的真实错误。
+            print(f"警告：关闭浏览器会话失败，请手动关闭 {session}：{error}", file=sys.stderr)
         finally:
             server.shutdown()
             server.server_close()

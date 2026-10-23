@@ -26,6 +26,8 @@ python3 <skill>/scripts/studio.py parity <一致性清单.json> --output <新报
 
 新的多方向任务默认用 build_explorer.py，支持完整方向字段、baseline、nativeViewport、interactive、离线资源内嵌、轮次与实际尺寸。以下仅说明旧版 studio.py compare 的兼容输入。
 
+interactive 候选在沙箱里只能显示内嵌成 data URI 的资源，生成器只内嵌 HTML 属性和 CSS `url()` 里静态写出的路径。脚本拼出的图片路径会被 CSP 拦截，变成坏图且不报 pageerror。脚本要换图时，先在 HTML 里静态写出全部图片（可以放进隐藏容器），脚本再读这些元素的 `src`。验收时检查候选内图片 `naturalWidth > 0`，并查控制台有没有 CSP 报错。
+
 清单相对路径以清单所在目录为根。每个候选使用独立 HTML、图片或 HTTP(S) 页面；本地 HTML 资源目录整体复制，目录与清单同级或在其下。避免把含凭据、仓库根或无关用户数据的目录作为素材树。输出目录必须在这些候选树之外。
 
 ```json

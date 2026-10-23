@@ -1,171 +1,570 @@
+.fx-intro {
+  max-width: 820px;
+}
+.fx-intro > p {
+  max-width: 34em;
+}
+.fx-controls {
+  justify-content: flex-start;
+  margin-top: 22px;
+}
+.fx-controls p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* 四种特效：每张都是一块“台面”加一行说明，不再装进卡片盒子。 */
 .effects-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 26px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 56px 28px;
 }
-.effects-grid h2 {
-  font:
-    25px Georgia,
-    "Songti SC",
-    serif;
+/* 网点是这一页的主角：满版，其余三种排成一行。 */
+.fx-halftone {
+  grid-column: 1 / -1;
 }
-.effects-grid canvas,
-.light-path {
+.fx-halftone .fx-stage {
+  aspect-ratio: 1380 / 480;
+}
+/* 刻刀占两栏两行，右侧上下叠放墨洇与晕染。 */
+.fx-carve {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.fx-ink .fx-stage,
+.fx-wash .fx-stage {
+  aspect-ratio: 23 / 9;
+}
+.fx-wash .fx-stage {
+  background: #f1e9d8;
+}
+.fx h2 {
+  font: 500 22px/1.4 var(--serif);
+  margin: 18px 0 4px;
+}
+.fx p {
+  margin: 0;
+  font-size: 15px;
+}
+.fx-stage {
+  position: relative;
+  aspect-ratio: 23 / 11;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.fx-stage > svg,
+.fx-stage > canvas,
+.fx-stage > div {
   display: block;
   width: 100%;
-  height: 220px;
-  background: #192d24;
-  border-radius: 6px;
+  height: 100%;
+}
+
+/* 刻线 */
+.fx-carve .fx-stage {
+  /* 真实木皮贴图（Poly Haven，CC0），纹理横向，像一块刨平的版木。 */
+  background:
+    /* 叠一层纸色，压低木皮的橙色，不抢叙事的主图。 */
+    linear-gradient(rgb(236 226 206 / 42%), rgb(214 200 176 / 34%)),
+    url("media/pear-wood.webp") center / cover,
+    #d9bf98;
+  box-shadow:
+    inset 0 0 0 1px rgb(60 35 15 / 25%),
+    inset 0 -18px 30px -24px rgb(40 22 8 / 50%);
+}
+/* WebGL 正常时不播报技术状态；出问题时才把说明显示出来。 */
+.fx-status:not(.problem) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+.light-path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .light-path .track {
-  fill: none;
-  stroke: #465e4b;
-  stroke-width: 2;
+  /* 铅笔起稿：很淡，刀还没走到的地方只看得到它。 */
+  stroke: #8b7a5e;
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+  opacity: 0.5;
 }
-.light-path .runner {
-  fill: none;
-  stroke: url(#line-color);
-  stroke-width: 5;
-  stroke-dasharray: 45 500;
-  stroke-linecap: round;
-  animation: run 4s linear infinite;
+.light-path .vein {
+  stroke-width: 1;
 }
+.light-path .cut {
+  /* 刻痕：深槽配一道受光的亮边，像刀口切进木面。进度由脚本按刀序驱动。 */
+  stroke: #3b2a18;
+  stroke-width: 3.2;
+  filter: drop-shadow(0 1px 0 rgb(255 240 210 / 70%)) drop-shadow(0 -1px 0 rgb(40 25 10 / 35%));
+}
+.light-path .tip {
+  fill: #a8302a;
+  stroke: none;
+  filter: drop-shadow(0 0 5px rgb(168 48 42 / 60%));
+}
+
+/* 网点 */
+.fx-halftone .fx-stage {
+  background: #f1e9d8;
+  cursor: zoom-in;
+}
+
+/* 晕染 */
 .gradient-field {
-  height: 220px;
-  border-radius: 6px;
-  background: linear-gradient(120deg, #233c32, #a8bc93, #d8b78e, #42664e);
-  background-size: 300% 300%;
-  animation: flow 10s ease-in-out infinite;
+  /* 两版水印各占一侧，交界处才相互渗透，中间留出纸色。 */
+  background:
+    var(--paper-grain),
+    radial-gradient(30% 52% at 30% 50%, transparent 66%, rgb(43 72 102 / 42%) 68%, transparent 71%),
+    radial-gradient(28% 50% at 68% 52%, transparent 66%, rgb(168 48 42 / 40%) 68%, transparent 71%),
+    radial-gradient(30% 52% at 30% 50%, rgb(43 72 102 / 70%), rgb(43 72 102 / 24%) 58%, transparent 69%),
+    radial-gradient(28% 50% at 68% 52%, rgb(168 48 42 / 64%), rgb(168 48 42 / 20%) 58%, transparent 69%),
+    #f1e9d8;
+  background-size:
+    auto,
+    150% 150%,
+    150% 150%,
+    150% 150%,
+    150% 150%,
+    auto;
+  /* 湍流位移把规整的圆扭成不规则的水渍边。 */
+  filter: url(#bleed-warp) blur(0.5px);
+  /* 放大一点，把位移滤镜在边缘拉出的空白推到台面之外。 */
+  transform: scale(1.14);
+  animation: bleed 16s ease-in-out infinite alternate;
 }
+
+.filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+/* 墨洇（WebGL） */
+.fx-ink .fx-stage {
+  background: #f1e9d8;
+}
+#shader.unavailable {
+  background:
+    radial-gradient(34% 48% at 46% 52%, #2b4866 0 62%, transparent 64%),
+    #f1e9d8;
+}
+
+/* 滚动叙事：主角随滚动从墨稿变成彩色 */
 .story {
+  --progress: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8vw;
-  position: relative;
-  padding-top: 90px;
-  margin-bottom: 75px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 64px;
+  margin: 120px 0 96px;
 }
 .story-stage {
   position: sticky;
-  top: 40px;
+  top: 24px;
   align-self: start;
 }
 .story-stage h2 {
-  font:
-    clamp(28px, 4vw, 48px) Georgia,
-    "Songti SC",
-    serif;
+  font: 400 clamp(30px, 3.2vw, 46px) / 1.2 var(--serif);
+  margin: 0 0 22px;
 }
 .story-window {
   position: relative;
-  height: 280px;
-  background: #d9dfbc;
+  aspect-ratio: 1000 / 1000;
+  max-height: 72vh;
   overflow: hidden;
-  border-radius: 120px 120px 0 0;
+  border-radius: 2px;
+  background: #ece3d1;
 }
-.story-sun {
+.story-window img {
   position: absolute;
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  background: #d19a64;
-  left: calc(12% + var(--progress, 0) * 45%);
-  top: 65px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 40%;
 }
-.story-river {
+/* 三块版：墨版一直在，石绿与暖色各由一次滚筒刷上。 */
+.story-cool {
+  clip-path: inset(0 0 calc((1 - var(--cool, 0)) * 100%) 0);
+}
+.story-red {
+  clip-path: inset(0 0 calc((1 - var(--warm, 0)) * 100%) 0);
+}
+.story-roller {
   position: absolute;
-  bottom: -50px;
-  left: -30px;
-  right: -30px;
-  height: 170px;
-  background: #5b7e73;
-  border-radius: 50%;
-  transform: rotate(calc(-12deg + var(--progress, 0) * 15deg));
+  left: -2%;
+  right: -2%;
+  height: 16px;
+  top: calc(var(--roll, 0) * 100% - 8px);
+  border-radius: 8px;
+  background: linear-gradient(#4a4f49, #1d211e 60%, #4a4f49);
+  box-shadow: 0 8px 18px -6px rgb(0 0 0 / 50%);
+  opacity: var(--roller, 0);
+  transition: opacity 0.2s;
+}
+.story-roller::after {
+  /* 滚筒上沾着正在刷的那种颜色。 */
+  content: "";
+  position: absolute;
+  inset: 4px 0;
+  border-radius: 4px;
+  background: var(--roll-ink, #2e4a3b);
+  opacity: 0.85;
+}
+.story progress {
+  margin-top: 14px;
 }
 .story-chapters article {
-  min-height: 350px;
-  padding-top: 75px;
+  min-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-top: 1px solid var(--line-strong);
+}
+.story-chapters article:first-child {
+  min-height: 60vh;
+  justify-content: flex-start;
+  padding-top: 92px;
+}
+.story-chapters .num {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-right: 14px;
+  vertical-align: 4px;
+  border-radius: 2px;
+  background: var(--red);
+  color: #f7efe0;
+  font: 500 17px/1 var(--serif);
 }
 .story-chapters h3 {
-  font:
-    32px Georgia,
-    "Songti SC",
-    serif;
+  font-size: 32px;
+  margin: 10px 0 10px;
 }
-.game h2 {
-  font:
-    30px Georgia,
-    "Songti SC",
-    serif;
+.story-chapters p {
+  font-size: 17px;
+  max-width: 30em;
+}
+/* 每章配同一处局部，一版一版叠上去，右栏不再空着。 */
+.plate-detail {
+  width: min(100%, 400px);
+  margin: 28px 0 0;
+}
+.plate-detail img {
+  display: block;
+  width: 100%;
+  height: auto;
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 16px 28px -22px rgb(29 33 30 / 55%);
+}
+.plate-detail figcaption {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 套色对位小游戏 */
+.game {
+  border-top: 1px solid var(--line-strong);
+  padding-top: 40px;
+}
+.game-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.game-head h2 {
+  font: 400 clamp(28px, 3vw, 40px) / 1.25 var(--serif);
+  margin: 0 0 8px;
+}
+.game-head p {
+  max-width: 38em;
+  margin: 0;
 }
 .game-field {
-  height: 240px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 28px;
+  margin: 28px 0 18px;
+  align-items: stretch;
+}
+.press-bed {
+  --offset: 0px;
   position: relative;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  margin-top: 20px;
+  height: 420px;
+  border-radius: 3px;
+  background:
+    var(--paper-grain),
+    #efe6d2;
+  box-shadow: inset 0 0 0 1px var(--line);
   overflow: hidden;
 }
-#target {
+.press-bed img {
   position: absolute;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+  width: 340px;
+  height: auto;
+  translate: -50% -50%;
+  mix-blend-mode: multiply;
+  /* 只留花与叶，原图的纸边淡出，两版叠印时不出现深色矩形。 */
+  -webkit-mask-image: radial-gradient(ellipse 46% 38% at 50% 40%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 46% 38% at 50% 40%, #000 55%, transparent 100%);
+}
+.layer-key {
+  /* 墨版：纸色提亮成白，只剩轮廓。 */
+  filter: grayscale(1) contrast(1.2) brightness(1.4);
+}
+.layer-red {
+  /* 色版：随偏移漂移；没对准时边缘出现红绿错位。 */
+  filter: saturate(1.4) brightness(1.36);
+  opacity: 0.88;
+  transform: translateX(var(--offset));
+}
+.press-bed::after {
+  /* 压板：按下时从上方压下再抬起。 */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgb(29 33 30 / 0%), rgb(29 33 30 / 38%));
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+.press-bed.pressed::after {
+  animation: platen 0.52s cubic-bezier(0.5, 0, 0.3, 1);
+}
+.press-bed.pressed img {
+  animation: hold 0.52s steps(1);
+}
+.reg {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  background:
+    linear-gradient(#1d211e, #1d211e) center / 1px 100% no-repeat,
+    linear-gradient(#1d211e, #1d211e) center / 100% 1px no-repeat;
+  opacity: 0.6;
+}
+.reg-a {
+  left: 22px;
+  top: 22px;
+}
+.reg-b {
+  right: 22px;
+  bottom: 22px;
+}
+.game-side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+#target {
+  min-height: 72px;
+  font: 500 22px/1 var(--serif);
+  letter-spacing: 0.3em;
+  background: var(--red);
+  color: #f7efe0;
+}
+#target:hover:not(:disabled) {
+  background: #8f2620;
+}
+#target:disabled {
+  /* 印完：读得清的完成态，而不是半透明的红块。 */
+  opacity: 1;
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.press-note {
+  margin: 0;
+  min-height: 3em;
+  font: 400 20px/1.4 var(--serif);
+  color: var(--text);
+}
+.press-note[data-grade="good"] {
+  color: var(--leaf);
+}
+.press-note[data-grade="off"] {
+  color: var(--red);
+}
+/* 印出来的五张：每张都看得见这次错了多少。 */
+.prints {
+  list-style: none;
+  margin: 0 0 14px;
   padding: 0;
-  font-size: 24px;
-  left: calc(var(--tx, 20%) - 26px);
-  top: calc(var(--ty, 50%) - 26px);
-  box-shadow: 0 0 0 8px #8dba982b;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
 }
-body[data-paused="true"] * {
-  animation-play-state: paused !important;
+.prints li {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  animation: stamp-in 0.36s cubic-bezier(0.3, 1.4, 0.5, 1) both;
 }
-#shader.unavailable {
-  background: linear-gradient(135deg, #355b46, #d2bb8c);
-  border: 15px solid #6b8e75;
+.prints li.slot {
+  animation: none;
 }
-body[data-reduced="true"] .story-stage {
-  position: static;
+.sheet {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 2px;
+  background: #f4ecdb;
+  box-shadow:
+    0 1px 0 rgb(29 33 30 / 8%),
+    0 10px 18px -12px rgb(29 33 30 / 45%);
+  overflow: hidden;
 }
-@keyframes run {
-  to {
-    stroke-dashoffset: -545;
+.slot .sheet {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  border: 1px dashed transparent;
+}
+.sheet img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 72%;
+  translate: -50% -42%;
+  mix-blend-mode: multiply;
+  -webkit-mask-image: radial-gradient(ellipse 46% 38% at 50% 40%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 46% 38% at 50% 40%, #000 55%, transparent 100%);
+}
+.sheet .layer-red {
+  transform: translateX(calc(var(--miss) * 0.25));
+}
+.prints li b {
+  font: 400 17px/1 var(--numeral);
+  color: var(--text);
+}
+.prints li[data-grade="good"] b {
+  color: var(--leaf);
+}
+.prints li[data-grade="off"] b {
+  color: var(--red);
+}
+#game-status {
+  font-size: 15px;
+}
+
+/* 暂停与减少动态效果：停在完成后的样子 */
+body[data-reduced="true"] .light-path .tip {
+  display: none;
+}
+body[data-paused="true"] .gradient-field {
+  animation-play-state: paused;
+}
+
+body[data-reduced="true"] .story-roller {
+  display: none;
+}
+@keyframes platen {
+  0% {
+    transform: translateY(-100%);
   }
-}
-@keyframes flow {
-  0%,
+  45% {
+    transform: none;
+  }
   100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
+    transform: translateY(-100%);
   }
 }
-@media (max-width: 700px) {
+@keyframes hold {
+  0% {
+    filter: brightness(0.92);
+  }
+}
+@keyframes stamp-in {
+  from {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (max-width: 900px) {
   .effects-grid {
     grid-template-columns: 1fr;
+    gap: 44px;
+  }
+  .fx-carve {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .prints {
+    grid-template-columns: repeat(5, minmax(56px, 1fr));
+    gap: 8px;
+  }
+  .prints li b {
+    font-size: 14px;
   }
   .story {
     grid-template-columns: 1fr;
-    padding-top: 40px;
     gap: 0;
+    margin: 72px 0;
   }
   .story-stage {
-    position: static;
+    top: 0;
+    padding: 12px 0;
+    background: var(--bg);
+    z-index: 1;
   }
-  .story-chapters article {
-    min-height: 220px;
+  .story-stage h2 {
+    font-size: 26px;
+    margin-bottom: 12px;
+  }
+  .story-window {
+    max-height: 40vh;
+    aspect-ratio: 4 / 3;
+  }
+  .story-stage .caption {
+    display: none;
+  }
+  .story-chapters article,
+  .story-chapters article:first-child {
+    min-height: 70vh;
+    padding-top: 40px;
+    justify-content: flex-start;
   }
   .game-field {
-    height: 220px;
+    grid-template-columns: 1fr;
+  }
+  .press-bed {
+    height: 300px;
+  }
+  .press-bed img {
+    width: 240px;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .story-stage {
-    position: static;
-  }
-  .runner {
-    stroke-dasharray: none !important;
-  }
+.light-path .impression {
+  opacity: 0;
+}
+.light-path .impression rect {
+  fill: #f4ecdc;
+  filter: drop-shadow(0 6px 8px rgb(40 22 8 / 28%));
+}
+.light-path .impression .ink {
+  fill: #2a2520;
+}
+.light-path .impression .blank {
+  fill: none;
+  stroke: #f4ecdc;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.light-path .impression text {
+  font: 400 11px/1 var(--serif, serif);
+  fill: #6b5f52;
+  letter-spacing: 0.2em;
 }

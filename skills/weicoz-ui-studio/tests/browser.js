@@ -27,7 +27,7 @@ async (page) => {
       await page.locator("#more").click();
   assert(await page.locator("#more").isDisabled(), "数量上界未限制");
   await page.locator("#add").click();
-  assert((await text("#cart-result")).includes("9 件"), "加入结果错误");
+  assert((await text("#cart-result")).includes("9 张"), "加入结果错误");
   await page.locator("#period").selectOption("month");
   assert((await text("#metric-value")).includes("92"), "指标周期未切换");
   await page.locator("#follow").click();
@@ -70,8 +70,8 @@ async (page) => {
   await page.locator("#play").click();
   await page.locator("#quote-next").click();
   assert((await text("#quote-page")) === "2 / 3", "证言未翻页");
-  await page.locator("[data-trip=海边]").click();
-  assert((await text("#trip-result")).includes("海边"), "选择结果错误");
+  await page.locator("[data-choice=竹纸]").click();
+  assert((await text("#trip-result")).includes("竹纸"), "选择结果错误");
   for (const button of await page.locator(".read").all()) await button.click();
   assert((await text("#unread")) === "0 条未读", "通知状态错误");
   await page.locator("#project-name").fill("本地项目");
@@ -108,18 +108,25 @@ async (page) => {
   await page.locator("#theme").selectOption("night");
   await page.screenshot({ path: "cards-night.png", fullPage: true });
   await page.goto(base + "workspace.html");
-  await page.locator("#search").fill("河岸");
+  await page.locator("#search").fill("雪中");
   assert((await page.locator("#items button").count()) === 1, "工作区搜索错误");
   await page.locator("#items button").click();
   assert(await page.locator("#inspector").isVisible(), "手机详情不可达");
+  // 一次只套一块版：雪中椿已套 2 块，再套两次才完成；完成后主按钮停用，可撤销。
+  await page.locator("#move").click();
+  assert((await text("#detail-state")).includes("进行中"), "套版跳步");
   await page.locator("#move").click();
   assert((await text("#detail-state")).includes("已完成"), "工作区状态未推进");
+  assert(await page.locator("#move").isDisabled(), "完成后仍可推进");
+  await page.locator("#undo").click();
+  assert((await text("#detail-state")).includes("进行中"), "撤销未恢复");
+  await page.locator("#move").click();
   await page.locator("#back-list").click();
   await page.locator("#search").fill("");
   await page.locator("#layout").selectOption("board");
   assert((await page.locator(".column").count()) === 3, "看板布局缺失");
   await page.locator("#layout").selectOption("table");
-  assert((await page.locator("tbody tr").count()) === 4, "表格布局缺失");
+  assert((await page.locator("tbody tr").count()) === 6, "表格布局缺失");
   await noOverflow("工作区手机");
   await page.screenshot({ path: "workspace-mobile.png", fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -168,7 +175,7 @@ async (page) => {
       .evaluate((el) => el === document.activeElement),
     "弹窗未恢复焦点",
   );
-  await page.locator("#fail-save").uncheck();
+  assert(!(await page.locator("#fail-save").isChecked()), "失败开关未在一次失败后关闭");
   await page.locator("#open-dialog").click();
   await page.locator("#title").fill("恢复后的计划");
   await page.locator("#save").click();

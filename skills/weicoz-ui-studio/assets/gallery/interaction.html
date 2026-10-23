@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>界面工作室 · 交互状态</title>
+    <title>青椿版画社 · 编辑活动｜界面工作室示例</title>
     <link rel="stylesheet" href="studio.css" />
     <link rel="stylesheet" href="interaction.css" />
     <link rel="icon" href="data:," />
@@ -11,7 +11,7 @@
   <body>
     <a class="skip" href="#main">跳到内容</a>
     <header class="mast">
-      <a class="brand" href="index.html">界面工作室 <span>／ 交互</span></a>
+      <a class="brand" href="index.html">青椿版画社 <span>／ 交互</span></a>
       <nav aria-label="主导航">
         <a href="index.html">组件</a><a href="workspace.html">工作区</a
         ><a href="interaction.html" aria-current="page">交互</a
@@ -20,15 +20,29 @@
     </header>
     <main id="main">
       <div class="intro">
-        <p class="eyebrow">每一种状态，都有下一步</p>
-        <h1>从等待，到确定。</h1>
-        <p>检查输入、保存、失败与恢复，让操作始终有去有回。</p>
+        <p class="page-kicker">十月工作坊</p>
+        <h1>编辑活动页</h1>
       </div>
       <div class="interaction-grid">
-        <section class="notice">
-          <h2>阅读计划</h2>
+        <section class="event-page" aria-labelledby="event-heading">
+          <div class="event-art" aria-hidden="true"></div>
+          <div class="event-body">
+            <h2 id="event-heading" class="sr">活动页</h2>
+            <div id="state-panel" aria-live="polite"></div>
+            <div class="row event-actions">
+              <button id="open-dialog">编辑活动</button>
+              <details>
+                <summary>更多</summary>
+                <button id="reset" class="quiet">恢复初始内容</button>
+              </details>
+            </div>
+          </div>
+        </section>
+        <aside class="console" aria-labelledby="console-title">
+          <h2 id="console-title">演示控制</h2>
+          <p>不是产品界面，只用来把页面切到各种状态。</p>
           <label
-            >查看状态<select id="view-state">
+            >页面状态<select id="view-state">
               <option value="ready">就绪</option>
               <option value="loading">加载中</option>
               <option value="empty">空内容</option>
@@ -37,28 +51,20 @@
               <option value="denied">无权限</option>
             </select></label
           >
-          <div id="state-panel" aria-live="polite"></div>
-          <button id="open-dialog">编辑计划</button>
-          <details>
-            <summary>更多选项</summary>
-            <button id="reset" class="quiet">恢复初始计划</button>
-          </details>
-        </section>
-        <section class="notice">
-          <h2>本地保存规则</h2>
-          <label
-            ><input id="fail-save" type="checkbox" /> 本次保存返回错误</label
+          <label class="switch"
+            ><input id="fail-save" type="checkbox" /> 下一次保存返回错误</label
+          ><label class="switch"
+            ><input id="slow-save" type="checkbox" /> 慢速网络（保存要 3 秒）</label
           >
-          <p>用于检查失败后输入保留和重试路径。</p>
           <p id="persist-status" role="status"></p>
-        </section>
+        </aside>
       </div>
-      <p id="page-status" role="status"></p>
+      <p id="page-status" class="seal-result" role="status"></p>
     </main>
     <dialog id="editor" aria-labelledby="dialog-title">
-      <form id="edit-form">
-        <div class="row">
-          <h2 id="dialog-title">编辑阅读计划</h2>
+      <form id="edit-form" novalidate>
+        <div class="row dialog-head">
+          <h2 id="dialog-title">编辑活动</h2>
           <button
             type="button"
             id="close-dialog"
@@ -68,35 +74,43 @@
             关闭
           </button>
         </div>
-        <p id="form-error" role="alert" class="error" hidden></p>
-        <label for="title">计划名称</label
+        <label for="title">活动名称</label
         ><input
           id="title"
           name="title"
           required
           maxlength="60"
           autocomplete="off"
-          aria-describedby="title-hint"
-        /><small id="title-hint">1–60 个字符</small
-        ><label for="email">联系邮箱</label
+          aria-describedby="title-hint title-error"
+        /><small id="title-hint">1–60 个字，会显示在活动页标题</small
+        ><p id="title-error" class="field-error" hidden></p
+        ><label for="email">报名联系邮箱</label
         ><input
           id="email"
           name="email"
           type="email"
           required
           autocomplete="email"
-        /><label for="description">介绍</label
+          aria-describedby="email-error"
+        /><p id="email-error" class="field-error" hidden></p
+        ><label for="description">介绍</label
         ><textarea
           id="description"
           name="description"
           rows="3"
           maxlength="200"
         ></textarea>
-        <div class="row">
-          <button id="save" type="submit">保存计划</button
+        <div class="row dialog-actions">
+          <button id="save" type="submit">保存活动</button
           ><button id="cancel" type="button" class="quiet">取消</button>
         </div>
-        <p id="save-status" role="status"></p>
+        <div class="save-slot">
+          <p id="form-error" role="alert" class="error" hidden></p>
+          <p id="save-status" role="status"></p>
+        </div>
+        <p id="draft-note" class="draft-note" hidden>
+          这是上次没保存的修改。<button type="button" id="discard-draft" class="quiet">放弃这些修改</button>
+        </p>
       </form>
     </dialog>
     <script src="interaction.js"></script>

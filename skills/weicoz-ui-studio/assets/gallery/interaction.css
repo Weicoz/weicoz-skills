@@ -1,87 +1,350 @@
+.page-kicker {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.page-kicker + h1 {
+  margin-bottom: 8px;
+}
 .interaction-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 40px;
+  align-items: start;
 }
-.interaction-grid h2 {
-  font-size: 22px;
+
+/* 活动页：所有状态都在这一张上 */
+.event-page {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  min-height: 420px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
 }
-.interaction-grid select {
+.event-art {
+  position: relative;
+  background: url("media/vase.webp") 50% 28% / cover;
+  border-right: 1px solid var(--line);
+}
+/* 每种状态在图上盖一个印，说明这张图现在算不算数。 */
+.event-art::after {
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
+  padding: 10px 12px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  color: var(--red);
+  background: rgb(247 241 228 / 78%);
+  font: 600 18px/1.1 var(--serif);
+  letter-spacing: 0.18em;
+  transform: rotate(-6deg);
+  animation: stamp 0.34s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+.event-page[data-state="error"] .event-art::after {
+  content: "未载入";
+}
+.event-page[data-state="offline"] .event-art::after {
+  content: "未联网";
+  color: var(--muted);
+}
+.event-page[data-state="denied"] .event-art::after {
+  content: "只读";
+  color: var(--muted);
+}
+.event-page[data-state="empty"] .event-art::after {
+  content: "待印";
+  color: var(--muted);
+}
+.event-page[data-state="error"] .event-art {
+  filter: grayscale(0.85) brightness(1.06) blur(1px);
+}
+.event-page[data-state="denied"] .event-art,
+.event-page[data-state="offline"] .event-art {
+  filter: grayscale(1) contrast(0.9) brightness(1.08);
+}
+.event-page[data-state="empty"] .event-art {
+  background:
+    linear-gradient(var(--line-strong), var(--line-strong)) center / 1px 28px no-repeat,
+    linear-gradient(var(--line-strong), var(--line-strong)) center / 28px 1px no-repeat,
+    var(--sunk);
+}
+.event-page[data-state="loading"] .event-art {
+  background: var(--sunk);
+  animation: shimmer 1.4s ease-in-out infinite alternate;
+}
+.event-body {
+  display: flex;
+  flex-direction: column;
+  padding: 36px 36px 30px;
+}
+#state-panel {
+  flex: 1;
+  min-height: 220px;
+}
+#state-panel.enter {
+  animation: press 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+#state-panel h3 {
+  font: 400 34px/1.3 var(--serif);
+  margin: 0 0 8px;
+}
+#state-panel p {
+  font-size: 16px;
+  max-width: 28em;
+}
+#state-panel .when {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0 0 16px;
+}
+#state-panel button {
+  margin-top: 8px;
+}
+.event-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 24px;
+  margin: 24px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.event-facts dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.event-facts div:first-child {
+  grid-column: 1 / -1;
+}
+.event-facts dd {
+  margin: 3px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.event-actions {
+  justify-content: flex-start;
+  gap: 18px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+details {
+  position: relative;
+}
+summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  color: var(--muted);
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::after {
+  content: "▾";
+  margin-left: 6px;
+  font-size: 11px;
+}
+details[open] > button {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  white-space: nowrap;
+  background: var(--surface);
+  box-shadow: 0 10px 24px -12px rgb(29 33 30 / 45%);
+  z-index: 2;
+}
+
+/* 骨架屏：等待时保留版面 */
+.skeleton {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+.skeleton span {
+  height: 12px;
+  border-radius: 2px;
+  background: var(--sunk);
+  animation: shimmer 1.4s ease-in-out infinite alternate;
+}
+.skeleton span:first-child {
+  height: 26px;
+  width: 62%;
+}
+.skeleton span:nth-child(3) {
+  width: 78%;
+}
+
+/* 演示控制 */
+.console {
+  padding: 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 4px;
+}
+.console h2 {
+  font: 600 14px/1.3 var(--sans);
+  margin: 0;
+}
+.console > p:first-of-type {
+  font-size: 13px;
+  margin: 4px 0 18px;
+}
+.console label {
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+.console select {
   display: block;
   width: 100%;
   margin-top: 6px;
 }
-#state-panel {
-  min-height: 190px;
-  padding: 22px 0;
+.console .switch {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
-#state-panel h3 {
-  font-size: 28px;
+#persist-status {
+  font-size: 13px;
+  margin: 0;
 }
-details {
-  margin-top: 20px;
+#page-status {
+  margin-top: 18px;
 }
-summary {
-  cursor: pointer;
-  padding: 8px 0;
-}
+
+/* 弹窗 */
 dialog {
   width: min(560px, calc(100vw - 32px));
   max-height: calc(100dvh - 40px);
-  padding: 28px;
+  padding: 30px;
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 24px 100px #0004;
+  border-radius: 4px;
+  box-shadow: 0 30px 80px -20px rgb(20 23 20 / 55%);
+}
+dialog[open] {
+  animation: lift 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 dialog::backdrop {
-  background: #15211cd0;
+  background: rgb(20 23 20 / 62%);
+  animation: fade 0.24s ease-out;
+}
+.dialog-head {
+  margin-bottom: 8px;
 }
 dialog h2 {
-  font:
-    28px Georgia,
-    "Songti SC",
-    serif;
+  font: 400 28px/1.3 var(--serif);
+  margin: 0;
 }
 dialog small {
   display: block;
   color: var(--muted);
-  margin-top: -12px;
+  margin-top: -8px;
+  font-size: 13px;
 }
 dialog textarea {
+  width: 100%;
   resize: vertical;
 }
-#form-error {
-  border-left: 3px solid currentColor;
-  padding-left: 12px;
+.dialog-actions {
+  justify-content: flex-start;
+  gap: 10px;
+  margin-top: 6px;
 }
-.loading-bars {
+.field-error {
+  margin: -8px 0 12px;
+  font-size: 13px;
+  color: var(--red);
+}
+dialog small + .field-error {
+  margin-top: 4px;
+}
+dialog input[aria-invalid="true"] {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px var(--red);
+}
+/* 状态和失败条共用按钮下方一块固定高度的区域：出现、消失都不推动按钮，想立刻重试不会点空。 */
+.save-slot {
+  min-height: 52px;
+  margin-top: 8px;
+}
+.save-slot p {
+  margin: 0;
+}
+#form-error:not([hidden]) {
+  /* 从保存按钮下沿展开，和刚才那次按压连在一起。 */
+  transform-origin: left top;
+  animation: unroll 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.draft-note {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 0;
+  font-size: 13px;
 }
-.loading-bars span {
-  width: 14px;
-  height: 30px;
-  background: var(--line);
-  animation: pulse 1s alternate infinite;
+.draft-note button {
+  min-height: 36px;
+  padding: 4px 12px;
+  font-weight: 500;
 }
-.loading-bars span:nth-child(2) {
-  animation-delay: 0.2s;
+#form-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 3px;
+  background: rgb(168 48 42 / 7%);
+  box-shadow: inset 0 0 0 1px rgb(168 48 42 / 28%);
 }
-.loading-bars span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-@keyframes pulse {
-  to {
-    opacity: 0.25;
+@keyframes unroll {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scaleY(0.6);
   }
 }
-@media (max-width: 700px) {
+@keyframes lift {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes shimmer {
+  to {
+    opacity: 0.45;
+  }
+}
+@media (max-width: 900px) {
   .interaction-grid {
     grid-template-columns: 1fr;
   }
+}
+@media (max-width: 700px) {
+  .event-page {
+    grid-template-columns: 1fr;
+  }
+  .event-art {
+    height: 180px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .event-body {
+    padding: 24px 22px 22px;
+  }
+  #state-panel {
+    min-height: 0;
+  }
+  #state-panel h3 {
+    font-size: 28px;
+  }
   dialog {
-    padding: 20px;
+    padding: 22px;
   }
 }

@@ -16,6 +16,8 @@ async page => {
   assert(!(await page.locator('#film').textContent()).includes('null'), '缺省色板显示空节点');
   const iframe = page.locator('#track .slide.is-current iframe');
   const frame = page.frameLocator('#track .slide.is-current iframe');
+  // 目标可能在候选首屏以下：先在 iframe 内滚到可视区，再按渲染比例换算真实鼠标坐标。
+  await frame.locator('#more').evaluate(el => el.scrollIntoView({block:'center'}));
   const target = await frame.locator('#more').evaluate(el => el.getBoundingClientRect().toJSON());
   const box = await iframe.boundingBox();
   const logical = await iframe.evaluate(el => ({width:el.clientWidth,height:el.clientHeight}));
@@ -29,8 +31,10 @@ async page => {
   await frame.getByRole('button',{name:'加入 · ¥384',exact:true}).waitFor();
   await page.locator('#next').click();
   const workspace = page.frameLocator('#track .slide.is-current iframe');
-  await workspace.locator('#search').fill('城市');
+  await workspace.locator('#search').fill('铜瓶');
   assert(await workspace.locator('#items button').count()===1, '内嵌工作区筛选失败');
+  // 沙箱只放行 data: 图片；脚本引用的图版也必须被内嵌，不能是坏图。
+  assert(await workspace.locator('img:not([hidden] img)').evaluateAll(imgs => imgs.length > 0 && imgs.every(i => i.complete && i.naturalWidth > 0)), '内嵌工作区图片未加载');
   await page.locator('button[data-layout="compare"]').click();
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:'comparison-mobile.png',fullPage:true});

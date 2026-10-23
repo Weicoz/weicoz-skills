@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>界面工作室 · 工作区</title>
+    <title>青椿版画社 · 本周印制｜界面工作室示例</title>
     <link rel="stylesheet" href="studio.css" />
     <link rel="stylesheet" href="workspace.css" />
     <link rel="icon" href="data:," />
@@ -11,25 +11,28 @@
   <body>
     <a class="skip" href="#main">跳到内容</a>
     <header class="mast">
-      <a class="brand" href="index.html">界面工作室 <span>／ 工作区</span></a>
+      <a class="brand" href="index.html">青椿版画社 <span>／ 工作区</span></a>
       <nav aria-label="主导航">
         <a href="index.html">组件</a
         ><a href="workspace.html" aria-current="page">工作区</a
         ><a href="interaction.html">交互</a><a href="effects.html">动效</a>
       </nav>
     </header>
-    <main id="main">
-      <div class="intro">
-        <p class="eyebrow">把注意力放在当前任务</p>
-        <h1>阅读计划，正在发生。</h1>
-        <p>筛选、选择、处理。让工作台顺着你的思路展开。</p>
+    <main id="main" class="ws-main">
+      <div class="ws-head">
+        <h1>本周印制</h1>
+        <dl class="ws-sum">
+          <div><dt>未完成订单</dt><dd class="num" id="sum-open">3</dd></div>
+          <div><dt>待印版画</dt><dd class="num" id="sum-prints">160</dd></div>
+          <div><dt>最近交期</dt><dd id="sum-due">10 月 26 日</dd></div>
+        </dl>
       </div>
-      <div class="toolbar">
-        <label
-          >搜索项目<input
+      <div class="toolbar ws-tools">
+        <label class="grow"
+          >搜索订单<input
             id="search"
             type="search"
-            placeholder="名称或负责人" /></label
+            placeholder="图版名或负责人" /></label
         ><label
           >状态<select id="status-filter">
             <option value="all">全部</option>
@@ -45,6 +48,7 @@
           </select></label
         ><label
           >排序<select id="sort">
+            <option value="due">交期最近</option>
             <option value="asc">名称升序</option>
             <option value="desc">名称降序</option>
           </select></label
@@ -52,18 +56,52 @@
         <p role="status" id="results"></p>
       </div>
       <div id="workspace" class="workspace" data-layout="list">
-        <section id="items" aria-label="项目列表"></section>
-        <aside id="inspector" class="notice" aria-label="项目详情">
-          <h2 id="detail-title"></h2>
-          <p id="detail-owner"></p>
-          <p id="detail-state"></p>
-          <p id="detail-description"></p>
-          <button id="move">推进状态</button
-          ><button id="back-list" class="quiet">返回列表</button>
+        <section id="items" aria-label="订单列表"></section>
+        <aside id="inspector" aria-label="订单详情">
+          <div class="detail-body">
+            <div class="detail-head">
+              <img id="detail-image" class="detail-image" src="media/sparrows-snow.webp" alt="" />
+              <div>
+                <h2 id="detail-title"></h2>
+                <p id="detail-state" class="detail-state"></p>
+              </div>
+            </div>
+            <dl class="facts">
+              <div><dt>负责人</dt><dd id="detail-owner"></dd></div>
+              <div><dt>数量</dt><dd id="detail-quantity"></dd></div>
+              <div><dt>纸张</dt><dd id="detail-paper"></dd></div>
+              <div><dt>交期</dt><dd id="detail-due"></dd></div>
+            </dl>
+            <div class="blocks">
+              <ol id="blocks" aria-labelledby="blocks-label">
+                <li style="--ink: #1d211e">墨</li>
+                <li style="--ink: #2b4866">靛</li>
+                <li style="--ink: #2e4a3b">绿</li>
+                <li style="--ink: #a8302a">红</li>
+              </ol>
+              <p id="blocks-label"></p>
+            </div>
+            <p id="detail-description"></p>
+            <p id="detail-next" class="detail-next"></p>
+            <div class="row detail-actions">
+              <button id="move">推进状态</button
+              ><button id="undo" class="quiet" hidden>撤销上一步</button
+              ><button id="back-list" class="quiet">返回列表</button>
+            </div>
+            <p id="workspace-result" class="seal-result" role="status"></p>
+          </div>
         </aside>
       </div>
-      <p id="workspace-result" role="status"></p>
     </main>
+    <!-- 图版在这里静态引用：对比页生成器只内嵌静态写出的资源，脚本拼出的路径在沙箱里会被拦截。 -->
+    <div id="covers" hidden>
+      <img data-path="media/sparrows-snow.webp" src="media/sparrows-snow.webp" alt="" />
+      <img data-path="media/red-camellia.webp" src="media/red-camellia.webp" alt="" />
+      <img data-path="media/vase.webp" src="media/vase.webp" alt="" />
+      <img data-path="media/swallow-night.webp" src="media/swallow-night.webp" alt="" />
+      <img data-path="media/blue-bird.webp" src="media/blue-bird.webp" alt="" />
+      <img data-path="media/winter-basket.webp" src="media/winter-basket.webp" alt="" />
+    </div>
     <script src="workspace.js"></script>
   </body>
 </html>
