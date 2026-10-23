@@ -102,6 +102,43 @@ class PackageSafety(unittest.TestCase):
             web_pkg = json.loads((output / 'payload/.dsh/profiles/web/package.json').read_text())
             self.assertEqual(web_pkg['dependencies']['dsh-web'], f'link:{target}/.dsh/profiles/web/vendor/dsh-web')
 
+    def test_antigravity_entries_link_to_single_skill_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, target = root / 'source', root / 'target'
+            (source / '.agents/skills/demo').mkdir(parents=True)
+            (source / '.agents/skills/demo/SKILL.md').write_text('portable source')
+            (source / '.gemini/config/skills').mkdir(parents=True)
+            (source / '.gemini/config/skills/demo').symlink_to(source / '.agents/skills/demo')
+            (source / '.gemini/config/skills/dangling').symlink_to(source / '.skills-manager/skills/dangling')
+            (source / '.gemini/antigravity-cli/skills').mkdir(parents=True)
+            (source / '.gemini/antigravity-cli/skills/ego-browser').symlink_to(source / '.local/share/ego/ego-skills')
+            (source / '.gemini/config/config.json').write_text(
+                json.dumps({'plugins': {'demo': {'enabled': True}},
+                            'userSettings': {'remoteControlHostname': 'source-host'}}))
+            (source / '.gemini/config/mcp_config.json').write_text(
+                json.dumps({'mcpServers': {'tool': {'command': str(source) + '/.local/bin/tool'}}}))
+            (source / '.gemini/antigravity-cli/settings.json').write_text(
+                json.dumps({'model': 'fixture', 'trustedWorkspaces': [str(source)]}))
+            (source / '.agents/AGENTS.md').write_text('shared rules')
+            (source / '.gemini/AGENTS.md').write_text('shared rules')
+            output = root / 'output'
+            package.build(source, str(target), 'darwin', output)
+            manifest = json.loads((output / 'manifest.json').read_text())
+            self.assertEqual(manifest['links']['.gemini/config/skills/demo'], '.agents/skills/demo')
+            self.assertEqual(manifest['links']['.gemini/antigravity-cli/skills/ego-browser'],
+                             '.local/share/ego/ego-skills')
+            self.assertEqual(manifest['links']['.gemini/AGENTS.md'], '.agents/AGENTS.md')
+            self.assertNotIn('.gemini/config/skills/dangling', manifest['links'])
+            self.assertIn('dangling', [item.get('skill') for item in manifest['unavailable']])
+            config = json.loads((output / 'payload/.gemini/config/config.json').read_text())
+            self.assertNotIn('remoteControlHostname', config['userSettings'])
+            self.assertTrue(config['plugins']['demo']['enabled'])
+            mcp = json.loads((output / 'payload/.gemini/config/mcp_config.json').read_text())
+            self.assertEqual(mcp['mcpServers']['tool']['command'], str(target) + '/.local/bin/tool')
+            settings = json.loads((output / 'payload/.gemini/antigravity-cli/settings.json').read_text())
+            self.assertEqual(settings['trustedWorkspaces'], [str(target)])
+
     def test_boundary_and_private_key_rejection(self):
         for bad in ('../outside', '/absolute', '.ssh/id_rsa', '.codex/memories/owner.md'):
             with self.assertRaises(ValueError):

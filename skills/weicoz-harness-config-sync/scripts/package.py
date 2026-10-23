@@ -15,12 +15,15 @@ CONFIG_FILES = (
     '.codex/keybindings.json', '.codex/herdr-agent-state.sh',
     '.dsh/cordis.patch.yml', '.dsh/.credentials.yaml',
     '.hindsight/coding-agent.json', '.config/harness-notify/config.json',
+    '.gemini/config/config.json', '.gemini/config/hooks.json',
+    '.gemini/config/mcp_config.json', '.gemini/antigravity-cli/settings.json',
 )
 CONFIG_DIRS = (
     '.codex/hooks', '.codex/rules', '.codex/prompts', '.codex/agents',
     '.codex/model-catalog-overrides', '.codex/plugins/cache',
     '.dsh/.agent-presets', '.dsh/bin',
     '.hindsight/coding-agents', '.skills-manager/hooks', '.quicktui/bin',
+    '.gemini/config/hooks', '.gemini/config/plugins',
 )
 EXCLUDED_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', 'venv',
                  'sessions', 'memories', 'memories_v2', 'generated_images',
@@ -48,7 +51,9 @@ def rewrite(data, source, target, replacements):
         text = data.decode('utf-8')
     except UnicodeDecodeError:
         return data
-    mapping = {str(source): target, **replacements}
+    # 源用户目录可能有两种写法（软链前后）；两种都要改写。
+    sources = source if isinstance(source, (list, tuple, set)) else [source]
+    mapping = {**{str(item): target for item in sources}, **replacements}
     pattern = re.compile('|'.join(re.escape(old) for old in sorted(mapping, key=len, reverse=True)))
     return pattern.sub(lambda match: mapping[match.group()], text).encode('utf-8')
 
@@ -104,8 +109,11 @@ def portable_codex(text, platform, source=None, target=None):
 
 
 def build(source, target, platform, output, shell=False, config=True, extras=(), include_auth=False,
-          exclude_dsh_official_deepseek=False):
+          exclude_dsh_official_deepseek=False, skip_skills=False):
+    source_raw = source.absolute()
     source = source.resolve()
+    # 目标机器的用户目录可能经由软链访问（如 macOS /var → /private/var）；两种写法都要认。
+    source_variants = {source, Path(os.path.normpath(source_raw))}
     output = output.resolve()
     if output.exists():
         raise ValueError('输出目录已存在；选择新的私有目录')
@@ -146,7 +154,7 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
                 raise ValueError(f'拒绝私钥正文: {rel}')
             dst = stage / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(rewrite(data, source, target, replacements))
+            dst.write_bytes(rewrite(data, source_variants, target, replacements))
             dst.chmod(src.stat().st_mode & 0o777)
 
     links = {}
@@ -159,7 +167,8 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
         for rel, src in local_plugins.items():
             copy(src, rel)
         # 每个 Harness 入口指向同一技能源；插件缓存软链在包内物化。
-        for root in ('.agents/skills', '.codex/skills', '.dsh/skills'):
+        # 目标机已有独立技能库时跳过技能正文，避免穿过目标端软链改写其技能仓。
+        for root in () if skip_skills else ('.agents/skills', '.codex/skills', '.dsh/skills'):
             folder = source / root
             if not folder.is_dir():
                 continue
@@ -173,12 +182,35 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
                     copy(item, canonical)
                 if root != '.agents/skills':
                     links[root + '/' + item.name] = canonical
+        # Antigravity CLI 技能入口指向同一技能源；源端缺失的技能记录为不可用。
+        agy_skills = source / '.gemini/config/skills'
+        if agy_skills.is_dir():
+            for item in sorted(agy_skills.iterdir()):
+                canonical = '.agents/skills/' + item.name
+                if (source / '.agents/skills' / item.name).is_dir() or (stage / canonical).exists():
+                    links['.gemini/config/skills/' + item.name] = canonical
+                else:
+                    unavailable.append({'skill': item.name, 'harness': 'agy',
+                                         'reason': '源端 .agents/skills 缺少该技能'})
+        agy_local_skills = source / '.gemini/antigravity-cli/skills'
+        if agy_local_skills.is_dir():
+            for item in sorted(agy_local_skills.iterdir()):
+                # 用未解析的链接目标判断：指向用户目录内的入口可按同一相对路径在目标重建。
+                raw = os.readlink(item) if item.is_symlink() else None
+                candidate = Path(os.path.normpath(item.parent / raw)) if raw else item
+                matched = next((variant for variant in source_variants
+                                if candidate == variant or variant in candidate.parents), None)
+                if matched is None:
+                    unavailable.append({'skill': item.name, 'harness': 'agy',
+                                        'reason': '技能源不在用户目录内，需目标端自行安装'})
+                    continue
+                links['.gemini/antigravity-cli/skills/' + item.name] = str(candidate.relative_to(matched))
         for profile in ('web', 'web-safe', 'headless', 'dsh-tui', 'desktop'):
             for name in ('package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'cordis.yml', 'cordis.patch.yml'):
                 rel = f'.dsh/profiles/{profile}/{name}'
                 copy(source / rel, rel)
         # 全局 AGENTS 正文只有一个源；迁移后保留入口关系。
-        for root in ('.agents', '.codex', '.dsh'):
+        for root in ('.agents', '.codex', '.dsh', '.gemini'):
             src = source / root / 'AGENTS.md'
             if src.exists():
                 if not (stage / '.agents/AGENTS.md').exists():
@@ -187,7 +219,8 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
                     links[root + '/AGENTS.md'] = '.agents/AGENTS.md'
         cp = stage / '.codex/config.toml'
         if cp.exists():
-            text, unavailable = portable_codex(cp.read_text(), platform, source=source, target=target)
+            text, codex_unavailable = portable_codex(cp.read_text(), platform, source=source, target=target)
+            unavailable.extend(codex_unavailable)
             cp.write_text(text)
             tomllib.loads(text)
         if exclude_dsh_official_deepseek:
@@ -220,6 +253,15 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
                 web_pkg.write_text(json.dumps(pkg_data, ensure_ascii=False, indent=2) + '\n')
             except Exception:
                 pass
+        agy_config = stage / '.gemini/config/config.json'
+        if agy_config.exists():
+            data = json.loads(agy_config.read_text())
+            user_settings = data.get('userSettings')
+            if isinstance(user_settings, dict) and 'remoteControlHostname' in user_settings:
+                user_settings.pop('remoteControlHostname')
+                unavailable.append({'config': 'userSettings.remoteControlHostname',
+                                    'reason': '远程控制主机名绑定源机器，目标使用自身主机名'})
+            agy_config.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
     for spec in extras:
         src, rel = spec.split('=', 1)
         copy(Path(src).expanduser(), rel)
@@ -274,12 +316,14 @@ def main():
     p.add_argument('--include-auth', action='store_true', help='用户已要求同步登录及模型凭据时使用')
     p.add_argument('--exclude-dsh-official-deepseek', action='store_true',
                    help='用户要求不同步 DSH 官方 DeepSeek 模型凭据与配置时使用')
+    p.add_argument('--skip-skills', action='store_true',
+                   help='目标机已有独立技能库时只同步配置，不复制技能正文')
     p.add_argument('--extra', action='append', default=[], metavar='SOURCE=HOME_RELATIVE_DEST')
     a = p.parse_args()
     try:
         build(a.source_home, a.target_home.replace('\\', '/').rstrip('/'), a.platform,
               a.output, a.shell or a.shell_only, not a.shell_only, a.extra, a.include_auth,
-              a.exclude_dsh_official_deepseek)
+              a.exclude_dsh_official_deepseek, a.skip_skills)
     except (ValueError, OSError) as error:
         p.exit(1, f'错误：{error}\n')
 
