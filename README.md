@@ -141,6 +141,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-log-driven-ai-development`](skills/weicoz-log-driven-ai-development/) | 1.0.0 | 用日志把关键流程与结果变得可查，便于 AI 排查与验证 |
 | [`weicoz-ai-dev-os`](skills/weicoz-ai-dev-os/) | 1.0.0 | 安装或同步项目级 AI 开发治理、宪法、SDD 与架构护栏 |
 | [`weicoz-codex-context-window-override`](skills/weicoz-codex-context-window-override/) | 1.0.0 | 用 model_catalog_json 修改 Codex 上下文窗口，含备份与回滚 |
+| [`weicoz-code-review`](skills/weicoz-code-review/) | 1.0.0 | 省 token 的本地代码审查：fork 给 Sonnet 执行、Haiku 批量打分过滤误报，主对话只收报告（Claude Code 需先运行 `scripts/install-agents.sh`） |
 
 #### 浏览器与信息获取
 
