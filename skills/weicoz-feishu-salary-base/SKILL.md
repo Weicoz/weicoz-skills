@@ -425,6 +425,8 @@ lark-cli base +record-list --as user --base-token <BASE_TOKEN> --table-id <TABLE
 绩效奖金 <数字>｜补贴 <数字>
 应缴社保 <数字>｜个税 <数字>
 实发薪资 <数字>
+
+请核对以上工资明细，确认无误请回复「确认」；如有疑问请及时沟通。
 ```
 
 格式要求：
