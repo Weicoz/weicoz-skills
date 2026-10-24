@@ -753,6 +753,11 @@ def _load_manifest_data(raw: dict, path: Path, *, include_manifest: bool) -> tup
                 source = attempt(source_file)
                 if source:
                     inputs.add(source)
+        if kind == "html" and source and interactive is False and re.search(
+                r"<script\b", source.read_text(encoding="utf-8", errors="ignore"), flags=re.I):
+            # 非可交互候选的脚本会被整段移除；靠 JS 渲染内容的小样会在对比页里变成空白。
+            print(f"{where}页面含脚本但未声明 interactive，嵌入时脚本会被移除；内容靠 JS 渲染时对比页会显示空白，"
+                  "需要保留脚本请在 manifest 写 \"interactive\": true", file=sys.stderr)
         colors = attempt(lambda: palette(candidate.get("palette"), where)) if "palette" in candidate else None
         texts = {name: attempt(lambda name=name: text_field(candidate, name, where=where))
                  for name in ("concept", "typography") if name in candidate}
