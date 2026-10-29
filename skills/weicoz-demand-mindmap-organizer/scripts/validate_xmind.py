@@ -13,9 +13,9 @@ from typing import Any
 
 REQUIRED_MEMBERS = {"content.json", "metadata.json", "manifest.json"}
 PROFILES = {
-    "small": {"first_level": 3, "nodes": 20, "depth": 2},
-    "normal": {"first_level": 5, "nodes": 50, "depth": 3},
-    "large": {"first_level": 7, "nodes": 100, "depth": 3},
+    "small": {"first_level": 3, "nodes": 20, "max_nodes": 45, "depth": 2},
+    "normal": {"first_level": 5, "nodes": 50, "max_nodes": 100, "depth": 3},
+    "large": {"first_level": 7, "nodes": 80, "max_nodes": 200, "depth": 3},
 }
 
 
@@ -40,6 +40,12 @@ def main() -> int:
     parser.add_argument("xmind", type=Path)
     parser.add_argument("--profile", choices=PROFILES, default="normal")
     parser.add_argument("--require", action="append", default=[], help="required first-level branch title")
+    parser.add_argument(
+        "--max-topics",
+        type=int,
+        default=None,
+        help="topic ceiling for readability; 0 disables the check (default: profile ceiling)",
+    )
     args = parser.parse_args()
 
     if not args.xmind.is_file():
@@ -73,6 +79,11 @@ def main() -> int:
         failures.append(f"first-level branches {len(first_level)} < {limits['first_level']}")
     if count < limits["nodes"]:
         failures.append(f"topics {count} < {limits['nodes']}")
+    ceiling = args.max_topics if args.max_topics is not None else limits["max_nodes"]
+    if ceiling and count > ceiling:
+        failures.append(
+            f"topics {count} > {ceiling} ceiling; move detail into the requirements doc instead of merging rows"
+        )
     if depth < limits["depth"]:
         failures.append(f"depth {depth} < {limits['depth']}")
     missing_branches = [title for title in args.require if title not in first_level]
@@ -87,6 +98,7 @@ def main() -> int:
         "first_level": len(first_level),
         "topics": count,
         "depth": depth,
+        "ceiling": args.max_topics if args.max_topics is not None else limits["max_nodes"],
         "branches": first_level,
         "profile": args.profile,
     }, ensure_ascii=False))
