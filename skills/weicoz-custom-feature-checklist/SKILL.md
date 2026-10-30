@@ -1,14 +1,20 @@
 ---
 name: weicoz-custom-feature-checklist
-version: 1.2.0
+version: 1.2.1
 description: >
-  把客户沟通记录、会议纪要、聊天内容整理成可交付的功能清单初稿。
+  把客户沟通记录、会议纪要、聊天内容整理成可交付的功能清单，含内部版、客户版、Markdown 和 xlsx。
   默认只保留定制部分，区分现成能力与待确认项，并优先按用户端/平台后台拆分。
-  当用户提到售前需求整理、功能清单初稿、定制功能梳理、只保留定制部分、用户端/平台后台、待确认项、会议纪要转功能清单时使用。
+  当用户提到功能清单、功能清单初稿、定制功能清单、客户版功能清单、功能清单 xlsx、按模板生成功能清单、售前需求整理、定制功能梳理、只保留定制部分、用户端/平台后台、待确认项、会议纪要转功能清单时使用。
+  当 `weicoz-jy-design-demand-archive` 同时命中时，功能清单以本 skill 为主流程；归档 skill 只负责路径、命名和参数基线。
 allowed-tools: Read, Write, Edit, Bash
 ---
 
 # Custom Feature Checklist
+
+## 与其他 Skill 的关系
+- `weicoz-jy-design-demand-archive` 负责落盘路径、文件命名、交付对象和参数基线；功能清单的表结构、输出模板和 xlsx 生成以本 skill 为准。
+- 两个 skill 同时命中时，本 skill 是功能清单主流程；归档 skill 不得再定义功能清单表结构、模块结构树或强制 ASCII。
+- 导图、需求文档、报价仍按各自专项 skill 执行。
 
 ## 适用场景
 - 用户让你“根据沟通记录/会议纪要/聊天内容整理功能清单”。
