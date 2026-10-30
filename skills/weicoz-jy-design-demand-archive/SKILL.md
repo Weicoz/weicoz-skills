@@ -142,7 +142,7 @@ done
 
 ### 存档 + 功能清单（仅委派）
 - 用户要功能清单时，调用 `weicoz-custom-feature-checklist`；本 skill 不写表结构、文件名、ASCII 或 xlsx 规则。
-- 本 skill 只提供两件事：项目目录 `jy-design/<项目目录>/`；同项目沟通记录的「定案口径」作为参数基线。
+- 本 skill 只提供两件事：项目目录 `jy-design/<项目目录>/`；同项目沟通记录的「已确认参数表」作为参数基线。
 - 功能清单的内部版/客户版、Markdown/xlsx/ASCII、模板和命名，全部以专项 skill 为准。
 
 ## 提问闭环与定案参数表（强制）
