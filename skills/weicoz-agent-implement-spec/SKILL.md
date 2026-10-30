@@ -1,6 +1,6 @@
 ---
 name: weicoz-agent-implement-spec
-version: 1.3.1
+version: 1.4.0
 description: 将整份规格及其关联票据委派给编码代理实现，默认由本机发起会话担任编排器，按当前 implement-spec 技能编排依赖图、就绪票据、独立 worktree 和 integration 分支，每票派一个实现会话（本机或经 weicoz-remote-dispatch 派到远端），由发起方合并、审查与验收。用于“让代理实现整份 spec”“把规格的所有票做完”等整规格委派；单票实现使用 weicoz-agent-implement。
 ---
 
@@ -16,6 +16,8 @@ description: 将整份规格及其关联票据委派给编码代理实现，默�
 - 用户授权远端时：每票一次 `rdispatch run`，`--ref <integration 分支>`、`--branch <票据分支>`，随单 `--include` 规格外的必要文件（如技能原文副本、清单）；完成后 `rdispatch fetch`，在本机审查、合入 integration，再从合并后的提交派下一批。
 - 远端执行时的分工：票据实现提交在执行机完成；合入 integration 在发起方本机做（无冲突的 `git merge` 不触发提交钩子、几乎不占资源，integration 只保留一份）；有冲突时交回原票实现会话，在执行机合入 integration 最新提交并重跑钩子后再取回；发起方验收与阶段节点的测试用 `rdispatch run --cmd`／`--test` 在执行机按 `rd-heavy` 排队运行，本机只读改动、核对验收项。
 - 用户沟通层归编排层：页面与交互设计、信息怎样呈现给用户、面向用户的文案措辞（提示、错误说明、通知、横幅等），由编排层（发起会话）决定并实现或定稿；实现会话只做背后的逻辑与不涉及展示的接线（接口封装、类型、数据 hooks 等），需要文案时可先建键与占位文字，并在回报中列出待定稿的文案。派单前按此拆分票据范围，在提示词中写明哪些归实现会话、哪些留给编排层。
+- 登记工作项：用 `weicoz-remote-dispatch` 的 `rdispatch plan add <工作项> --depends <工作项>` 先把规格里的票登记成工作项及依赖，再按 frontier 派单（`rdispatch run --plan-item <工作项>`，依赖的前序派单用 `--context-from` 带上下文包）。看板用 `rdispatch board` 查待派与阻塞。
+- 要用工作线时，把会话派单模式设为 `line`（`rdispatch session-default <会话> --dispatch-mode line` 或 `run --dispatch-mode line`）。默认的 `suggest` 模式下，派单前由 `weicoz-remote-dispatch` 的规则调 `rdispatch suggest` 并转告用户；rdispatch 不能强制代理先调 `suggest`，编排方自己执行。
 - 并行度按执行机实测负载与用户指定上限；并行票先分配迁移编号、共享文件等归属，写进各自提示词。
 
 原因（2026-10-16 实测）：远端员工配置的沙箱只放行任务 worktree 等目录，任务内的编排代理无法写继承的 `CODEX_HOME`，嵌套 `codex exec` 报 `failed to initialize in-process app-server client: Operation not permitted`，无法启动实现会话。由发起方编排还能把派单、合并与验收放在同一处，额度上编排与验收用发起方宿主，写代码用实现代理。
