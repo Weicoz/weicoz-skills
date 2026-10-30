@@ -121,6 +121,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-gptimage2-info-ui-text`](skills/weicoz-gptimage2-info-ui-text/) | 1.0.0 | 信息图、UI 截图、中文长文字海报等文字密集图提示词 |
 | [`weicoz-gptimage2-style-reference-edit`](skills/weicoz-gptimage2-style-reference-edit/) | 1.0.0 | 风格化、参考图编辑、真实摄影、角色一致性与艺术玩法提示词 |
 | [`weicoz-goosedesigns`](skills/weicoz-goosedesigns/) | 1.0.0 | 做页面前先检索本地视觉参考库，保证设计多样性 |
+| [`weicoz-code-animation`](skills/weicoz-code-animation/) | 1.0.0 | 341 种代码动画风格库：检索风格提示词，出单文件 html 并渲成 mp4 |
 | [`weicoz-page-design-harness`](skills/weicoz-page-design-harness/) | 1.0.0 | 按产品、用户、约束与验收标准设计与审查页面 |
 | [`weicoz-page-layout-ascii-guide`](skills/weicoz-page-layout-ascii-guide/) | 1.0.0 | 内容已知但不知如何排版时，产出 ASCII 页面骨架 |
 | [`weicoz-ui-studio`](skills/weicoz-ui-studio/) | 1.2.1 | 完整继承 Free 设计流程、对比页、素材检索与取证，再加交互、19 套组件、工作区及评审增强 |
