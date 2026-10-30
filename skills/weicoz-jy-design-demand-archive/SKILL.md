@@ -1,6 +1,6 @@
 ---
 name: weicoz-jy-design-demand-archive
-version: 1.8.0
+version: 1.8.1
 description: >
   把会议纪要、沟通记录、聊天内容或客户原话，整理并落盘到 `$WEICOZ_JY_DESIGN_ROOT` 对应项目目录，再按内容产出功能清单、导图、需求文档或报价文档。
   当用户提到“保存到 jy-design”“把这段沟通记录存起来”“根据内容出导图”“会议纪要转 jy-design 文档”“把客户沟通整理到 jy-design 并输出需求材料、会议纪要转功能清单”时必须使用；用户还要求报价、预算、服务器、第三方服务/API/SDK 价格或完整项目评估时，必须调用 `weicoz-project-quote-estimator` 输出逐项报价文档。
@@ -11,17 +11,17 @@ allowed-tools: Read, Write, Edit, Bash
 
 ## 功能边界
 - 本 skill 负责把原始需求材料保存到 `jy-design`，并顺手产出匹配的交付物。
-- 交付物可以是：沟通记录、功能清单（Markdown / xlsx，按专项 skill）、ASCII 导图、思维导图 Markdown、需求文档初稿、项目报价与第三方服务费用文档。
+- 交付物可以是：沟通记录、功能清单（调用专项 skill）、ASCII 导图、思维导图 Markdown、需求文档初稿、项目报价与第三方服务费用文档。
 - 只要交付物里包含 `需求文档`，正文就必须带至少一段 ASCII 业务流程图。
 - 报价、排期、服务器、第三方服务价格仅在用户明确要求时处理；此时必须调用 `weicoz-project-quote-estimator`，不在本 skill 内重复报价规则。
 - 如果导图整理本身已超出本 skill 边界，优先调用 `weicoz-demand-mindmap-organizer`，不要重复发明导图规则。
-- 「提问闭环与定案参数表（强制）」覆盖本 skill 全部交付物：沟通记录、需求文档、功能清单、思维导图、ASCII 版、Excel 版、报价文档；不只作用于导图。
+- 「提问闭环与定案参数表（强制）」覆盖本 skill 全部交付物：沟通记录、功能清单、需求文档、导图、报价；不只作用于导图。
 
 ## Skill 委派（强制）
-- 功能清单：一律调用 `weicoz-custom-feature-checklist`。本 skill 只负责路径、命名、交付对象和参数基线；不重复定义功能清单格式。
+- 功能清单：一律调用 `weicoz-custom-feature-checklist`。本 skill 只负责项目目录、交付对象和参数基线；文件名、格式和 xlsx 按专项 skill。
 - 思维导图：一律调用 `weicoz-demand-mindmap-organizer`。
 - 报价：一律调用 `weicoz-project-quote-estimator`。
-- 专项 skill 与本 skill 冲突时，功能清单、导图、报价的格式以专项 skill 为准；本 skill 只补充项目路径和版本命名。
+- 专项 skill 与本 skill 冲突时，功能清单、导图、报价的格式以专项 skill 为准；本 skill 只补充项目路径和参数基线。
 - 同一轮同时命中多个 skill 时，先加载专项 skill，再按本 skill 的归档规则落盘；不得因为本 skill 已有一段格式说明就跳过专项 skill。
 
 ## 适用场景
@@ -58,10 +58,8 @@ allowed-tools: Read, Write, Edit, Bash
 - 沟通记录：`项目名-沟通记录-YYYYMMDD.md`
 - 原始会议转写：`项目名-原始会议转写-YYYYMMDD.md`
 - 思维导图：`项目名-思维导图-YYYYMMDD.md`，真实导图文件为 `项目名-思维导图-YYYYMMDD.xmind`
-- ASCII 树状图（导图结构核对稿）：`项目名-ASCII树状图-YYYYMMDD.txt`；内容取自导图大纲，不是功能清单的模块树。功能清单不默认出 ASCII；用户明确要纯文本核对稿时，由 `weicoz-custom-feature-checklist` 生成。
-- 功能清单（内部版）：`项目名-功能清单-初稿-YYYYMMDD.md`
-- 功能清单（客户版，零待定）：`项目名-功能清单-客户版-YYYYMMDD.md`
-- 功能清单 Excel 版：与对应 Markdown 同名，扩展名 `.xlsx`（客户版用 `-客户版-`）；生成方式和模板按 `weicoz-custom-feature-checklist` 的 xlsx 规则，不在本 skill 定义表结构
+- ASCII 树状图（导图结构核对稿）：`项目名-ASCII树状图-YYYYMMDD.txt`；内容取自导图大纲。
+- 功能清单：文件名、表结构、ASCII 和 xlsx 全部按 `weicoz-custom-feature-checklist`，本 skill 不另行规定。
 - 若用户明确要需求文档：`项目名-需求文档-YYYYMMDD.md`
 - 若用户明确要报价、预算或完整项目评估：`项目名-项目报价与第三方服务费用-YYYYMMDD.md`
 - 项目名以所在项目目录名为准，去掉开头 `YYYYMMDD-` 后使用；目录名与文件名前缀必须一致（目录 `20261028-某项目` 对应文件 `某项目-沟通记录-20261028.md`）。
@@ -75,8 +73,7 @@ allowed-tools: Read, Write, Edit, Bash
   - `项目名-原始会议转写-YYYYMMDD.md`
   - `项目名-需求文档-YYYYMMDD.md`
   - `项目名-思维导图-YYYYMMDD.md`
-  - `项目名-功能清单-初稿-YYYYMMDD.md` 或 `项目名-功能清单-客户版-YYYYMMDD.md`（产出功能清单时，按交付对象二选一）
-  - 功能清单默认只给 Markdown；用户明确要 xlsx 时加 `.xlsx`；ASCII 只在明确要求时由专项 skill 出
+  - 功能清单：按 `weicoz-custom-feature-checklist` 的文件名和格式，落在同一项目目录
 - 不要把 `沟通记录` 放在 `jy-design`，却把 `需求文档` 或 `思维导图` 放到其他仓库的 `outputs/`、`projects/`、`notes/` 目录。
 - 如果本轮先误落到其他仓库，应直接迁移到 `jy-design` 项目目录，不保留重复副本。
 
@@ -134,7 +131,7 @@ done
 - 如果用户说“根据内容出导图 / 思维导图 / 文字版导图”，默认产出：
   - `项目名-沟通记录-YYYYMMDD.md`
   - `项目名-原始会议转写-YYYYMMDD.md`（若源材料是会议/转写）
-  - `项目名-ASCII树状图-YYYYMMDD.txt`：先出，内容取自导图大纲，作为导图结构核对稿（不是功能清单的模块树）
+  - `项目名-ASCII树状图-YYYYMMDD.txt`：先出，内容取自导图大纲，作为导图结构核对稿
   - `项目名-思维导图-YYYYMMDD.md`
   - `项目名-思维导图-YYYYMMDD.xmind`：真实导图，默认交付物；重名时以本 skill 命名为准，覆盖 `weicoz-demand-mindmap-organizer` 的 `思维导图-YYYYMMDD.xmind` 默认名
 
@@ -143,17 +140,10 @@ done
 - 如果同一轮同时涉及“沟通内容 + 需求文档 + 导图”，默认三者都放进 `jy-design/<项目目录>/`，不要拆到不同仓库。
 - 只要产出包含 `需求文档`，必须补一段或多段 ASCII 业务流程图，不能只有模块列表和文字说明。
 
-### 存档 + 功能清单（委派）
-- 用户要功能清单时，必须先加载 `weicoz-custom-feature-checklist`，按它的输出模板、主表字段、xlsx 生成器和模板执行。
-- 本 skill 只决定四件事：
-  - 落盘目录：`jy-design/<项目目录>/`
-  - 文件名：内部版 `项目名-功能清单-初稿-YYYYMMDD.md`；客户版 `项目名-功能清单-客户版-YYYYMMDD.md`
-  - 交付对象：内部版 / 客户版（零待定）
-  - 参数基线：引用同项目沟通记录的「定案口径」
-- 本 skill 不再定义功能清单表结构、模块结构树、ASCII 版或 xlsx 表结构；这些以专项 skill 为准。
-- 用户只要 Markdown：按专项 skill 的 `references/output-template.md` 出标题、说明、主表、定案口径或待确认项。
-- 用户要 `.xlsx`：按专项 skill 的 `references/xlsx-output.md` 和 `scripts/create_feature_checklist_xlsx.py` 生成；模板优先用用户指定或同类项目已确认的 xlsx。
-- 用户明确要纯文本核对稿时，才由专项 skill 出 ASCII 核对版；不默认生成。
+### 存档 + 功能清单（仅委派）
+- 用户要功能清单时，调用 `weicoz-custom-feature-checklist`；本 skill 不写表结构、文件名、ASCII 或 xlsx 规则。
+- 本 skill 只提供两件事：项目目录 `jy-design/<项目目录>/`；同项目沟通记录的「定案口径」作为参数基线。
+- 功能清单的内部版/客户版、Markdown/xlsx/ASCII、模板和命名，全部以专项 skill 为准。
 
 ## 提问闭环与定案参数表（强制）
 
@@ -249,8 +239,8 @@ done
 4. 若要求需求文档，直接在同目录落 `项目名-需求文档-YYYYMMDD.md`。
    - 并检查正文里是否已有 ASCII 业务流程图；没有就必须补上。
 5. 若要求导图，优先用 `weicoz-demand-mindmap-organizer` 的规则整理，并在同目录落 `项目名-思维导图-YYYYMMDD.md` 与 `项目名-思维导图-YYYYMMDD.xmind`。
-6. 无论最终是否落文件，只要有思维导图产出，就先给导图结构的 ASCII 版（来自导图大纲，不是功能清单树），再决定是否落 `.txt` 或 `.md`。
-6.1 若要求功能清单，先加载 `weicoz-custom-feature-checklist`，按交付对象落 `项目名-功能清单-初稿-YYYYMMDD.md` 或 `项目名-功能清单-客户版-YYYYMMDD.md`；用户要 xlsx 时按该 skill 的生成器出 `.xlsx`；本 skill 不另出功能清单 ASCII。
+6. 无论最终是否落文件，只要有思维导图产出，就先给导图结构的 ASCII 版（来自导图大纲），再决定是否落 `.txt` 或 `.md`。
+6.1 若要求功能清单，调用 `weicoz-custom-feature-checklist`，落在同项目目录；本 skill 不写功能清单格式和文件名。
 7. 若主题存在明显缺口，按「定案参数表与提问闭环」先问清；问清后把结果写成「已确认参数表」落进沟通记录。
    - 客户版导图与客户版文档不得留待定项；未闭合就不发客户版。
    - 内部版可留待确认项，但必须与参数表分开。
@@ -295,7 +285,7 @@ done
 - 会议类材料如果后续又整理出 `需求文档`、`思维导图`，这些文件也必须在同一个 `jy-design` 项目目录中。
 - 任何 `需求文档` 类产物都必须包含 ASCII 业务流程图，方便客户和内部快速核对主链路。
 - 任何 `思维导图` 类产物都必须先出 ASCII 版导图，再输出最终文件版。
-- 任何 `功能清单` 类产物都必须走 `weicoz-custom-feature-checklist`；Markdown 与 xlsx（如有）同源，ASCII 只在用户明确要求时出。
+- 任何 `功能清单` 类产物都必须走 `weicoz-custom-feature-checklist`；本 skill 不定义其格式、文件名或 ASCII/xlsx 规则。
 - 用户触发报价时，必须有独立报价文件；功能模块合计必须等于开发服务费合计。
 - 报价触发时，第三方服务、服务器和上架费用必须逐项列出并可复算。
 - 不在 `knowledge` 或其他仓库保留同主题重复副本，除非用户明确要求双份存放。
@@ -312,6 +302,6 @@ done
 - 参数是否闭合：是 / 否（否 → 先出问题清单，不出图不写文档）
 - 是否需要导图：否 / ASCII / Markdown / 都要
 - 是否需要需求文档：否 / 是
-- 是否需要功能清单：否 / Markdown / Markdown + xlsx（按 weicoz-custom-feature-checklist）
+- 是否需要功能清单：否 / 是（调用 weicoz-custom-feature-checklist）
 - 导图类型：单模块规则 / 整套模式 / 未判断
 - 是否保留待确认项：是 / 否
