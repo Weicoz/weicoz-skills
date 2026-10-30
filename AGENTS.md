@@ -51,3 +51,7 @@
    - `scripts/` 或 `bin/`：实现脚本。
    - `references/`：参考资料或格式示例。
 3. **跨 Harness 兼容**：Skill 遵循标准规范，确保 DSH、Codex、Claude Code、Antigravity、Kimi Code 五端均可识别与调用。
+4. **职责单一与委派**：一个 Skill 只定义一个产物的主流程。编排/归档类 Skill 只负责路径、命名、交付对象和参数基线，不得复制专项 Skill 的输出模板、表结构或生成脚本；专项任务必须委派，并在 `SKILL.md` 写明 Skill 名称和优先级。
+   - 功能清单 -> `weicoz-custom-feature-checklist`
+   - 思维导图 -> `weicoz-demand-mindmap-organizer`
+   - 报价 -> `weicoz-project-quote-estimator`
