@@ -1,6 +1,6 @@
 ---
 name: weicoz-tree-swimlane-diagram
-version: 1.0.0
+version: 1.0.1
 description: >
   制作树状泳道流程图。用户提到“泳道图”“树状泳道图”“ASCII码泳道图”“Draw.io泳道图”“流程图避免遮挡”，或要求把业务流程按角色画成泳道时必须使用。
   该技能适用于需求梳理、订单流程、审批流程、售后流程、跨部门协作和系统对接图。默认采用“竖向泳道 + 顶部横向角色标题 + 流程自上而下 + 判断菱形 + 分支错层”的布局，并在交付前通过实际 Excalidraw 或 Draw.io 画布截图检查遮挡、穿线和责任归属。
@@ -24,7 +24,7 @@ compatibility: Excalidraw MCP/CLI、Draw.io / diagrams.net、Draw.io MCP、xmlli
 
 ### Excalidraw 实现注意点
 
-- 优先使用 `/Users/weicoz/.agents/skills/excalidraw-skill/SKILL.md` 中的 CLI 工作流。
+- 优先使用 `excalidraw-skill` 的 `SKILL.md` 中的 CLI 工作流。
 - 画布服务固定使用 `http://127.0.0.1:3100`，避免占用常见的 `3000` 端口；必要时通过 `EXPRESS_SERVER_URL` 指定。
 - 每批节点创建后执行 `describe`；需要视觉检查时打开 `http://127.0.0.1:3100`，再执行 `screenshot` 并用原生图片工具查看。
 - Excalidraw 不可用时，立即按上方降级顺序处理，不反复重试同一失败路径。

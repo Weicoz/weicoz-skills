@@ -1,6 +1,6 @@
 ---
 name: weicoz-pm-requirements-from-docs
-version: 1.0.0
+version: 1.1.0
 description: Use this skill when the user provides customer requirement documents, DOCX/PDF/files, business model notes, marketing reward plans, or says to整理需求/PM需求文档/商业模式解释/玩法/报价工期. This skill turns raw customer materials into a concise product-manager-readable requirements document with business model, industry terms, flows, identity rules, reward formulas, settlement cycles, open questions, and rough quote/timeline. Use it especially when the user complains output is too long, asks for报价/工期, or needs a document suitable for client confirmation.
 ---
 
@@ -361,8 +361,7 @@ Example:
 - If creating file in knowledge repo, prefer `${WEICOZ_OUTPUT_ROOT:-$PWD}/outputs/[项目名]-PM需求与商业模式说明-[date].md`.
 - If the user explicitly wants the artifact saved into `jy-design`, or the current workflow is already routed into `jy-design`, then:
   - put the file inside the target project directory under `$WEICOZ_JY_DESIGN_ROOT`
-  - prefer dated filenames such as `需求文档-YYYYMMDD.md`
-  - if the project directory is newly created, prefer a dated directory name such as `项目名-YYYYMMDD`
+  - follow the directory and file naming in `weicoz-jy-design-demand-archive` (directory `YYYYMMDD-项目名`, file `项目名-需求文档-YYYYMMDD.md`)
   - do not leave the PM document in another repo's `outputs/` and then duplicate it later
 
 ## Anti-pattern blacklist

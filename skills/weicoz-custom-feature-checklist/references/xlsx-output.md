@@ -42,7 +42,7 @@
 使用 `scripts/create_feature_checklist_xlsx.py`。
 
 - 必须用脚本生成；禁止用 openpyxl/xlsxwriter 另手写标题行、表头或三表结构。
-- 用户未指定模板时，优先用 `jy-design` 同业务类型最近一份已确认的 `.xlsx` 作为 `template`，保留其标题行、表头行、A/B 合并和配色；不要自造一套表结构。
+- 用户未指定模板时，优先用 `jy-design` 同业务类型最近一份客户版（文件名不含“初稿”“内部版”）`.xlsx` 作为 `template`，保留其标题行、表头行、A/B 合并和配色；不要自造一套表结构。查找：`ls -t "$WEICOZ_JY_DESIGN_ROOT"/*/*功能清单*.xlsx | rg -v '初稿|内部版' | head`。
 
 说明：
 - 传入 `template` 时，脚本优先复用模板工作表。

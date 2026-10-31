@@ -83,7 +83,25 @@ def load_template(path: Path) -> tuple[dict[str, bytes], dict[str, Any]]:
             for info in archive.infolist()
             if not info.is_dir() and info.filename not in {"content.json", "content.xml"}
         }
+    files = strip_thumbnails(files)
     return files, copy.deepcopy(content[0])
+
+
+def strip_thumbnails(files: dict[str, bytes]) -> dict[str, bytes]:
+    files = {name: data for name, data in files.items() if not name.startswith("Thumbnails/")}
+    raw = files.get("manifest.json")
+    if raw is None:
+        return files
+    try:
+        manifest = json.loads(raw)
+        entries = manifest["file-entries"]
+        if not isinstance(entries, dict):
+            return files
+    except (ValueError, KeyError, TypeError):
+        return files
+    manifest["file-entries"] = {k: v for k, v in entries.items() if not k.startswith("Thumbnails/")}
+    files["manifest.json"] = json.dumps(manifest, ensure_ascii=False, separators=(",", ":")).encode()
+    return files
 
 
 def build_sheet(outline: dict[str, Any], template_sheet: dict[str, Any] | None) -> dict[str, Any]:
@@ -154,6 +172,44 @@ def write_xmind(
             archive.writestr(name, payload)
 
 
+def ascii_lines(children: list[Any], prefix: str, location: str) -> list[str]:
+    lines: list[str] = []
+    for index, child in enumerate(children):
+        node = normalize_node(child, f"{location}[{index}]")
+        last = index == len(children) - 1
+        lines.append(f"{prefix}{'└─ ' if last else '├─ '}{node['title']}")
+        lines.extend(ascii_lines(node["children"], prefix + ("   " if last else "│  "), f"{location}[{index}].children"))
+    return lines
+
+
+def markdown_lines(children: list[Any], depth: int, location: str) -> list[str]:
+    lines: list[str] = []
+    for index, child in enumerate(children):
+        node = normalize_node(child, f"{location}[{index}]")
+        if depth == 0:
+            lines.append(f"## {node['title']}")
+        else:
+            lines.append(f"{'  ' * (depth - 1)}- {node['title']}")
+        lines.extend(markdown_lines(node["children"], depth + 1, f"{location}[{index}].children"))
+    return lines
+
+
+def count_topics(children: list[Any]) -> int:
+    return sum(1 + count_topics(normalize_node(c, "x")["children"]) for c in children)
+
+
+def write_text_exports(outline: dict[str, Any], ascii_path: Path | None, md_path: Path | None) -> None:
+    title = outline["title"].strip()
+    children = outline["children"]
+    for path, text in (
+        (ascii_path, "\n".join([title] + ascii_lines(children, "", "children")) + "\n"),
+        (md_path, "\n".join([f"# {title}", ""] + markdown_lines(children, 0, "children")) + "\n"),
+    ):
+        if path is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+
+
 def validate_xmind(path: Path, expected_title: str) -> None:
     with zipfile.ZipFile(path) as archive:
         if archive.testzip() is not None:
@@ -173,6 +229,8 @@ def main() -> int:
     parser.add_argument("outline", help="outline JSON path, or - for stdin")
     parser.add_argument("--output", "-o", required=True, type=Path)
     parser.add_argument("--template", type=Path, help="existing JSON-format .xmind style source")
+    parser.add_argument("--ascii", type=Path, help="also write an ASCII tree text file")
+    parser.add_argument("--markdown", type=Path, help="also write a Markdown outline file")
     args = parser.parse_args()
 
     if args.output.suffix.lower() != ".xmind":
@@ -184,6 +242,7 @@ def main() -> int:
         outline = load_outline(args.outline)
         write_xmind(args.output, outline, args.template)
         validate_xmind(args.output, outline["title"].strip())
+        write_text_exports(outline, args.ascii, args.markdown)
     except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
