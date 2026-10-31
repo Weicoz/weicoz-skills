@@ -164,6 +164,12 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-frp-port-dispatch`](skills/weicoz-frp-port-dispatch/) | 1.0.0 | 配置、迁移与排查 FRP 端口转发与开机自启 |
 | [`weicoz-3a-game-manifest`](skills/weicoz-3a-game-manifest/) | 1.0.0 | 从 3a.lol 提取 Steam 入库清单并归档，附画质帧率预测 |
 
+#### 视频与视觉
+
+| Skill | 版本 | 说明 |
+| --- | --- | --- |
+| [`weicoz-video-frame-density`](skills/weicoz-video-frame-density/) | 1.0.0 | 修复深色视频「画面太空」：覆盖率诊断、程序化氛围层、第二层信息重构，附帧号/字幕/音效/文档防漂移规则 |
+
 #### 交付与表达规范
 
 | Skill | 版本 | 说明 |
