@@ -1,6 +1,6 @@
 ---
 name: weicoz-pm-requirements-from-docs
-version: 1.1.0
+version: 1.2.0
 description: Use this skill when the user provides customer requirement documents, DOCX/PDF/files, business model notes, marketing reward plans, or says to整理需求/PM需求文档/商业模式解释/玩法/报价工期. This skill turns raw customer materials into a concise product-manager-readable requirements document with business model, industry terms, flows, identity rules, reward formulas, settlement cycles, open questions, and rough quote/timeline. Use it especially when the user complains output is too long, asks for报价/工期, or needs a document suitable for client confirmation.
 ---
 
@@ -90,6 +90,23 @@ Default target:
 | Output longer than source | Compress feature lists and prose first | Move detail to appendix only if user asks |
 | Quote requested but scope unclear | Use phased estimate with assumptions | Mark hardware/API/legal/payment exclusions |
 | Business model appears legally risky | Add risk note in PM 判断 / 待确认重点 | Do not give legal conclusion |
+
+## 内部版与客户版
+
+先判定交付对象，再套下方结构。
+
+| 模式 | 何时 | 规则 |
+| --- | --- | --- |
+| 内部版（默认） | 单独使用本 skill，或 `weicoz-jy-design-demand-archive` 标明内部版 | 按下方完整结构；保留「待确认重点」「PM 判断」；缺口可写“需确认” |
+| 客户版 | `weicoz-jy-design-demand-archive` 标明客户版，或用户说“给客户看/发客户” | 见下方客户版规则 |
+
+客户版规则：
+- 标题用 `# [项目名] 需求文档`，正文首行标注“客户版”。
+- 删去「待确认重点」与「PM 判断」；风险与合规提示只留在内部版或沟通记录。
+- 不写报价与工期节；报价由 `weicoz-project-quote-estimator` 单独出文件。
+- 数值取自同项目沟通记录里的「已确认参数表」。冲突公式、缺失基数不写“需确认”，回到归档 skill 的提问闭环问清后再写。
+- 交付前运行归档 skill 的门禁：`check_client_ready.py 需求文档路径 --old-term 需确认`；“需确认”命中时逐条核对，属于业务用语（如“用户需确认收货”）可保留，其余回到提问闭环。
+- 下方 Failure handling 里的“需确认 / 放进待确认重点”兜底只适用于内部版。
 
 ## Required document structure
 
@@ -294,7 +311,7 @@ Groups:
 
 ### 8. 待确认重点
 
-Always include this. Customer docs often conflict.
+Always include this in 内部版（客户版删去，见「内部版与客户版」）. Customer docs often conflict.
 
 Format:
 
@@ -376,7 +393,7 @@ Do not:
 - Give one fixed quote without assumptions and scope boundaries.
 - Treat积分/福豆/分红池/回购 as ordinary商城 fields; they are settlement/accounting rules.
 - Omit settlement cycle for rewards that move money or points.
-- Omit “待确认重点” because it makes the document look cleaner.
+- Omit “待确认重点” from an internal document because it makes the document look cleaner.
 - Present compliance-sensitive mechanisms as safe; only flag risk and require confirmation.
 
 ## Verification checklist

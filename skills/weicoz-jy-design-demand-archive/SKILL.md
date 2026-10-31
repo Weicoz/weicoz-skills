@@ -1,6 +1,6 @@
 ---
 name: weicoz-jy-design-demand-archive
-version: 1.9.0
+version: 1.10.0
 description: >
   把会议纪要、沟通记录、聊天内容或客户原话，完整落盘到 `$WEICOZ_JY_DESIGN_ROOT` 对应项目目录，再按需产出功能清单、思维导图、需求文档或报价文档。
   当用户提到“保存到 jy-design”“把这段沟通记录存起来”“根据内容出导图”“会议纪要转 jy-design 文档”“把客户沟通整理到 jy-design 并输出需求材料”“会议纪要转功能清单”时必须使用；用户还要求报价、预算、服务器、第三方服务/API/SDK 价格或完整项目评估时，同时调用 `weicoz-project-quote-estimator`。
@@ -18,11 +18,11 @@ allowed-tools: Read, Write, Edit, Bash
 | 功能清单 | `weicoz-custom-feature-checklist` | 项目目录、交付对象、已确认参数表 |
 | 思维导图 | `weicoz-demand-mindmap-organizer` | 项目目录、文件名、交付对象、已确认参数表 |
 | 报价 | `weicoz-project-quote-estimator` | 项目目录、文件名、已归档范围 |
-| 需求文档 | 本 skill（见第 6 节） | — |
+| 需求文档 | `weicoz-pm-requirements-from-docs` | 项目目录、文件名、交付对象、已确认参数表 |
 
 - 同轮命中多个 skill 时，先加载专项 skill，再按本 skill 落盘。不得因为本文件提过某交付物就跳过专项 skill。
 - 格式冲突以专项 skill 为准；目录、文件名、交付对象、参数基线、客户版门禁以本 skill 为准。
-- 专项 skill 不可用时才用本文件的备用规则（第 6 节导图备用骨架）。
+- 专项 skill 不可用时才用本文件第 6 节的备用规则。
 
 ## 2. 目录与命名
 
@@ -117,9 +117,10 @@ python3 "$WEICOZ_SKILLS_ROOT/weicoz-jy-design-demand-archive/scripts/check_clien
 - 导图 skill 不可用时的单模块规则备用骨架：`功能定位 / 参与身份 / 触发逻辑 / 关系匹配 / 计算规则 / 结果记录 / 后台配置`，内部版再加 `待确认项`。
 
 ### 需求文档
-- 用户要“需求文档 / PRD / 功能文档”时落 `项目名-需求文档-YYYYMMDD.md`。
-- 正文必须含至少一段 ASCII 业务流程图（自上而下：谁做什么 → 判断 → 结果），不能只有模块列表。
-- 数值取自已确认参数表；客户版过门禁。
+- 用户要“需求文档 / PRD / 功能文档”时，按 `weicoz-pm-requirements-from-docs` 执行，落 `项目名-需求文档-YYYYMMDD.md`；调用时明确告诉它交付对象和参数表位置。
+- 客户版不含「待确认重点」「PM 判断」和报价节；同时要报价时，报价另出文件。
+- 门禁加跑 `--old-term 需确认`（该 skill 内部版的兜底标记），命中逐条核对。
+- PM skill 不可用时的备用规则：正文必须含至少一段 ASCII 业务流程图（自上而下：谁做什么 → 判断 → 结果），不能只有模块列表；数值取自已确认参数表。
 
 ### 功能清单
 按 `weicoz-custom-feature-checklist` 执行，落同项目目录。调用时明确告诉它交付对象（客户版/内部版）和参数表位置。
