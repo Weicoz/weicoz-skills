@@ -28,6 +28,14 @@ DEFAULT_DISCOVERY = [
 MARK = "<!-- generated-by: weicoz-skill-tiers -->"
 
 
+def fallback(ctx: "Ctx") -> str:
+    """跨 skill 调用的回退规则：被引用的 skill 可能已分层为仅手动调用或已收纳。"""
+    return (
+        f"所读 skill 指示使用其他 skill 时，先按常规方式调用；调用被拒绝（仅限用户手动调用）或找不到时，"
+        f"完整读取 `{ctx.lib}/<skill名>/SKILL.md` 并按其执行，不得据此判定该 skill 未安装。"
+    )
+
+
 def expand(p: str) -> Path:
     return Path(os.path.expandvars(p)).expanduser()
 
@@ -58,6 +66,9 @@ class Ctx:
         self.l1 = list(self.m.get("l1", []))
         self.l2 = dict(self.m.get("l2", {}))
         self.hubs = dict(self.m.get("hubs", {}))
+        # L3 默认生成手动调用桩；不支持“仅手动调用”的 harness 目录写进排除列表
+        self.l3_manual = bool(self.m.get("l3_manual", True))
+        self.l3_manual_exclude = {expand(d) for d in self.m.get("l3_manual_exclude_dirs", [])}
         self.l3 = {}
         for hub, spec in self.hubs.items():
             for name, note in spec.get("skills", {}).items():
@@ -93,6 +104,9 @@ class Ctx:
         if dup:
             die("manifest 中名称重复：" + "、".join(dup))
 
+    def manual_in(self, d: Path) -> bool:
+        return self.l3_manual and d not in self.l3_manual_exclude
+
     def is_ours(self, link: Path) -> bool:
         if not link.is_symlink():
             return False
@@ -126,13 +140,41 @@ def write_stub(ctx: Ctx, name: str, desc: str) -> None:
     lib = ctx.lib / name
     d = ctx.gen / name
     d.mkdir(parents=True, exist_ok=True)
+    # 从 L3 调回 L2 时，去掉手动调用桩留下的 Codex 策略文件
+    policy = d / "agents" / "openai.yaml"
+    if policy.exists():
+        policy.unlink()
     (d / "SKILL.md").write_text(
         f"---\nname: {name}\ndescription: {fm_escape(desc)}\n---\n{MARK}\n\n"
         f"# {name}（L2 短描述桩）\n\n"
         f"本 skill 的完整说明位于 `{lib}/SKILL.md`。\n\n"
         f"1. 执行前必须完整读取该文件，并按其指引执行。\n"
         f"2. 该文件中的相对路径（scripts/、references/ 等）以 `{lib}/` 为基准。\n"
-        f"3. 该文件的 frontmatter（如 context、allowed-tools）在桩模式下不自动生效，需要时按其意图手动遵守。\n",
+        f"3. 该文件的 frontmatter（如 context、allowed-tools）在桩模式下不自动生效，需要时按其意图手动遵守。\n"
+        f"4. {fallback(ctx)}\n",
+        encoding="utf-8",
+    )
+
+
+def write_manual(ctx: Ctx, name: str, hub: str, note: str) -> None:
+    """L3 手动调用桩：可斜杠/$ 调用，不进入模型的 skill 列表。"""
+    lib = ctx.lib / name
+    d = ctx.gen / name
+    (d / "agents").mkdir(parents=True, exist_ok=True)
+    (d / "SKILL.md").write_text(
+        f"---\nname: {name}\ndescription: {fm_escape(note)}\ndisable-model-invocation: true\n---\n{MARK}\n\n"
+        f"# {name}（L3 手动调用桩，所属 {hub}）\n\n"
+        f"本 skill 的完整说明位于 `{lib}/SKILL.md`。\n\n"
+        f"1. 执行前必须完整读取该文件，并按其指引执行。\n"
+        f"2. 该文件中的相对路径（scripts/、references/ 等）以 `{lib}/` 为基准。\n"
+        f"3. 该文件的 frontmatter（如 context、allowed-tools）在桩模式下不自动生效，需要时按其意图手动遵守。\n"
+        f"4. {fallback(ctx)}\n",
+        encoding="utf-8",
+    )
+    # Codex 不认 disable-model-invocation，用 agents/openai.yaml 关闭隐式调用
+    (d / "agents" / "openai.yaml").write_text(
+        f"interface:\n  display_name: {fm_escape(name)}\n  short_description: {fm_escape(note)}\n"
+        "policy:\n  allow_implicit_invocation: false\n",
         encoding="utf-8",
     )
 
@@ -154,6 +196,7 @@ def write_hub(ctx: Ctx, hub: str, spec: dict) -> None:
         "2. 用文件读取工具完整读取所选 skill 的 SKILL.md，再按其指引执行。\n"
         "3. 所选 skill 中的相对路径以其 SKILL.md 所在目录为基准。\n"
         "4. 表内没有合适项时，说明未命中，不得勉强套用。\n"
+        f"5. {fallback(ctx)}\n"
         f"{see_line}\n"
         "## 索引\n\n| skill | 何时用 | 说明文件 |\n| --- | --- | --- |\n" + "\n".join(rows) + "\n",
         encoding="utf-8",
@@ -217,6 +260,10 @@ def plan_actions(ctx: Ctx) -> tuple[list[tuple], list[str]]:
                 tgt = str(ctx.gen / name)
                 if installed and cur != tgt:
                     acts.append(("link", d, name, tgt))
+            elif ctx.manual_in(d):
+                tgt = str(ctx.gen / name)
+                if installed and cur != tgt:
+                    acts.append(("link", d, name, tgt))
             elif cur is not None:
                 acts.append(("unlink", d, name, None))
         for hub in sorted(ctx.hubs):
@@ -253,6 +300,10 @@ def cmd_apply(ctx: Ctx, dry: bool) -> None:
         for name, desc in ctx.l2.items():
             if (ctx.lib / name).is_symlink():
                 write_stub(ctx, name, desc)
+        if ctx.l3_manual:
+            for name, (hub, note) in ctx.l3.items():
+                if (ctx.lib / name).is_symlink():
+                    write_manual(ctx, name, hub, note)
         for hub, spec in ctx.hubs.items():
             write_hub(ctx, hub, spec)
     summary: dict[str, dict[str, int]] = {}
@@ -318,6 +369,88 @@ def cmd_status(ctx: Ctx) -> None:
             print(f"{first} 未分层（保持原样）：{', '.join(un)}")
 
 
+def read_desc(skill_dir: Path) -> str:
+    f = skill_dir / "SKILL.md"
+    if not f.exists():
+        return ""
+    t = f.read_text(encoding="utf-8", errors="ignore")
+    fm = t.split("---", 2)[1] if t.startswith("---") else ""
+    m = re.search(r"^description:\s*(.*?)(?=^\w[\w-]*:|\Z)", fm, re.S | re.M)
+    return re.sub(r"\s+", " ", m.group(1)).strip(" >|\"'") if m else ""
+
+
+def cmd_find(ctx: Ctx, terms: list[str]) -> None:
+    """按名称与描述查找 skill（含已收纳的 L3），报告层级与调用方式。"""
+    rows = []
+    names = set(ctx.l1) | set(ctx.l2) | set(ctx.l3)
+    for d in ctx.dirs:
+        names.update(p.name for p in d.iterdir() if not p.name.startswith(".") and not ctx.is_ours(p))
+    for name in sorted(names):
+        orig = ctx.original_target(name)
+        desc = read_desc(Path(orig)) if orig else ""
+        if name in ctx.l1:
+            tier, extra = "L1 常驻", ""
+        elif name in ctx.l2:
+            tier, extra = "L2 桩", ctx.l2[name]
+        elif name in ctx.l3:
+            hub, extra = ctx.l3[name]
+            tier = f"L3 · {hub}"
+        else:
+            tier, extra = "未分层", ""
+        hay = f"{name} {extra} {desc}".lower()
+        if all(t.lower() in hay for t in terms):
+            rows.append((name, tier, extra or desc[:80], f"{orig}/SKILL.md" if orig else "-"))
+    if not rows:
+        print("未找到匹配的 skill。可换关键词，或用 status 查看未分层清单。")
+        return
+    for name, tier, note, path in rows:
+        print(f"{name}  [{tier}]\n  {note}\n  {path}")
+    print(f"\n共 {len(rows)} 个。L1/L2/未分层可直接调用；L3 用 /<name>（Codex 用 $<name>）手动调用，或经所属 Hub 选用。")
+
+
+def skill_refs(text: str, name: str) -> bool:
+    """按 skill 引用语境判断：`name`、/name、$name，或与“skill”相邻；排除普通单词式的误报。"""
+    n = re.escape(name)
+    b = r"(?![\w-])"
+    pats = [
+        rf"`[/$]?{n}`",
+        rf"[\"“]{n}[\"”]",
+        rf"(?<![\w-])[/$]{n}{b}",
+        rf"(?<![\w-]){n}{b}\s*(?:skill|Skill|技能)",
+        rf"(?:skill|Skill|技能)\s*[:：]?\s*[`'\"“]?{n}{b}",
+    ]
+    return any(re.search(p, text) for p in pats)
+
+
+def cmd_deps(ctx: Ctx) -> None:
+    """找出原文直接加载的 skill（L1 与未分层）对 L3 的引用；这类调用不经过桩与 Hub 的回退规则。"""
+    callers = set(ctx.l1)
+    for d in ctx.dirs:
+        callers.update(
+            p.name for p in d.iterdir()
+            if not p.name.startswith(".") and not ctx.is_ours(p)
+            and p.name not in ctx.l2 and p.name not in ctx.l3 and p.name not in ctx.hubs
+        )
+    found = {}
+    for caller in sorted(callers):
+        orig = ctx.original_target(caller)
+        f = Path(orig) / "SKILL.md" if orig else None
+        if not f or not f.exists():
+            continue
+        text = f.read_text(encoding="utf-8", errors="ignore")
+        hits = sorted(n for n in ctx.l3 if n != caller and skill_refs(text, n))
+        if hits:
+            found[caller] = hits
+    if not found:
+        print("无缺口：L1 与未分层 skill 没有引用 L3 skill。")
+        return
+    print("以下 skill 原文直接加载，却引用了 L3 skill（调用可能被拒绝）：")
+    for caller, hits in found.items():
+        tier = "L1" if caller in ctx.l1 else "未分层"
+        print(f"  [{tier}] {caller} -> {', '.join(f'{h}（{ctx.l3[h][0]}）' for h in hits)}")
+    print("\n处理：核对确属调用后，把被引用的 skill 从 Hub 移到 L2（写短描述），再 apply；或在全局规则中加入同等回退规则。")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="skill 三层 + 领域 Hub 分层工具")
     ap.add_argument("--manifest", default=str(ROOT / "manifest.json"))
@@ -325,6 +458,9 @@ def main() -> None:
     sub.add_parser("status", help="查看分层状态、描述体量与漂移")
     sub.add_parser("plan", help="预演 apply，不改动任何文件")
     sub.add_parser("apply", help="写快照后按 manifest 改链并生成桩与 Hub")
+    sub.add_parser("deps", help="检查 L1 与未分层 skill 对 L3 的引用缺口")
+    f = sub.add_parser("find", help="按名称与描述查找 skill（含 L3），报告层级与调用方式")
+    f.add_argument("terms", nargs="+")
     r = sub.add_parser("restore", help="按快照恢复发现目录的软链")
     r.add_argument("snapshot")
     r.add_argument("--dry-run", action="store_true")
@@ -336,6 +472,10 @@ def main() -> None:
         cmd_apply(ctx, dry=True)
     elif a.cmd == "apply":
         cmd_apply(ctx, dry=False)
+    elif a.cmd == "deps":
+        cmd_deps(ctx)
+    elif a.cmd == "find":
+        cmd_find(ctx, a.terms)
     elif a.cmd == "restore":
         cmd_restore(ctx, expand(a.snapshot), a.dry_run)
 
