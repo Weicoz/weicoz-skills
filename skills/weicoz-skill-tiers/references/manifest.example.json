@@ -1,0 +1,18 @@
+{
+ "discovery_dirs": ["~/.agents/skills", "~/.claude/skills", "~/.codex/skills"],
+ "l1": ["skill-creator", "weicoz-skill-tiers"],
+ "l2": {
+  "humanizer-zh": "去除中文文本的 AI 味；用户说太像 AI 写的时用"
+ },
+ "hubs": {
+  "weicoz-hub-seo": {
+   "description": "SEO 领域索引：审计、技术 SEO、外链、排名。涉及 SEO 时先用此 Hub 选 skill。",
+   "intro": "",
+   "see_also": [],
+   "skills": {
+    "seo-audit": "全站 SEO 审计（总入口）",
+    "backlink-analyzer": "外链画像与有毒链接"
+   }
+  }
+ }
+}
