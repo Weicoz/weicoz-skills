@@ -1,58 +1,71 @@
 ---
 name: weicoz-skill-tiers
-version: 1.2.0
-description: 管理 skill 三层分级与领域 Hub，减少常驻上下文的 skill 描述量：L1 常驻、L2 同名短描述桩、L3 由领域 Hub 索引按需加载。只改各 harness 发现目录的软链、生成桩与 Hub，不改原 skill 内容，Claude Code/Codex/DSH/Kimi/Grok/Antigravity 通用。用于“skill 太多占上下文”“调整 skill 分层”“新装 skill 后重新分层”“恢复 skill 分层前状态”“忘了某个 skill 叫什么／找不到某个 skill”。
+version: 1.3.0
+description: skill 分层管理：L1 常驻、L2 短描述桩、L3 由领域 Hub 收纳并可手动 /name 调用，大幅减少常驻上下文的 skill 描述量。只改各 harness 发现目录的软链与生成文件，不改原 skill，Claude Code/Codex/DSH/Kimi/Grok/Antigravity 通用。用于“skill 太多占上下文”“调整或撤销分层”“新装 skill 后分层”“忘了某个 skill 叫什么／找不到某个 skill”“skill 调用被拒绝”。
 ---
 
 # weicoz-skill-tiers
 
 ## 机制
 
-- **L1 常驻**：发现目录中保留原软链，完整描述常驻。
-- **L2 短描述桩**：发现目录中的同名软链改指向生成的桩。桩只含短描述，正文要求先读原 SKILL.md。仍可自动触发和 `/name` 调用。
-- **L3 Hub 收纳**：发现目录中的同名软链改指向“手动调用桩”。领域 Hub（`weicoz-hub-*`）的索引表列出该 skill 的用途与 SKILL.md 路径，供模型按需读取。
-  - 手动调用桩带 `disable-model-invocation: true`（Claude Code、DSH、Kimi Code、Grok、Antigravity）和 `agents/openai.yaml` 的 `policy.allow_implicit_invocation: false`（Codex）。效果：不进入模型的 skill 列表，用户仍可 `/name`（Codex 为 `$name`）补全和调用。
-  - 某个 harness 不认上述标记时，把它的目录写进 manifest 的 `l3_manual_exclude_dirs`，该目录的 L3 改为移除软链。`"l3_manual": false` 全局关闭手动调用桩。
-  - 各 harness 的机制、依据与验证方法见 [references/harness-support.md](references/harness-support.md)。
-- **跨 skill 调用**：L2 桩、L3 桩与 Hub 正文都写有回退规则：调用其他 skill 被拒绝或找不到时，读取 `library/<name>/SKILL.md` 执行。L1 与未分层 skill 按原文加载，不经过桩；用 `deps` 检查它们对 L3 的引用。
-- manifest 未列出的 skill 保持原样，不受影响。
+| 层 | 发现目录中的条目 | 模型可见 | 用户调用 | 适合放入 |
+| --- | --- | --- | --- | --- |
+| L1 常驻 | 原软链，不变 | 完整描述 | `/name` | 高频；依赖 `context: fork`、`allowed-tools` 等 frontmatter；全局规则点名的 skill |
+| L2 短描述桩 | 指向生成的桩：短描述 + 先读原 SKILL.md | 短描述，可自动触发 | `/name` | 中频但需要模型主动想到；被 L1 或未分层 skill 自动调用 |
+| L3 手动调用桩 | 指向生成的桩：带“仅手动”标记 | 不可见，经 Hub 索引按需读取 | `/name`（Codex 为 `$name`） | 领域专用、低频；同类 skill 多 |
+| Hub | 每个领域一个 `weicoz-hub-*` | 短描述 | `/weicoz-hub-…` | 领域入口，索引表列出该领域的 L3 及用途、路径 |
 
-原 skill 目录不改动。工具不删除任何 skill 源，只增删软链；每次 apply 前写快照。
+- 原 skill 不改动。工具只增删软链，并在数据根目录生成桩与 Hub；不删除任何 skill 源。
+- “仅手动”标记：frontmatter `disable-model-invocation: true`（Claude Code、DSH、Kimi Code、Grok、Antigravity）加 `agents/openai.yaml` 的 `policy.allow_implicit_invocation: false`（Codex）。依据与验证方法见 [references/harness-support.md](references/harness-support.md)。
+- manifest 未列出的 skill 保持原样。原本就带 `disable-model-invocation` 的 skill 不必分层。
+- 桩与 Hub 中原 skill 的 frontmatter（`context`、`allowed-tools` 等）不生效，所以依赖这些字段的 skill 必须放 L1。
 
-## 目录
+## 跨 skill 调用
 
-数据根目录默认 `~/.agents/skill-tiers/`，可用环境变量 `SKILL_TIERS_HOME` 覆盖：
+L3 禁止模型自动调用。其他 skill 让模型调用某个 L3 skill 时，宿主会拒绝，或者报告找不到。为此设三道回退：
 
-| 路径 | 用途 |
-| --- | --- |
-| `manifest.json` | 分层定义（用户维护） |
-| `library/<name>` | 指向原 skill 的稳定软链，供桩与 Hub 引用；不在任何 harness 的扫描范围内 |
-| `generated/<name>` | 生成的桩与 Hub |
-| `backups/baseline.json` | 首次 apply 前的原始状态，之后不再覆盖；`restore` 它即完全撤销分层 |
-| `backups/snapshot-*.json` | 每次 apply 前的发现目录软链快照 |
-| `installed.json` | 各发现目录原本安装过的 skill，用于调层后按原范围恢复 |
-
-manifest 格式见 [references/manifest.example.json](references/manifest.example.json)。`discovery_dirs` 省略时使用脚本内置的默认列表。
+1. **桩与 Hub 内**：生成的 L2 桩、L3 桩和 Hub 正文都写有回退规则：调用被拒绝或找不到时，读 `library/<name>/SKILL.md` 并执行。
+2. **全局规则**：在各 harness 共用的全局规则文件中写入同一条回退规则，覆盖 L1 与未分层 skill。把该文件列进 manifest 的 `global_rules`，`status` 会检查它是否已写入。参考写法：
+   > Skill 调用被拒或找不到时读 `~/.agents/skill-tiers/library/<name>/SKILL.md` 执行，不得判定未安装。
+3. **提升到 L2**：`deps` 列出 L1 与未分层 skill 对 L3 的引用。核对确属模型自动调用后，把被引用的 skill 移到 L2。如果是让用户手动输入 `/name`，无需处理。
 
 ## 操作
 
 ```bash
 T="<skill_dir>/scripts/skill_tiers.py"
-python3 "$T" status            # 分层状态、各目录描述体量、漂移、未分层清单
-python3 "$T" plan              # 预演，不改动
-python3 "$T" apply             # 写快照 → 建 library → 生成桩与 Hub → 改链
-python3 "$T" deps              # L1 与未分层 skill 对 L3 的引用缺口
-python3 "$T" find <关键词...>  # 按名称与描述查找 skill（含 L3），报告层级、所属 Hub 与路径
-python3 "$T" restore <快照路径> [--dry-run]   # 精确恢复到快照时的软链
+python3 "$T" status                # 健康检查：各目录体量、漂移、依赖缺口、全局回退规则、未分层清单
+python3 "$T" plan                  # 预演 apply，不改动
+python3 "$T" apply                 # 写快照 → 建 library → 生成桩与 Hub → 改链
+python3 "$T" deps                  # L1 与未分层 skill 对 L3 的引用
+python3 "$T" find <关键词...>      # 按名称与描述查找 skill（含 L3）：层级、所属 Hub、路径
+python3 "$T" restore <快照> [--dry-run]   # 恢复到快照时的软链；backups/baseline.json 即完全撤销
 ```
 
-## 维护规则
+## 常见任务
 
-1. 改 manifest 后先 `plan` 核对动作数，再 `apply`。
-2. 新装 skill 默认不分层；`status` 列出未分层项，按需写入 manifest 后再 `apply`。
-3. 安装器或同步工具重建软链后，`status` 会报告漂移；重新 `apply` 即可。
-4. 依赖 `context: fork`、`allowed-tools` 等 frontmatter 的 skill 必须放 L1，桩和 Hub 读取方式下这些字段不生效。
-5. 名称在 L1、L2、Hub 中只能出现一次，脚本会校验。
-6. 发现目录中的真实目录（非软链）一律不处理。
-7. 每次调整分层后运行 `deps`。被 L1 或未分层 skill 实际调用的 skill，必须移到 L2。
-8. harness 升级后，按 references/harness-support.md 复核 L3 是否仍被排除在模型上下文之外。
+- **找 skill**：运行 `find <关键词>`。L3 结果用 `/name`（Codex 为 `$name`）调用，或读取输出中的 SKILL.md 路径。
+- **新装 skill 后**：`status` 会把它列进未分层清单。按上面“机制”表的判据写进 manifest（L2 附 ≤80 字短描述；L3 附 ≤40 字用途，突出与同组 skill 的区别），然后依次运行 `plan`、`apply`、`deps`。
+- **调整层级**：在 manifest 中移动名称，然后依次运行 `plan`、`apply`、`deps`。在 L2 与 L3 之间调整时，桩会自动重写；只在原本装有该 skill 的发现目录恢复。
+- **撤销**：`restore backups/baseline.json`。
+- **宿主升级后**：按 harness-support.md 复核 L3 仍不进入模型上下文。哪个宿主不再支持“仅手动”标记，就把它的目录写进 `l3_manual_exclude_dirs`，再运行 `apply`，该目录的 L3 改为移除软链。
+
+## 数据与配置
+
+数据根目录默认 `~/.agents/skill-tiers/`，可用环境变量 `SKILL_TIERS_HOME` 覆盖。
+
+| 路径 | 用途 |
+| --- | --- |
+| `manifest.json` | 分层定义，格式见 [references/manifest.example.json](references/manifest.example.json) |
+| `library/<name>` | 指向原 skill 的稳定软链，供桩与 Hub 引用；不在任何 harness 的扫描范围内 |
+| `generated/<name>` | 生成的桩与 Hub |
+| `backups/baseline.json` | 首次 apply 前的原始状态，不再覆盖 |
+| `backups/snapshot-*.json` | 每次 apply 前的快照 |
+| `installed.json` | 各发现目录原本装有的 skill，调层时按原范围恢复 |
+
+manifest 字段：`discovery_dirs`（省略时用内置默认列表）、`global_rules`、`l1`、`l2`、`hubs`、`l3_manual`（默认 `true`）、`l3_manual_exclude_dirs`。
+
+## 约束
+
+- 一个名称只能出现在 L1、L2、Hub 中的一处，脚本会校验。
+- 发现目录中的真实目录（非软链）一律不处理，只报告。
+- 其他同步脚本若会重建软链，必须跳过指向 `generated/` 的链接；否则 `status` 会报告漂移，重新运行 `apply` 即可恢复。

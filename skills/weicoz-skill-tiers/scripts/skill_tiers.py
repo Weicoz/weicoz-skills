@@ -352,19 +352,40 @@ def desc_len(skill_dir: Path) -> int:
     return len(re.sub(r"\s+", " ", m.group(1)).strip())
 
 
+def global_rule_state(ctx: Ctx) -> list[tuple[Path, bool]]:
+    """manifest 的 global_rules 列出的全局规则文件中，是否写有指向 library 的回退规则。"""
+    out = []
+    lib_tilde = "~/" + str(ctx.lib.relative_to(HOME)) if ctx.lib.is_relative_to(HOME) else str(ctx.lib)
+    for f in ctx.m.get("global_rules", []):
+        p = expand(f)
+        text = p.read_text(encoding="utf-8", errors="ignore") if p.exists() else ""
+        out.append((p, str(ctx.lib) in text or lib_tilde in text))
+    return out
+
+
 def cmd_status(ctx: Ctx) -> None:
     managed = set(ctx.l1) | set(ctx.l2) | set(ctx.l3)
     print(f"manifest：L1 {len(ctx.l1)}，L2 {len(ctx.l2)}，Hub {len(ctx.hubs)}（收纳 {len(ctx.l3)}）")
     for d in ctx.dirs:
-        links = [p for p in d.iterdir() if p.is_symlink() or p.is_dir()]
-        total = sum(desc_len(p) for p in links)
-        unmanaged = sorted(p.name for p in links if p.name not in managed and p.name not in ctx.hubs and not p.name.startswith("."))
-        print(f"{d}：可见 {len(links)} 个，描述合计约 {total} 字符，未分层 {len(unmanaged)} 个")
-    acts, warns = plan_actions(ctx)
-    print(f"与 manifest 的漂移：{len(acts)} 项" + ("（运行 apply 修正）" if acts else ""))
+        entries = [p for p in d.iterdir() if (p.is_symlink() or p.is_dir()) and not p.name.startswith(".")]
+        lens = [desc_len(p) for p in entries]
+        visible = sum(1 for n in lens if n > 0)
+        unmanaged = [p for p in entries if p.name not in managed and p.name not in ctx.hubs]
+        print(f"{d}：条目 {len(entries)}，模型可见 {visible}，描述合计约 {sum(lens)} 字符，未分层 {len(unmanaged)}")
+    acts, _ = plan_actions(ctx)
+    print(f"漂移：{len(acts)} 项" + ("（运行 apply 修正）" if acts else ""))
+    gaps = deps_gaps(ctx)
+    print(f"L3 引用缺口：{len(gaps)} 个" + ("（运行 deps 查看）" if gaps else ""))
+    for p, ok in global_rule_state(ctx):
+        print(f"全局回退规则：{p} {'已写入' if ok else '缺失'}")
     first = ctx.dirs[0] if ctx.dirs else None
     if first:
-        un = sorted(p.name for p in first.iterdir() if (p.is_symlink() or p.is_dir()) and p.name not in managed and p.name not in ctx.hubs and not p.name.startswith("."))
+        un = sorted(
+            p.name + ("（仅手动）" if desc_len(p) == 0 else "")
+            for p in first.iterdir()
+            if (p.is_symlink() or p.is_dir()) and not p.name.startswith(".")
+            and p.name not in managed and p.name not in ctx.hubs
+        )
         if un:
             print(f"{first} 未分层（保持原样）：{', '.join(un)}")
 
@@ -422,8 +443,8 @@ def skill_refs(text: str, name: str) -> bool:
     return any(re.search(p, text) for p in pats)
 
 
-def cmd_deps(ctx: Ctx) -> None:
-    """找出原文直接加载的 skill（L1 与未分层）对 L3 的引用；这类调用不经过桩与 Hub 的回退规则。"""
+def deps_gaps(ctx: Ctx) -> dict[str, list[str]]:
+    """原文直接加载的 skill（L1 与未分层）对 L3 的引用；这类调用不经过桩与 Hub 的回退规则。"""
     callers = set(ctx.l1)
     for d in ctx.dirs:
         callers.update(
@@ -441,6 +462,11 @@ def cmd_deps(ctx: Ctx) -> None:
         hits = sorted(n for n in ctx.l3 if n != caller and skill_refs(text, n))
         if hits:
             found[caller] = hits
+    return found
+
+
+def cmd_deps(ctx: Ctx) -> None:
+    found = deps_gaps(ctx)
     if not found:
         print("无缺口：L1 与未分层 skill 没有引用 L3 skill。")
         return
@@ -448,7 +474,8 @@ def cmd_deps(ctx: Ctx) -> None:
     for caller, hits in found.items():
         tier = "L1" if caller in ctx.l1 else "未分层"
         print(f"  [{tier}] {caller} -> {', '.join(f'{h}（{ctx.l3[h][0]}）' for h in hits)}")
-    print("\n处理：核对确属调用后，把被引用的 skill 从 Hub 移到 L2（写短描述），再 apply；或在全局规则中加入同等回退规则。")
+    print("\n处理：核对确属模型自动调用后，把被引用的 skill 从 Hub 移到 L2（写短描述），再 apply。"
+          "\n已在全局规则写入回退规则时（见 status），这些调用也能经回退读取原文；仅手动调用的引用（如让用户输入 /name）无需处理。")
 
 
 def main() -> None:
