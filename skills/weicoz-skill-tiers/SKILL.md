@@ -1,6 +1,6 @@
 ---
 name: weicoz-skill-tiers
-version: 1.4.0
+version: 1.5.0
 description: skill 分层管理：L1 常驻、L2 短描述桩、L3 由领域 Hub 收纳并可手动 /name 调用，大幅减少常驻上下文的 skill 描述量。只改各 harness 发现目录的软链与生成文件，不改原 skill，Claude Code/Codex/DSH/Kimi/Grok/Antigravity 通用。用于“skill 太多占上下文”“调整或撤销分层”“新装 skill 后分层”“忘了某个 skill 叫什么／找不到某个 skill”“skill 调用被拒绝”。
 ---
 
@@ -33,6 +33,7 @@ L3 禁止模型自动调用。其他 skill 让模型调用某个 L3 skill 时，
 
 ```bash
 T="<skill_dir>/scripts/skill_tiers.py"
+python3 "$T" ensure                # 会话启动钩子用：无漂移静默退出（约 0.5 秒），有漂移自动 apply 并输出一行
 python3 "$T" status                # 健康检查：各目录体量、漂移、依赖缺口、全局回退规则、未分层清单
 python3 "$T" plan                  # 预演 apply，不改动
 python3 "$T" apply                 # 写快照 → 建 library → 生成桩与 Hub → 改链
@@ -71,13 +72,23 @@ manifest 字段：`discovery_dirs`（省略时用内置默认列表）、`global
 - `apply` 只替换现存链接，不补回缺失项。缺失可能是用户或其他管理器主动取消了部署。唯一例外：`l3_manual_exclude_dirs` 中由本工具移除的 L3，调层时按 `installed.json` 恢复。
 - 其他同步工具若会重建软链，必须跳过指向 `generated/` 的链接；否则 `status` 会报告漂移，重新运行 `apply` 即可恢复。
 
+## 自动检查（会话启动钩子）
+
+不用常驻后台进程。在支持 SessionStart 钩子的 harness 中挂 `ensure`，每次开会话时检查并修复漂移。各 harness 共用同一批发现目录，任一 harness 开会话即可修复全部目录。
+
+- Claude Code（`~/.claude/settings.json` 的 `hooks.SessionStart`）：
+  `{"matcher": "^(startup|resume|clear)$", "hooks": [{"type": "command", "command": "python3 \"$HOME/.agents/skills/weicoz-skill-tiers/scripts/skill_tiers.py\" ensure", "timeout": 15}]}`
+- Codex（`~/.codex/hooks.json` 的 `hooks.SessionStart`）：同上命令，`matcher` 为 `startup|resume`。追加到数组末尾，不打乱已有条目的信任编号；新钩子需在 Codex 中确认信任。
+- 钩子不得阻断会话：`ensure` 出错只写 stderr，退出码恒为 0。
+- 修复发生在会话启动时；同一会话中途同步造成的漂移，在下次开会话或手动 `apply` 时恢复。
+
 ## 与 skill 管理器共存
 
 以 skills-manager-plus 为例（其他“库 + 部署软链”式管理器同理）：管理器负责库、安装、更新和部署范围，本工具只负责分层。
 
 | 管理器操作 | 影响 | 处理 |
 | --- | --- | --- |
-| `skills sync`、界面的同步 | 把桩链接改回原 skill，分层失效 | 同步后运行 `apply` |
+| `skills sync`、界面的同步 | 把桩链接改回原 skill，分层失效 | 会话启动钩子运行 `ensure` 自动恢复；也可手动 `apply` |
 | `skills deploy`、`presets deploy`/`apply` | 目标路径已存在时跳过，不影响 | 无 |
 | `skills undeploy` | 删除该目录的桩链接，本工具不会补回 | 无 |
 | 安装并部署新 skill | 新 skill 以原链接出现，进入未分层清单 | 写入 manifest 后 `apply` |

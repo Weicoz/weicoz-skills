@@ -323,6 +323,18 @@ def cmd_apply(ctx: Ctx, dry: bool) -> None:
         print(f"  {d}：改链 {s['link']}，移除 {s['unlink']}")
 
 
+def cmd_ensure(ctx: Ctx) -> None:
+    """会话启动钩子用：无漂移时静默退出；有漂移时 apply，并输出一行结果。不得阻断会话。"""
+    acts, _ = plan_actions(ctx)
+    if not acts:
+        return
+    import contextlib
+    import io
+    with contextlib.redirect_stdout(io.StringIO()):
+        cmd_apply(ctx, dry=False)
+    print(f"weicoz-skill-tiers：检测到 {len(acts)} 项分层漂移（常见于 skill 管理器同步后），已自动恢复。")
+
+
 def cmd_restore(ctx: Ctx, snap: Path, dry: bool) -> None:
     data = json.loads(snap.read_text(encoding="utf-8"))
     n = 0
@@ -489,6 +501,7 @@ def main() -> None:
     sub.add_parser("status", help="查看分层状态、描述体量与漂移")
     sub.add_parser("plan", help="预演 apply，不改动任何文件")
     sub.add_parser("apply", help="写快照后按 manifest 改链并生成桩与 Hub")
+    sub.add_parser("ensure", help="会话启动钩子用：有漂移才 apply，无漂移静默")
     sub.add_parser("deps", help="检查 L1 与未分层 skill 对 L3 的引用缺口")
     f = sub.add_parser("find", help="按名称与描述查找 skill（含 L3），报告层级与调用方式")
     f.add_argument("terms", nargs="+")
@@ -503,6 +516,11 @@ def main() -> None:
         cmd_apply(ctx, dry=True)
     elif a.cmd == "apply":
         cmd_apply(ctx, dry=False)
+    elif a.cmd == "ensure":
+        try:
+            cmd_ensure(ctx)
+        except Exception as e:  # 钩子中不得阻断会话
+            print(f"weicoz-skill-tiers ensure 失败：{e}", file=sys.stderr)
     elif a.cmd == "deps":
         cmd_deps(ctx)
     elif a.cmd == "find":
