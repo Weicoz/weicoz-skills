@@ -13,6 +13,7 @@
 #   - 任何 harness 都没挂过的 Skill（例如被新版取代的旧目录）不会被自动挂上；
 #     确需挂载时用 --skill <name> 显式点名。
 #   - 实体目录（非软链）不自动处理，只报告，交人工确认。
+#   - 指向 weicoz-skill-tiers 生成目录（桩与 Hub）的软链由该工具管理，跳过不处理。
 #
 # 环境变量：
 #   WEICOZ_SKILL_HARNESS_DIRS  覆盖 harness 目录列表（冒号分隔）
@@ -79,6 +80,10 @@ resolve() {
 
 expected_target() { printf '%s/skills/%s\n' "$repo" "$1"; }
 
+# weicoz-skill-tiers 生成的桩与 Hub 所在目录；指向这里的软链属于分层管理
+tiers_gen="${SKILL_TIERS_HOME:-$HOME/.agents/skill-tiers}/generated"
+is_tiered() { [[ -L "$1" && "$(readlink "$1")" == "$tiers_gen"/* ]]; }
+
 say() { (( quiet )) || printf '%s\n' "$*"; }
 
 existing_harnesses=()
@@ -128,6 +133,11 @@ for name in "${skills[@]}"; do
 
   for h in "${existing_harnesses[@]}"; do
     entry="$h/$name"
+
+    if is_tiered "$entry"; then
+      mounted_here=1
+      continue
+    fi
 
     if [[ -L "$entry" ]]; then
       got="$(resolve "$entry")"
@@ -179,6 +189,7 @@ for h in "${existing_harnesses[@]}"; do
   for entry in "$h"/weicoz-*; do
     [[ -e "$entry" || -L "$entry" ]] || continue
     name="$(basename "$entry")"
+    is_tiered "$entry" && continue
     if [[ -n "$only_skill" && "$name" != "$only_skill" ]]; then
       continue
     fi
@@ -191,7 +202,7 @@ done
 
 # 孤儿提示：本仓库有、但任何 harness 都没挂
 for name in "${skills[@]}"; do
-  if ! is_in_use "$name"; then
+  if ! is_in_use "$name" && [[ ! -L "$tiers_gen/../library/$name" ]]; then
     say "提示：$name 未被任何 harness 挂载（要挂载用 --skill $name --apply）"
   fi
 done
