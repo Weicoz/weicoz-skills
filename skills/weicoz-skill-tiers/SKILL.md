@@ -1,6 +1,6 @@
 ---
 name: weicoz-skill-tiers
-version: 1.3.0
+version: 1.4.0
 description: skill 分层管理：L1 常驻、L2 短描述桩、L3 由领域 Hub 收纳并可手动 /name 调用，大幅减少常驻上下文的 skill 描述量。只改各 harness 发现目录的软链与生成文件，不改原 skill，Claude Code/Codex/DSH/Kimi/Grok/Antigravity 通用。用于“skill 太多占上下文”“调整或撤销分层”“新装 skill 后分层”“忘了某个 skill 叫什么／找不到某个 skill”“skill 调用被拒绝”。
 ---
 
@@ -68,4 +68,20 @@ manifest 字段：`discovery_dirs`（省略时用内置默认列表）、`global
 
 - 一个名称只能出现在 L1、L2、Hub 中的一处，脚本会校验。
 - 发现目录中的真实目录（非软链）一律不处理，只报告。
-- 其他同步脚本若会重建软链，必须跳过指向 `generated/` 的链接；否则 `status` 会报告漂移，重新运行 `apply` 即可恢复。
+- `apply` 只替换现存链接，不补回缺失项。缺失可能是用户或其他管理器主动取消了部署。唯一例外：`l3_manual_exclude_dirs` 中由本工具移除的 L3，调层时按 `installed.json` 恢复。
+- 其他同步工具若会重建软链，必须跳过指向 `generated/` 的链接；否则 `status` 会报告漂移，重新运行 `apply` 即可恢复。
+
+## 与 skill 管理器共存
+
+以 skills-manager-plus 为例（其他“库 + 部署软链”式管理器同理）：管理器负责库、安装、更新和部署范围，本工具只负责分层。
+
+| 管理器操作 | 影响 | 处理 |
+| --- | --- | --- |
+| `skills sync`、界面的同步 | 把桩链接改回原 skill，分层失效 | 同步后运行 `apply` |
+| `skills deploy`、`presets deploy`/`apply` | 目标路径已存在时跳过，不影响 | 无 |
+| `skills undeploy` | 删除该目录的桩链接，本工具不会补回 | 无 |
+| 安装并部署新 skill | 新 skill 以原链接出现，进入未分层清单 | 写入 manifest 后 `apply` |
+| `skills check`/`update` | 更新库中原文，桩运行时读取最新原文 | 无；只有短描述需在 manifest 中按需更新 |
+
+- 新 skill 必须经管理器安装（`skills install`），让它记录来源以便更新；不要直接复制进库目录。
+- 管理器显示的“已部署”只表示目标路径存在，不区分原链接与桩。

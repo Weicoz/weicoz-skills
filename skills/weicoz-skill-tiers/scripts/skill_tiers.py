@@ -250,9 +250,13 @@ def plan_actions(ctx: Ctx) -> tuple[list[tuple], list[str]]:
             if p.exists() and not p.is_symlink():
                 warns.append(f"{p}：是真实目录，不处理")
                 continue
-            # 该 harness 原本没装这个 skill 时保持不装
-            installed = name in ctx.installed.get(str(d), set())
             cur = os.readlink(p) if p.is_symlink() else None
+            # 只替换现存链接，不补回缺失项：缺失可能是用户或其他管理器（如 skills-manager）主动取消部署。
+            # 例外：被 l3_manual_exclude_dirs 排除的目录中，L3 链接由本工具移除，调层时按安装记录恢复。
+            if d in ctx.l3_manual_exclude:
+                installed = cur is not None or name in ctx.installed.get(str(d), set())
+            else:
+                installed = cur is not None
             if name in ctx.l1:
                 if installed and (cur is None or ctx.is_ours(p)):
                     acts.append(("link", d, name, orig))
