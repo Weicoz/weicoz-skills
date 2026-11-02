@@ -12,6 +12,8 @@ import argparse
 import tempfile
 import subprocess
 import json
+import socket
+import urllib.parse
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -152,6 +154,18 @@ def get_endpoints(custom_url=None):
     return ["http://127.0.0.1:9880/tts"]
 
 
+def is_endpoint_reachable(url, timeout=1.2):
+    """快速探测端点 TCP 连通性，防止死等长超时"""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        host = parsed.hostname
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+
 def play_audio(audio_path):
     """跨平台音频播放"""
     if sys.platform == "darwin":
@@ -253,6 +267,8 @@ def main():
     last_error = None
 
     for ep in endpoints:
+        if not is_endpoint_reachable(ep, timeout=1.2):
+            continue
         try:
             req = urllib.request.Request(
                 ep,
