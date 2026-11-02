@@ -1,6 +1,6 @@
 ---
 name: weicoz-zero-tts
-version: 1.2.0
+version: 1.3.0
 description: >
   远端 GPU (GPT-SoVITS) 语音合成：将中文或中英混合文本合成为自然流畅的语音音频（WAV），
   内置 16 套原神/星铁等知识讲解与角色音色预设（钟离/那维莱特/艾尔海森/提纳里/瓦尔特/
@@ -108,12 +108,15 @@ python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-p
 > 1. 参考音频时长控制在 **3 ~ 6 秒**。
 > 2. Prompt 文本只保留参考音频中**实际发音的字词**，未发音的后半句必须全部删掉。
 
-### 4.1b 声音发沉的根因与选音色（2026-11 实测）
-- 服务端已升级为 **GPT-SoVITS v2ProPlus**（`s2Gv2ProPlus.pth` + `s1v3.ckpt` + `sv/pretrained_eres2netv2w24s4ep4.ckpt`）。官方说明 v2Pro 系列音质超过 V4，且显存与速度接近 V2，4GB 显卡可稳定运行。V4/V5 未采用：V5 无公开对比数据，V4 需更多显存。
-- 零样本下**音色完全跟随参考音频**。游戏角色参考音频本身低沉（音高中位 95–115Hz）、500Hz 以下能量占 80% 以上，所以怎么换模型都会偏沉。必须配合 `--clarity`，或换更干净、音高适中的参考音频。
-- 实测清晰度（2–8kHz 占比，未加 EQ）：sunday 最高，其次 tighnari、dr_ratio；welt、ruan_mei、jingyuan 偏闷。讲解视频首选 `sunday` 或 `tighnari`，并加 `--clarity`。
-- 参考音频必须 3–10 秒。`neuvillette` 预设的参考音频 12.7 秒，超限，效果不稳。
-- 旧版 `zero_tts.py` 的预设都用同一个声学权重（钟离）时尤其发沉；升级后已改为通用 v2ProPlus 底模。
+### 4.1b 服务引擎与选音色（2026-11 实测）
+- 远端 9880 端口有两个可互换的引擎，**同一时刻只能运行一个**（4GB 显存放不下两个）：
+  - **Qwen3-TTS 0.6B 加速版（主力）**：CUDA Graph，3050 上约 4–6 秒合成 8–10 秒音频（1.1–1.8× 实时），首次启动预热约 45 秒；输出 24kHz。接口兼容 GPT-SoVITS `api_v2`，`zero_tts.py` 不用改。
+  - **GPT-SoVITS v2ProPlus（备用）**：更快更省显存，输出 32kHz；官方称 v2Pro 系列音质超过 V4。
+- 切换（在远端执行）：`pwsh -File D:\TTS_Services\tools\tts-switch.ps1 -Engine qwen|sovits`。服务文件统一放在 `D:\TTS_Services\`（说明见该目录 `README.md`）。
+- 零样本下**音色完全跟随参考音频**。游戏角色参考音频本身低沉（音高中位 95–115Hz），500Hz 以下能量占 80% 以上，所以偏沉。必须配合 `--clarity`，或换更干净、音高适中的参考音频。
+- 实测清晰度（SoVITS v2ProPlus，2–8kHz 占比，未加 EQ）：news、sunday、default、neuvillette、tighnari 较好；welt、ruan_mei、jingyuan 偏闷；`mitya` 合成会吞字，暂不可用。讲解视频首选 `sunday` 或 `tighnari` 并加 `--clarity`。
+- 参考音频必须 3–10 秒。`neuvillette` 预设的参考音频 12.7 秒，超限。
+- Windows 防火墙若给 uv 的 `python.exe` 生成了 Block 规则，会静默丢弃 9880 的入站连接（SSH 22 仍正常）。排查：临时开启防火墙丢包日志，看是否有 `DROP ... 9880`。
 
 ### 4.2 长文本切分策略 (`cut5`)
 > [!TIP]
