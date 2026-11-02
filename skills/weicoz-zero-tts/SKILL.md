@@ -93,13 +93,13 @@ cat article.txt | python3 scripts/zero_tts.py -v ruan_mei -o output/reading.wav
 python3 scripts/zero_tts.py "快速播报一段要闻..." -v news --speed 1.15
 ```
 
-### 3.5 讲解/分析视频：清晰化后处理（推荐）
+### 3.5 清晰化后处理（可选，默认关闭）
 ```bash
 python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-play
 # 或 export ZERO_TTS_CLARITY=1 全局开启
 ```
 `--clarity` 用 ffmpeg 低切 90Hz、削 220/400Hz 闷音、提 3.2k/5.5k 咬字频段、轻压缩并归一到 -16 LUFS，输出 48kHz。
-实测同一句话，2–8kHz（决定咬字清晰度）能量占比从约 10% 升到约 35%。需要本机装有 `ffmpeg`。
+频谱指标上，2–8kHz（咬字频段）能量占比从约 10% 升到约 35%，但指标不等于听感：**实际试听选定的是不加 EQ 的版本**（Qwen3-TTS 加速版 + `sunday`），EQ 后偏亮。仅在需要时手动加 `--clarity`。需要本机装有 `ffmpeg`。
 
 ---
 
@@ -119,7 +119,7 @@ python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-p
   - **GPT-SoVITS v2ProPlus（备用）**：更快更省显存，输出 32kHz；官方称 v2Pro 系列音质超过 V4。
 - **不常驻，用时自动启动、空闲自动关闭。** 服务占约 2.7GB 显存（整卡 4GB 的 2/3），空闲也不释放，所以：客户端发现服务没运行就按需通过 SSH 拉起（`ZERO_TTS_SSH_HOST`，冷启动约 30 秒）；服务空闲超过 10 分钟自动退出并释放显存（Qwen 由服务自身判断，环境变量 `QWEN_TTS_IDLE_MIN` 可调，`0` 为常驻；SoVITS 由切换脚本顺带启动的看门狗按日志写入时间判断）。`--no-autostart` 可禁用自动启动。
 - 切换（在远端执行）：`pwsh -File D:\TTS_Services\tools\tts-switch.ps1 -Engine qwen|sovits`。服务文件统一放在 `D:\TTS_Services\`（说明见该目录 `README.md`）。
-- 零样本下**音色完全跟随参考音频**。游戏角色参考音频本身低沉（音高中位 95–115Hz），500Hz 以下能量占 80% 以上，所以偏沉。必须配合 `--clarity`，或换更干净、音高适中的参考音频。
+- 零样本下**音色完全跟随参考音频**。游戏角色参考音频本身低沉（音高中位 95–115Hz），500Hz 以下能量占 80% 以上，所以 SoVITS 下偏沉；Qwen3-TTS 加速版 + `sunday` 实际试听效果最好（用户选定）。偏沉时可试 `--clarity`，或换更干净、音高适中的参考音频。
 - 实测清晰度（SoVITS v2ProPlus，2–8kHz 占比，未加 EQ）：news、sunday、default、neuvillette、tighnari 较好；welt、ruan_mei、jingyuan 偏闷；`mitya` 合成会吞字，暂不可用。讲解视频首选 `sunday` 或 `tighnari` 并加 `--clarity`。
 - 参考音频必须 3–10 秒。`neuvillette` 预设的参考音频 12.7 秒，超限。
 - Windows 防火墙若给 uv 的 `python.exe` 生成了 Block 规则，会静默丢弃 9880 的入站连接（SSH 22 仍正常）。排查：临时开启防火墙丢包日志，看是否有 `DROP ... 9880`。

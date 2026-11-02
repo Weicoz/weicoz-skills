@@ -285,7 +285,7 @@ def main():
                         help="文本分句策略 (默认 cut5 按中英文标点拆分)")
     parser.add_argument("--clarity", action="store_true",
                         default=os.environ.get("ZERO_TTS_CLARITY", "") == "1",
-                        help="合成后用 ffmpeg 做清晰化 EQ（解说/讲解视频推荐；也可设环境变量 ZERO_TTS_CLARITY=1）")
+                        help="合成后用 ffmpeg 做清晰化 EQ（可选，默认关闭；也可设环境变量 ZERO_TTS_CLARITY=1）")
     parser.add_argument("--no-autostart", action="store_true",
                         help="服务未运行时不通过 SSH 自动启动（默认在设置了 ZERO_TTS_SSH_HOST 时自动启动）")
     parser.add_argument("--no-play", action="store_true", help="不自动播放音频")

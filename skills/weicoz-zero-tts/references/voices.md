@@ -37,7 +37,7 @@
 | 4 | `zhongli` | 5.0% | 偏沉，需 `--clarity` |
 | — | `jingyuan` / `welt` / `ruan_mei` / `alhaitham` | 2–4% | 偏闷，不建议做主讲 |
 
-所有预设建议加 `--clarity`，清晰度可再提升数倍。
+`--clarity` 可再提升频谱指标，但试听后更偏好**不加 EQ**（Qwen3-TTS 加速版 + `sunday`），默认不开。
 
 ## 2. 核心工程经验与避坑守则
 
