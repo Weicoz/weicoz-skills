@@ -198,8 +198,8 @@ def main():
     )
     parser.add_argument("text", nargs="?", help="待合成文本（不传则尝试从标准输入 stdin 读取）")
     parser.add_argument("-o", "--output", help="输出音频路径 (.wav)；未指定时写入临时文件并自动播放")
-    parser.add_argument("-v", "--voice", default=os.environ.get("ZERO_TTS_DEFAULT_VOICE", "zhongli"),
-                        choices=list(PRESET_VOICES.keys()), help="预设音色名称 (默认 zhongli)")
+    parser.add_argument("-v", "--voice", default=os.environ.get("ZERO_TTS_DEFAULT_VOICE", "sunday"),
+                        choices=list(PRESET_VOICES.keys()), help="预设音色名称 (默认 sunday)")
     parser.add_argument("--ref", help="自定义远端参考音频绝对路径 (覆盖预设)")
     parser.add_argument("--prompt", help="参考音频对齐文本 (覆盖预设)")
     parser.add_argument("--prompt-lang", default="zh", help="参考音频语言 (默认 zh)")
