@@ -1,7 +1,7 @@
 ---
 name: weicoz-video-shotcraft-patch
-version: 1.0.0
-description: video-shotcraft 的补偿包。做完整宣传片或讲解片时与 video-shotcraft 同时使用，补它缺的环节：字幕与安全区、色系连续、配音语速校准、确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, deterministic checks, partial re-render, fresh-reviewer loop.
+version: 1.1.0
+description: video-shotcraft 的补偿包。做完整宣传片或讲解片时与 video-shotcraft 同时使用，补它缺的环节：字幕与安全区、色系连续、配音语速校准、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
 ---
 
 # video-shotcraft 补偿包
@@ -18,16 +18,21 @@ description: video-shotcraft 的补偿包。做完整宣传片或讲解片时与
 python3 scripts/calibrate-voice.py <工程> --target <字/分钟>            # 校准并写入旁白、句界、清单
 python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --dry-run  # 只试，不动工程
 ```
-完成判据：实测字/分钟在目标 ±2 内，`vo/cues/segNN.json` 与 `src/vo-manifest.ts` 已生成，目标与实测写入 spec。
+完成判据：实测字/分钟在目标 ±2 内；`vo/cues/segNN.json` 与 `src/vo-manifest.ts` 已生成；`src/timing.ts` 按实测重排；`design-spec.md` 里的时长只写「见 timing.ts」。
 
 ## 3. 派镜头实现
-读 [references/delegation.md](references/delegation.md) 套派单模板。完成判据：每个镜头 `python3 scripts/check-shots.py <工程>` 无错误，且带字幕条的合成静帧已看。
+读 [references/delegation.md](references/delegation.md) 套派单模板，完成判据以该文件为准：`check-shots.py` 无错误、`check-sync.py` 无红色、带字幕条的合成静帧已看。
+
+```bash
+python3 scripts/check-shots.py <工程>   # 类型检查是否真能跑、字号、非确定 API、字幕属性、色板
+python3 scripts/check-sync.py <工程>    # 节拍帧与对应旁白句的偏差
+```
 
 ## 4. 修复轮次：只渲改动镜头
 ```bash
 python3 scripts/render-shots.py <工程> --base <旧整片.mp4> --out <新整片.mp4> --ids s7,s8 --props '<与旧片相同的 props>'
 ```
-镜头总帧数没变时才能用；变了就全片重渲。完成判据：输出帧数等于 `timing.ts` 合计。
+镜头总帧数没变时才能用；变了就全片重渲。先验后渲的顺序见 [references/process-hygiene.md](references/process-hygiene.md)。完成判据：输出帧数等于 `timing.ts` 合计。
 
 ## 5. 交付前：独立审查循环
 读 [references/review-loop.md](references/review-loop.md)。每轮派全新审查员，FAIL 就修、重渲、再派新审查员，直到结论 PASS（无高、无中）。
@@ -36,7 +41,7 @@ python3 scripts/render-shots.py <工程> --base <旧整片.mp4> --out <新整片
 python3 scripts/extract-review-frames.py <工程> <成片.mp4> <证据目录>     # 联系表 + 每句旁白帧号
 python3 scripts/check-caption-overlap.py <工程> --plain <无字幕画面.mp4>   # 字幕遮挡扫描
 ```
-完成判据：最后一轮报告结论是 PASS，轮次与遗留低项写进交付说明。
+完成判据：最后一轮报告结论是 PASS；轮次与遗留低项写进交付说明；每轮都有完整报告（在回复里，或在约定路径的文件里）。
 
 ## 6. 全程：过程卫生
-读 [references/process-hygiene.md](references/process-hygiene.md)：不把环境变量或进程参数打进输出，等待渲染用后台通知。凭据一旦打进输出，立刻告诉用户轮换。
+读 [references/process-hygiene.md](references/process-hygiene.md)：凭据不进输出、等完成通知、依赖真装好、先验后渲。完成判据：会话输出里没有环境变量或进程参数；渲染都已收到完成通知。
