@@ -1,6 +1,6 @@
 ---
 name: weicoz-zero-tts
-version: 1.1.0
+version: 1.2.0
 description: >
   远端 GPU (GPT-SoVITS) 语音合成：将中文或中英混合文本合成为自然流畅的语音音频（WAV），
   内置 16 套原神/星铁等知识讲解与角色音色预设（钟离/那维莱特/艾尔海森/提纳里/瓦尔特/
@@ -88,6 +88,14 @@ cat article.txt | python3 scripts/zero_tts.py -v ruan_mei -o output/reading.wav
 python3 scripts/zero_tts.py "快速播报一段要闻..." -v news --speed 1.15
 ```
 
+### 3.5 讲解/分析视频：清晰化后处理（推荐）
+```bash
+python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-play
+# 或 export ZERO_TTS_CLARITY=1 全局开启
+```
+`--clarity` 用 ffmpeg 低切 90Hz、削 220/400Hz 闷音、提 3.2k/5.5k 咬字频段、轻压缩并归一到 -16 LUFS，输出 48kHz。
+实测同一句话，2–8kHz（决定咬字清晰度）能量占比从约 10% 升到约 35%。需要本机装有 `ffmpeg`。
+
 ---
 
 ## 4. 核心工程原则与避坑守则
@@ -99,6 +107,13 @@ python3 scripts/zero_tts.py "快速播报一段要闻..." -v news --speed 1.15
 > **规则**：
 > 1. 参考音频时长控制在 **3 ~ 6 秒**。
 > 2. Prompt 文本只保留参考音频中**实际发音的字词**，未发音的后半句必须全部删掉。
+
+### 4.1b 声音发沉的根因与选音色（2026-11 实测）
+- 服务端已升级为 **GPT-SoVITS v2ProPlus**（`s2Gv2ProPlus.pth` + `s1v3.ckpt` + `sv/pretrained_eres2netv2w24s4ep4.ckpt`）。官方说明 v2Pro 系列音质超过 V4，且显存与速度接近 V2，4GB 显卡可稳定运行。V4/V5 未采用：V5 无公开对比数据，V4 需更多显存。
+- 零样本下**音色完全跟随参考音频**。游戏角色参考音频本身低沉（音高中位 95–115Hz）、500Hz 以下能量占 80% 以上，所以怎么换模型都会偏沉。必须配合 `--clarity`，或换更干净、音高适中的参考音频。
+- 实测清晰度（2–8kHz 占比，未加 EQ）：sunday 最高，其次 tighnari、dr_ratio；welt、ruan_mei、jingyuan 偏闷。讲解视频首选 `sunday` 或 `tighnari`，并加 `--clarity`。
+- 参考音频必须 3–10 秒。`neuvillette` 预设的参考音频 12.7 秒，超限，效果不稳。
+- 旧版 `zero_tts.py` 的预设都用同一个声学权重（钟离）时尤其发沉；升级后已改为通用 v2ProPlus 底模。
 
 ### 4.2 长文本切分策略 (`cut5`)
 > [!TIP]
