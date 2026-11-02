@@ -1,7 +1,7 @@
 ---
 name: weicoz-video-shotcraft-patch
-version: 1.1.0
-description: video-shotcraft 的补偿包。做完整宣传片或讲解片时与 video-shotcraft 同时使用，补它缺的环节：字幕与安全区、色系连续、配音语速校准、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
+version: 1.2.0
+description: video-shotcraft 的补偿包。做完整宣传片或讲解片时与 video-shotcraft 同时使用，补它缺的环节：字幕与安全区、色系连续、配音语速校准（edge-tts 或 weicoz-zero-tts）、中文数字配音稿与多音字检查、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
 ---
 
 # video-shotcraft 补偿包
@@ -12,13 +12,18 @@ description: video-shotcraft 的补偿包。做完整宣传片或讲解片时与
 读 [references/brief-addendum.md](references/brief-addendum.md)，把四项并入产品简报的 1–3 个提问：字幕是否烧录、字幕安全区、色系是否允许中途切换、配音语速目标。完成判据：四项在 `design-spec.md` 里各有明确值。
 
 ## 2. 有旁白时：配音校准
-读 [references/voice.md](references/voice.md)。
+读 [references/voice.md](references/voice.md)。换配音后的时间线重排也在那里（`remap-timeline.py`、`make-captions.py`）。
 
 ```bash
 python3 scripts/calibrate-voice.py <工程> --target <字/分钟>            # 校准并写入旁白、句界、清单
 python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --dry-run  # 只试，不动工程
+python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --engine zero-tts --voice <音色>  # 用 weicoz-zero-tts
+python3 scripts/zh-numerals.py <工程>       # 字幕稿(vo/script-display，阿拉伯数字) → 配音稿(vo/script，中文数字)
+python3 scripts/check-polyphones.py <工程>  # 多音字与易读错的词；高风险未处理时退出码 1
+python3 scripts/voice-consistency.py <工程> --voice <音色> [--fix]  # 逐句音高/音色漂移（zero-tts；需 numpy）
 ```
-完成判据：实测字/分钟在目标 ±2 内；`vo/cues/segNN.json` 与 `src/vo-manifest.ts` 已生成；`src/timing.ts` 按实测重排；`design-spec.md` 里的时长只写「见 timing.ts」。
+配音稿与字幕稿分开：`vo/script-display/` 写阿拉伯数字，是文案唯一来源；`vo/script/` 由 `zh-numerals.py` 生成，读音有歧义的词在 `vo/pronounce.json` 里映射。字幕由 `make-captions.py` 按句序号取字幕稿。校准前必须跑这两个脚本并看输出。
+完成判据：`check-polyphones.py` 高风险为 0、需核对项已看过；`voice-consistency.py` 没有偏离句（zero-tts）；实测字/分钟在容差内（edge ±2，zero-tts ±5）；`vo/cues/segNN.json` 与 `src/vo-manifest.ts` 已生成；`src/timing.ts` 按实测重排；`design-spec.md` 里的时长只写「见 timing.ts」。
 
 ## 3. 派镜头实现
 读 [references/delegation.md](references/delegation.md) 套派单模板，完成判据以该文件为准：`check-shots.py` 无错误、`check-sync.py` 无红色、带字幕条的合成静帧已看。
