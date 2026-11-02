@@ -189,7 +189,7 @@ scutil --proxy | grep -E 'Enable|Proxy'
 | `scripts/snapshot.sh` | 磁盘、swap、负载、进程线程数、CPU 与内存排行 | 约 2 秒 |
 | `scripts/zombie-agents.sh` | 找「程序已删但启动项还在」的 launchd 任务 | 约 5 秒 |
 | `scripts/process-leaks.sh` | 命令行归类计数、父进程子进程数、孤儿、僵尸、argv 里的凭据（已打码） | 约 3 秒 |
-| `scripts/disk-hogs.sh [秒]` | 定向统计目录大户，每项独立超时 | 慢，默认每目录 20 秒；盘快满时放后台 |
+| `scripts/disk-hogs.sh [秒] [--force]` | 定向统计目录大户，带 15GB 低盘保护；每项独立超时 | 慢，默认每目录 20 秒；盘快满时放后台 |
 
 `disk-hogs.sh` 故意不做全盘扫描。盘快满时全盘 `du` 会让 I/O 更糟，宁可分批。
 
@@ -208,5 +208,5 @@ scutil --proxy | grep -E 'Enable|Proxy'
 - 只读诊断不改系统；任何 L2 以上动作都要有用户授权。
 - 不手工删 swapfile、不改 `dynamic_pager`、不动内核参数。
 - 不因为"占资源"就自行终止进程；终止必须点名。
-- 在快满的盘上避免全盘 `du` / `find` 扫描，会加剧 I/O 拖死机器。用 `scripts/disk-hogs.sh` 的定向统计，必要时放后台。
+- 在快满的盘（可用 < 15GB）上自动跳过深层 `du` 目录遍历；必要时加 `--force` 强制执行。
 - 未执行的检查标「未验证」，证据不足标「未确认」并给出确认方法。
