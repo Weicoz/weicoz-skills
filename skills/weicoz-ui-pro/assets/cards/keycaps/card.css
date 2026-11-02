@@ -1,0 +1,22 @@
+.keycaps {
+  & .card-stage { --key-group-top:calc(50% - 107px); }
+  & .keycap-row { position:absolute; width:100%; top:var(--key-group-top); display:flex; align-items:center; justify-content:center; gap:21px; }
+  & .keycap {
+    --_key-radius:calc(var(--_card-radius)*1.6);
+    width:128px; height:136px; flex-shrink:0; position:relative;
+    /* A shallow sidewall carries the depth; avoid stacking another dark rim. */
+    background:linear-gradient(180deg in oklab,color-mix(in oklab,var(--card-panel),var(--card-muted) 4%),color-mix(in oklab,var(--card-panel),var(--card-muted) 15%));
+    border:1px solid color-mix(in oklab,var(--card-panel),var(--card-muted) 20%);
+    border-radius:var(--_key-radius);
+    box-shadow:0 1px 2px #0000000a,0 calc(6px - var(--key-press,0)*2px) calc(10px - var(--key-press,0)*3px) -6px #00000024;
+  }
+  & .keycap-top { position:absolute; inset:2px 2px 6px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:linear-gradient(180deg in oklab,var(--card-panel),color-mix(in oklab,var(--card-panel),var(--card-muted) 2%)); border:1px solid color-mix(in oklab,var(--card-panel),var(--card-muted) 13%); border-radius:max(0px,calc(var(--_key-radius) - 3px)); box-shadow:0 1px 1px #00000007; transform:translateY(calc(var(--key-press,0)*2.5px));
+    & > span { font-size:48px; line-height:1.2; font-weight:400; } & small { font-size:11px; color:var(--card-muted); }
+  }
+  & .key-letter .keycap-top > span { color:var(--_card-accent-ink); }
+  & .key-plus { font-size:17px; color:var(--card-muted); }
+  & .command-panel { position:absolute; left:50%; top:calc(var(--key-group-top) + 164px); width:min(420px,86%); height:50px; transform:translate(-50%,calc((1 - var(--command-visible,0))*8px)); display:flex; gap:12px; align-items:center; padding:13px 15px; border:1px solid var(--card-line); border-radius:calc(var(--_card-radius)*.8); background:var(--card-panel); color:var(--card-muted); box-shadow:0 2px 6px -3px #00000012; font-size:12px; opacity:var(--command-visible,0); & > span:first-child { font-size:22px; color:var(--card-ink); } & kbd { font:9px ui-monospace,monospace; margin-left:auto; border:1px solid var(--card-line); border-radius:3px; padding:3px; } }
+
+  @media(max-width:650px) { & .keycap-row { gap:16px; } }
+  @media(max-width:360px) { & .keycap-row { gap:14px; } & .keycap { width:104px; height:116px; } }
+}

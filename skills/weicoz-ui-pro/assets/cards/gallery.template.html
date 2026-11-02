@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,"><title>看得见的产品力 · oil cards</title><style>{{styles}}</style></head>
+<body>
+  <div class="gallery-page">
+    <header class="gallery-header"><a class="gallery-mark" href="#top" aria-label="回到顶部">oil<span> / cards</span></a><span class="gallery-edition">19 种模板 · 25 个实例</span></header>
+    <div class="gallery-intro" id="top"><h1>卡片探索。</h1><div class="gallery-controls" aria-label="外观控制">
+      <label class="attribute-control">内容 <select id="content-scene" aria-label="内容场景"><option value="studio">创作团队</option><option value="developer">开发工具</option></select></label>
+      <label class="attribute-control">外层效果 <select data-attribute="effects" aria-label="外层卡片效果"><option value="none">关闭</option><option value="tilt">倾斜</option><option value="glow">流光</option><option value="tilt glow">倾斜与流光</option></select></label>
+      <label class="attribute-control">材质 <select data-attribute="material" aria-label="卡片材质"><option value="plain">原始</option><option value="metal">金属</option><option value="glass">玻璃</option><option value="solid">实体卡</option></select></label>
+      <label class="attribute-control">阴影 <select data-attribute="shadow" aria-label="卡片阴影"><option value="auto">跟随材质</option><option value="none">无</option><option value="contact">轻贴合</option><option value="lifted">微悬浮</option></select></label>
+
+      <div class="theme-options" aria-label="选择主题"><button data-theme-choice="light" class="selected" aria-pressed="true">浅</button><button data-theme-choice="dark" aria-pressed="false">深</button></div>
+      <label class="attribute-control">标题 <select data-attribute="title" aria-label="标题位置"><option value="default">默认</option><option value="top">在上</option><option value="bottom">在下</option></select></label>
+      <label class="attribute-control">动效 <select data-attribute="motion" aria-label="动效模式"><option value="auto">自动</option><option value="hover">悬停</option><option value="off">关闭</option></select></label>
+      <button class="replay-motion" data-replay="all">重播演示</button>
+      <label class="radius-control">圆角 <input id="radius" type="range" min="0" max="24" value="8" aria-label="卡片圆角"><output for="radius">8</output></label>
+    </div></div>
+    <section class="palette-editor" aria-label="自定义配色">
+      <label class="attribute-control palette-mode">配色 <select id="palette-mode" aria-label="配色数量"><option value="single">单色</option><option value="duo">双色</option><option value="trio">三色</option></select></label>
+      <div class="palette-color" data-color-slot="0"><label for="color-primary">主色</label><input type="color" id="color-primary" aria-label="选择主色" value="#5865c7"><input class="palette-hex" id="hex-primary" aria-label="主色 HEX" value="#5865C7" maxlength="7" spellcheck="false" autocomplete="off"></div>
+      <div class="palette-color" data-color-slot="1" hidden><label for="color-secondary">辅色</label><input type="color" id="color-secondary" aria-label="选择辅色" value="#9aa5e8"><input class="palette-hex" id="hex-secondary" aria-label="辅色 HEX" value="#9AA5E8" maxlength="7" spellcheck="false" autocomplete="off"></div>
+      <div class="palette-color" data-color-slot="2" hidden><label for="color-tertiary">点缀</label><input type="color" id="color-tertiary" aria-label="选择点缀色" value="#d6c9b7"><input class="palette-hex" id="hex-tertiary" aria-label="点缀色 HEX" value="#D6C9B7" maxlength="7" spellcheck="false" autocomplete="off"></div>
+      <button class="palette-reset" type="button">重置配色</button>
+      <span class="palette-note">图形跟随配色，封面保留原色</span>
+      <span class="palette-feedback" role="status" aria-live="polite"></span>
+    </section>
+    <nav class="category-controls" aria-label="卡片分类">
+      <button type="button" data-family-filter="all" aria-pressed="true">全部 <span></span></button>
+      <button type="button" data-family-filter="visual" aria-pressed="false">视觉意象 <span></span></button>
+      <button type="button" data-family-filter="product" aria-pressed="false">产品场景 <span></span></button>
+      <button type="button" data-family-filter="data" aria-pressed="false">数据关系 <span></span></button>
+      <button type="button" data-family-filter="action" aria-pressed="false">行动引导 <span></span></button>
+    </nav>
+    <p class="category-summary" hidden></p>
+    <main>
+      <div class="peer-intro" id="peer-cards"><span>形态探索 / 影像 · 知识 · 系统</span><h2>从视觉形态，到产品细节。</h2><p>让取景、层次和每一次变化，解释产品能做什么。</p></div>
+      <section class="peer-grid" data-template="peer-cards" aria-label="新卡片探索">
+        <figure data-template="portrait-story" data-family="visual">{{portrait-story}}<figcaption><span>15 / portrait-story</span><span>影像叙事</span></figcaption></figure>
+        <figure data-template="capture-notes" data-family="product">{{capture-notes}}<figcaption><span>16 / capture-notes</span><span>讨论记录</span></figcaption></figure>
+        <figure data-template="answer-lens" data-family="product">{{answer-lens}}<figcaption><span>17 / answer-lens</span><span>知识透镜</span></figcaption></figure>
+        <figure class="peer-wide" data-template="responsive-preview" data-family="product">{{responsive-preview}}<figcaption><span>18 / responsive-preview</span><button class="replay-motion" data-replay="responsive-preview">重播尺寸展开</button><span>响应式展开</span></figcaption></figure>
+        <figure class="peer-wide" data-template="deploy-preview" data-family="product">{{deploy-preview}}<figcaption><span>19 / deploy-preview</span><button class="replay-motion" data-replay="deploy-preview">重播构建过程</button><span>构建流水线</span></figcaption></figure>
+      </section>
+
+      <section class="signature-grid" aria-label="主视觉卡片">
+        <figure data-template="particle-ring" data-family="visual">{{particle-ring}}<figcaption><span>01 / particle-ring</span><span>光场与内容</span></figcaption></figure>
+        <figure data-template="flow-object" data-family="visual">{{flow-object}}<figcaption><span>02 / flow-object</span><span class="renderer-options" aria-label="实体通证形态"><button data-flow-variant="token" aria-pressed="true">实体铭牌</button><button data-flow-variant="card" aria-pressed="false">流光卡片</button></span></figcaption></figure>
+        <figure data-template="dot-globe" data-family="data">{{dot-globe}}<figcaption><span>03 / dot-globe</span><span class="renderer-options" aria-label="空间拓扑形态"><button data-globe-mode="globe" aria-pressed="true">点阵地球</button><button data-globe-mode="mesh" aria-pressed="false">星座拓扑</button></span></figcaption></figure>
+      </section>
+      <figure id="line-ribbons" class="ribbons-figure" data-template="line-ribbons" data-family="visual">{{line-ribbons}}<figcaption><span>04 / line-ribbons</span><span class="renderer-options" aria-label="比较丝带材质"><button data-ribbon-renderer="svg" aria-pressed="true">线织</button><button data-ribbon-renderer="webgl" aria-pressed="false">薄绸</button><button data-ribbon-renderer="dots" aria-pressed="false">点阵</button><button data-ribbon-renderer="grid" aria-pressed="false">网格</button></span></figcaption></figure>
+      <figure id="promo-band" class="promo-figure" data-template="promo-band" data-family="action">{{promo-band}}<figcaption><span>11 / promo-band</span><span>光谱 / 折面</span></figcaption></figure>
+      <section id="explorations" class="exploration-grid" data-template="explorations" aria-label="更多产品表达">
+        <figure data-template="vector-space" data-family="data">{{vector-space}}<figcaption><span>12 / vector-space</span><span>语义空间</span></figcaption></figure>
+        <figure data-template="file-mosaic" data-family="product">{{file-mosaic}}<figcaption><span>13 / file-mosaic</span><span>资源阵列</span></figcaption></figure>
+        <figure data-template="stream-window" data-family="product">{{stream-window}}<figcaption><span>14 / stream-window</span><button class="replay-motion" data-replay="stream-window">重播渐进呈现</button></figcaption></figure>
+      </section>
+      <section class="utility-grid" aria-label="产品体验卡片">
+        <figure data-template="ui-slice" data-family="product">{{ui-slice}}<figcaption><span>06 / ui-slice</span><button class="replay-motion" data-replay="ui-slice">重播动效</button></figcaption></figure>
+        <figure data-template="terminal" data-family="product">{{terminal}}<figcaption><span>07 / terminal</span><button class="replay-motion" data-replay="terminal">重播动效</button></figcaption></figure>
+        <figure data-template="beam-graph" data-family="data">{{beam-graph}}<figcaption><span>09 / beam-graph</span><span>节点与路径</span></figcaption></figure>
+        <figure data-template="keycaps" data-family="action">{{keycaps}}<figcaption><span>10 / keycaps</span><button class="replay-motion" data-replay="keycaps">重播动效</button></figcaption></figure>
+      </section>
+      <figure class="metric-figure" data-template="metric" data-family="data">{{metric}}<figcaption><span>08 / metric</span><button class="replay-motion" data-replay="metric">重播动效</button></figcaption></figure>
+<div class="showcase-intro"><span>05 / SHOWCASE</span><h2>每个品牌，<br>都有自己的光。</h2><p>从一抹颜色开始，找到属于你的表达。</p><div class="carousel-navigation"><button data-slide="-1" aria-label="向前浏览">←</button><button data-slide="1" aria-label="向后浏览">→</button></div></div>
+      <section class="showcase-section" id="showcase" data-template="showcase" data-family="visual">{{showcase}}</section>
+    </main>
+    <footer class="gallery-footer"><span>oil cards / 第一辑</span><span>为有想法的产品，留一方舞台。</span></footer>
+  </div>
+  <script>{{scripts}}</script>
+</body></html>

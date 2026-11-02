@@ -1,0 +1,52 @@
+/* Light, edge and contact shadow are authored together for each material. */
+:where(.card,.showcase-card) {
+  --_card-shadow-contact:0 1px 2px #18253808,0 3px 6px -3px #18253812;
+  --_card-shadow-lifted:0 2px 5px -3px #18253812,0 10px 20px -12px #18253820;
+  --_card-shadow-glass:0 1px 3px #18253805,0 7px 16px -10px #18253814;
+  --_card-shadow-solid:0 1px 1px #18253809,0 4px 8px -5px #18253816;
+  --_card-material-shadow:0 0 #0000;
+  --_card-metal-base:color-mix(in oklab,var(--card-surface) 95%,var(--card-muted));
+  --_card-metal-band:linear-gradient(180deg,#ffffff66,transparent 36%,#17263b05);
+  --_card-metal-rim:inset 0 1px 0 #ffffff70,inset 0 -1px 0 #17223514;
+  --_card-glass-rim:inset 0 1px 0 #ffffff80,inset 1px 0 0 #ffffff29,inset 0 -1px 0 #35496d0d;
+  --_card-solid-rim:inset 0 1px 0 #ffffff80,inset 0 -1px 0 color-mix(in oklab,var(--card-ink) 11%,var(--card-surface));
+  --_card-finish-noise:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='.025'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Cpath filter='url(%23n)' d='M0 0h160v160H0z'/%3E%3C/svg%3E");
+}
+:where([data-theme="dark"]) :where(.card,.showcase-card),:where(.card,.showcase-card)[data-theme="dark"] {
+  --_card-shadow-contact:0 1px 2px #0003,0 3px 6px -3px #0004;
+  --_card-shadow-lifted:0 2px 5px -3px #0005,0 10px 20px -12px #0008;
+  --_card-shadow-glass:0 1px 3px #0002,0 7px 16px -10px #0006;
+  --_card-shadow-solid:0 1px 1px #0004,0 4px 8px -5px #0006;
+  --_card-metal-base:color-mix(in oklab,var(--card-surface) 93%,var(--card-muted));
+  --_card-metal-band:linear-gradient(180deg,#ffffff07,transparent 36%,#0000000a);
+  --_card-metal-rim:inset 0 1px 0 #ffffff1c,inset 0 -1px 0 #0003;
+  --_card-glass-rim:inset 0 1px 0 #ffffff22,inset 1px 0 0 #ffffff0b,inset 0 -1px 0 #0002;
+  --_card-solid-rim:inset 0 1px 0 #ffffff16,inset 0 -1px 0 #0005;
+}
+:is(.card,.showcase-card)[data-shadow="auto"] {--_card-outer-shadow:var(--_card-material-shadow);}
+:is(.card,.showcase-card)[data-shadow="none"] {--_card-outer-shadow:0 0 #0000;}
+:is(.card,.showcase-card)[data-shadow="contact"] {--_card-outer-shadow:var(--_card-shadow-contact);}
+:is(.card,.showcase-card)[data-shadow="lifted"] {--_card-outer-shadow:var(--_card-shadow-lifted);}
+.card,.showcase-card > .showcase-window {box-shadow:var(--_card-outer-shadow,var(--_card-material-shadow));}
+.card-finish {display:none;position:absolute;inset:0;z-index:0;border-radius:inherit;pointer-events:none;user-select:none;box-shadow:var(--_card-material-rim,none);}
+.card-finish::before {content:"";position:absolute;inset:0;border-radius:inherit;background-image:var(--_card-finish-art,none);background-size:var(--_card-finish-size,auto);opacity:var(--_card-material-reflection,1);}
+:is(.card,.showcase-card)[data-material="metal"] {
+  --_card-material-rim:var(--_card-metal-rim);
+  --_card-material-shadow:var(--_card-shadow-contact);
+  & .card-finish {display:block;background-color:var(--_card-finish-base,var(--_card-metal-base));--_card-finish-art:var(--_card-metal-band);}
+}
+:is(.card,.showcase-card)[data-material="glass"] {
+  --_card-material-rim:var(--_card-glass-rim);
+  --_card-material-shadow:var(--_card-shadow-glass);
+  & .card-finish {display:block;--_card-finish-art:linear-gradient(126deg,#ffffff24,transparent 34% 65%,#ffffff0b);}
+}
+/* Keep a readable fallback when a host cannot blur the backdrop. */
+.card[data-material="glass"],.showcase-card[data-material="glass"] > .showcase-window {background:color-mix(in oklab,var(--card-surface) 90%,transparent);}
+@supports (backdrop-filter:blur(1px)) {
+  .card[data-material="glass"],.showcase-card[data-material="glass"] > .showcase-window {background:color-mix(in oklab,var(--card-surface) 62%,transparent);backdrop-filter:blur(18px) saturate(1.12);}
+}
+:is(.card,.showcase-card)[data-material="solid"] {
+  --_card-material-rim:var(--_card-solid-rim);
+  --_card-material-shadow:var(--_card-shadow-solid);
+  & .card-finish {display:block;background-color:var(--_card-finish-base,color-mix(in oklab,var(--card-surface) 98%,var(--card-accent)));--_card-finish-art:var(--_card-finish-noise),linear-gradient(160deg,#ffffff18,transparent 35%,#15203406);--_card-finish-size:160px 160px,100% 100%;}
+}

@@ -1,0 +1,23 @@
+.flow-object {
+  & .card-stage { overflow: visible; perspective: 1100px; }
+  & .flow-aura { position:absolute; inset:0 -10% -10%; background:radial-gradient(ellipse at 70% 66% in oklab,color-mix(in oklab,var(--card-accent) 17%,transparent),transparent 64%),radial-gradient(ellipse at 24% 82% in oklab,color-mix(in oklab,var(--_card-accent-3) 14%,transparent),transparent 59%); }
+  & .physical-card { position: absolute; top:21%; left:17.5%; width:65%; aspect-ratio: 685/1078; overflow: hidden; overflow:clip; border-radius: calc(var(--_card-radius) * 1.9); background: linear-gradient(150deg in oklab,var(--_card-accent-2),var(--card-accent),var(--_card-accent-3)); box-shadow: 0 5px 12px -4px #35164536,0 26px 54px -17px color-mix(in oklab,var(--_card-accent-2) 35%,transparent),inset 0 0 0 1px #ffffff50; transform-style: preserve-3d; }
+  & .flow-surface { position: absolute; inset: 0; }
+  & .card-edition { position: absolute; top: 7%; left: 10%; font: 9px ui-monospace, monospace; letter-spacing: .18em; color: #fff9; }
+  & .card-white { position: absolute; inset: 0; width: 100%; height: 100%; }
+  & .physical-wordmark { position: absolute; right: 10%; bottom: 6%; font-size: 31px; color: #34314c; font-weight: 650; letter-spacing: -.08em; & span { font-size: 9px; position: absolute; right: -8px; top: 5px; letter-spacing: 0; } }
+  & .physical-number { position: absolute; bottom: 8%; left: 10%; font: 9px ui-monospace, monospace; color: #97929d; letter-spacing: .14em; }
+  & .token-engraving { position:absolute; inset:17% 10% 27%; color:#fff; text-shadow:0 1px 1px #17214460,0 -1px 0 #ffffff30; font:9px ui-monospace,monospace; }
+  & .token-status { display:flex; align-items:center; gap:7px; font-size:8px; letter-spacing:.16em; }
+  & .token-led { flex:none; width:5px; height:5px; border-radius:50%; background:#d4ffec; box-shadow:0 0 3px 1px #e4fffccc,0 0 13px #b3ffdf70; opacity:var(--token-pulse,.8); }
+  & .token-hash-label { display:block; margin-top:20%; font-size:7px; opacity:.7; letter-spacing:.24em; }
+  & .token-hash { display:block; margin-top:7px; font-size:clamp(13px,1.6vw,20px); font-weight:500; letter-spacing:.08em; overflow-wrap:anywhere; }
+  & .token-specs { display:grid; gap:9px; margin-top:18%; padding-top:12px; border-top:1px solid #ffffff38; }
+  & .token-specs > div { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px; }
+  & .token-specs span { opacity:.66; font-size:7px; letter-spacing:.12em; }
+  & .token-specs b { font-weight:400; font-size:8px; letter-spacing:.04em; }
+  & .token-registration { display:flex; gap:4px; margin-top:14%; height:13px; opacity:.45; }
+  & .token-registration i { width:1px; height:100%; background:currentColor; }
+  & .token-registration i:nth-child(3n) { height:55%; }
+  &[data-variant="card"] .token-engraving { display:none; }
+}

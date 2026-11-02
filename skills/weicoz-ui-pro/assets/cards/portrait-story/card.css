@@ -1,0 +1,16 @@
+.card.portrait-story {
+  --_card-finish-base:transparent; --_card-material-reflection:0;
+  position:relative; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(170px,1fr) auto;
+  padding:26px; aspect-ratio:4/5; min-height:auto; color:#fff; background:#171a20; border:0;
+  & .story-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 32%; filter:grayscale(1); transform:scale(1.025); transition:transform 1s cubic-bezier(.2,.7,.2,1); }
+  & .story-tint { position:absolute; inset:0; background:var(--card-accent); mix-blend-mode:multiply; opacity:.62; transition:opacity .8s; }
+  & .story-shade { position:absolute; inset:0; background:linear-gradient(180deg,#0003 0%,transparent 35%,#080a1052 55%,#080a10ed 100%); }
+  & .story-brand { position:relative; z-index:2; grid-row:1; margin:0; font-size:19px; line-height:1.2; font-weight:550; letter-spacing:-.06em; overflow-wrap:anywhere; }
+  & .story-copy { position:relative; z-index:2; grid-row:3; min-width:0; }
+  & > .card-finish { z-index:1; }
+  & blockquote { margin:0 0 22px; font-family:"Songti SC","Noto Serif CJK SC",Georgia,serif; font-size:clamp(23px,2.2vw,30px); line-height:1.45; letter-spacing:-.03em; }
+  & .story-copy p { display:flex; flex-wrap:wrap; gap:4px 12px; margin:0; font-size:11px; line-height:1.6; color:#ffffffb8; }
+  &:is(:hover,:focus-within) .story-photo { transform:scale(1); }
+  &:is(:hover,:focus-within) .story-tint { opacity:.32; }
+}
+@media(prefers-reduced-motion:reduce){.portrait-story *{transition:none!important;}}

@@ -1,0 +1,18 @@
+.card.responsive-preview {
+  --_card-stage-track-min:320px; aspect-ratio:auto;
+  & .card-stage { display:grid; grid-template-rows:minmax(245px,1fr) auto; }
+  & .size-scene { position:relative; min-height:245px; overflow:hidden; background:radial-gradient(ellipse at 50% 70%,var(--card-wash),transparent 65%); }
+  & .size-frame { position:absolute; overflow:hidden; border:1px solid color-mix(in oklab,var(--card-ink) 16%,var(--card-panel)); border-radius:10px; background:var(--card-panel); box-shadow:0 6px 14px #18243209; }
+  & .size-frame-bar { height:29px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--card-line); color:var(--card-muted); font:9px ui-monospace,monospace; padding:0 10px; }
+  & .size-frame-bar i { width:4px; height:4px; background:var(--card-line); border-radius:50%; box-shadow:7px 0 var(--card-line),14px 0 var(--card-line); }
+  & .size-frame > svg { display:block; width:100%; height:calc(100% - 29px); }
+  & .size-frame-0 { width:59%; height:190px; left:20%; top:10px; transform:translate(calc(var(--spread,1)*12%),calc(var(--spread,1)*-1px)); }
+  & .size-frame-1 { width:47%; height:154px; left:26%; top:44px; transform:translate(calc(var(--spread,1)*-18%),calc(var(--spread,1)*6px)); opacity:var(--spread,1); }
+  & .size-frame-2 { width:27%; height:137px; left:36%; top:61px; transform:translate(calc(var(--spread,1)*-87%),calc(var(--spread,1)*33px)); opacity:var(--spread,1); }
+  & .preview-land-back { fill:color-mix(in oklab,var(--card-accent) 17%,var(--card-panel)); }
+  & .preview-land-front { fill:color-mix(in oklab,var(--card-accent) 32%,var(--card-panel)); }
+  & .preview-contours { stroke:color-mix(in oklab,var(--card-accent) 45%,var(--card-panel)); stroke-width:1; }
+  & .preview-sun { fill:color-mix(in oklab,var(--_card-accent-2) 36%,var(--card-panel)); }
+  & .size-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:18px 24px 24px; font-size:11px; line-height:1.5; color:var(--card-muted); }
+  & .size-toggle { display:flex; gap:12px; align-items:center; background:transparent; color:var(--_card-accent-ink); border:0; padding:0; font:inherit; cursor:pointer; white-space:nowrap; }
+}

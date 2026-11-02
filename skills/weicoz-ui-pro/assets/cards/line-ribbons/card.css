@@ -1,0 +1,28 @@
+.card.line-ribbons {
+  aspect-ratio:auto;
+  display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(140px,1fr); min-height:min-content;
+  /* A spanning ratio spacer preserves the art format without capping text height. */
+  &::before { content:""; grid-column:1; grid-row:1 / -1; aspect-ratio:2.7; align-self:start; pointer-events:none; }
+  & > .card-heading, & > .ribbon-note { grid-column:1; }
+  & > .card-heading { grid-row:1; position:relative; inset:auto; flex:none; margin:24px 24px 0 24px; }
+  /* Upper-left space is reserved by the paths, without a horizontal mask. */
+  &:not([data-title]) > .card-stage, &[data-title="top"] > .card-stage { inset:0; }
+  & .ribbon-art, & .ribbon-surface { position:absolute; width:100%; height:100%; inset:0; }
+  &[data-surface-ready="true"] .ribbon-art { visibility:hidden; }
+  &[data-renderer="dots"] .ribbon-mist, &[data-renderer="grid"] .ribbon-mist { opacity:.13; }
+  & .ribbon-mist { position:absolute; inset:0; background:
+    radial-gradient(ellipse 31% 65% at 49% 106% in oklab,color-mix(in oklab,oklch(from var(--_card-accent-2) calc(l - .12) calc(c * 1.08) h) 88%,transparent) 8%,color-mix(in oklab,var(--_card-accent-2) 65%,transparent) 38%,transparent 96%),
+    radial-gradient(ellipse 39% 70% at 75% 95% in oklab,color-mix(in oklab,color-mix(in oklab,var(--_card-accent-2) 45%,var(--card-accent)) 66%,transparent),transparent 96%),
+    radial-gradient(ellipse 33% 90% at 98% 40% in oklab,color-mix(in oklab,var(--card-accent) 72%,transparent),transparent 94%); }
+  & .ribbon-note { grid-row:2; position:relative; z-index:4; margin:24px 24px 0; flex:none; line-height:1.5; font-size:13px; color:var(--card-muted); }
+  &[data-title="bottom"] {
+    grid-template-rows:minmax(140px,1fr) auto auto;
+    & > .card-heading { grid-row:2; margin:24px 24px 0; }
+    & .ribbon-note { grid-row:3; margin:8px 24px 12px; }
+    & > .card-stage { position:relative; grid-column:1; grid-row:1; inset:auto; min-height:140px; }
+  }
+  @media(max-width:650px) {
+    &::before { aspect-ratio:1.2; }
+    & .ribbon-note { max-width:190px; line-height:1.5; }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "protocolVersion": 1,
+  "transformVersion": "9",
+  "rules": "./rules.json"
+}

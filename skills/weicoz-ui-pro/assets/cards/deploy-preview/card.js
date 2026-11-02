@@ -1,0 +1,8 @@
+import {shell,loop,staticMotion,smooth} from '../shared/runtime.js';
+export function mount(element, options = {}) {
+  const clean=shell(element,options),still=staticMotion(element,options),buttons=[...element.querySelectorAll('[data-version]')],steps=[...element.querySelectorAll('.deploy-steps > span')],status=element.querySelector('.deploy-status'),events=new AbortController();
+  const versions=options.content?.versions || [{title:'更新作品首页',branch:'design/home',url:'preview.workspace.local'},{title:'整理作品目录',branch:'design/collection',url:'archive.workspace.local'}];let clock,index=0,last=-1,destroyed=false;
+  function show(next,animate=false){index=next;const version=versions[index] || {};buttons.forEach((b,i)=>{b.hidden=!versions[i];b.setAttribute('aria-pressed',String(i===index));});element.querySelectorAll('[data-release-field]').forEach(el=>el.textContent=String(version[el.dataset.releaseField] ?? ''));clock?.destroy();last=-1;clock=loop(element,time=>{const t=still()||!animate?2.5:time,progress=smooth(t/2),ready=smooth((t-1.6)/.9);element.style.setProperty('--build-progress',progress);element.style.setProperty('--preview-ready',ready);const stage=t<.65?0:t<1.6?1:2;steps.forEach((s,i)=>s.dataset.ready=String(t>=(i+1)*.6));if(stage!==last){status.textContent=(options.content?.statuses || ['准备中','构建中','预览就绪'])[stage];last=stage;}},{...options,duration:2.5});}
+  buttons.forEach((b,i)=>b.addEventListener('click',()=>show(i),{signal:events.signal}));show(0,true);
+  return{replay(){if(!destroyed)show(index,true);},destroy(){if(destroyed)return;destroyed=true;clock.destroy();events.abort();clean();for(const property of ['--build-progress','--preview-ready'])element.style.removeProperty(property);steps.forEach(step=>delete step.dataset.ready);}};
+}

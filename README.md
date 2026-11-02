@@ -125,6 +125,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-page-design-harness`](skills/weicoz-page-design-harness/) | 1.0.0 | 按产品、用户、约束与验收标准设计与审查页面 |
 | [`weicoz-page-layout-ascii-guide`](skills/weicoz-page-layout-ascii-guide/) | 1.0.0 | 内容已知但不知如何排版时，产出 ASCII 页面骨架 |
 | [`weicoz-ui-studio`](skills/weicoz-ui-studio/) | 1.2.1 | 完整继承 Free 设计流程、对比页、素材检索与取证，再加交互、19 套组件、工作区及评审增强 |
+| [`weicoz-ui-pro`](skills/weicoz-ui-pro/) | 0.29.1 | 面向 AI Agent 的专业级界面设计方法（免登录自研版）：单方向深化、记忆点打磨、多风格同屏对比与 10 分制评审，支持上游同步 |
 | [`weicoz-tree-swimlane-diagram`](skills/weicoz-tree-swimlane-diagram/) | 1.0.0 | 树状泳道流程图：竖向泳道 + 角色标题 + 判断分支，交付前验遮挡 |
 
 #### 编码代理协作与派单

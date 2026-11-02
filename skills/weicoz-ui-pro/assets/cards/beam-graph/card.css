@@ -1,0 +1,11 @@
+.beam-graph {
+  & .card-stage::before { content:""; position:absolute; inset:0; background-image:radial-gradient(color-mix(in oklab,var(--card-accent) 20%,transparent) .7px,transparent .8px); background-size:15px 15px; mask-image:radial-gradient(ellipse in oklab,#000,transparent 72%); }
+  & .beam-lines { position:absolute; width:100%; height:100%; }
+  & .beam-base { fill:none; stroke:color-mix(in oklab,var(--card-muted) 35%,var(--card-surface)); stroke-width:1.5; }
+  & .beam-light,& .beam-glow { fill:none; stroke-linecap:round; stroke-width:2; stroke-dasharray:72 600; }
+  & .beam-glow { stroke-width:6; opacity:.55; }
+  & .beam-node { position:absolute; display:flex; align-items:center; gap:7px; font-size:13px; border:1px solid var(--card-line); padding:10px 15px; border-radius:30px; background:var(--card-panel); transform:translate(-50%,-50%); white-space:nowrap; box-shadow:0 3px 10px #29314b07; & i { width:5px; height:5px; border-radius:50%; background:var(--_card-accent-2); } }
+  & .beam-a { left:18%; top:20%; } & .beam-b { left:18%; top:50%; } & .beam-e { left:18%; top:80%; } & .beam-c { left:82%; top:32%; } & .beam-d { left:82%; top:68%; }
+  & .beam-center { left:50%; top:50%; font-size:22px; font-weight:600; letter-spacing:-.02em; padding:17px 20px; border-color:color-mix(in oklab,var(--card-accent) 25%,var(--card-line)); box-shadow:0 0 0 9px var(--card-surface),0 0 0 10px color-mix(in oklab,var(--card-accent) 35%,var(--card-surface)),0 0 35px color-mix(in oklab,var(--card-accent) 16%,transparent); }
+  @media(max-width:650px) { & .beam-node { font-size:10px; padding:7px 10px; gap:4px; } & .beam-center { font-size:15px; padding:12px 13px; } }
+}

@@ -1,0 +1,4 @@
+.dot-globe {
+  & canvas { position:absolute; inset:0; }
+  & .globe-label { position:absolute; z-index:2; padding:7px 10px; border:1px solid color-mix(in oklab,var(--card-accent) 20%,var(--card-line)); border-radius:24px; background:var(--card-panel); color:var(--_card-accent-ink); box-shadow:0 4px 18px #28254e10; font-size:10px; white-space:nowrap; transform:translate(9px,-50%); }
+}

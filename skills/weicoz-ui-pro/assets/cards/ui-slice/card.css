@@ -1,0 +1,15 @@
+.ui-slice {
+  & .card-stage { background:radial-gradient(ellipse at 45% 65% in oklab,color-mix(in oklab,var(--card-accent) 10%,transparent),transparent 74%); }
+  & .slice-back { position:absolute; width:91%; top:0; left:17%; height:98%; overflow:clip; background:var(--card-wash); border:1px solid var(--card-line); border-radius:calc(var(--_card-radius)*.8); color:var(--card-muted); mask-image:linear-gradient(in oklab,#000 68%,transparent); }
+  & .slice-toolbar { border-bottom:1px solid var(--card-line); font-size:12px; padding:16px; & > span:last-child { float:right; margin-right:50px; } }
+  & .slice-columns { display:grid; grid-template-columns:1fr 1fr; padding:14px; gap:12px; font-size:12px; & p { padding:15px 9px; margin:9px 0; background:var(--card-panel); border-radius:calc(var(--_card-radius)*.45); color:var(--card-ink); } }
+  & .slice-front { position:absolute; width:82%; left:5%; top:25%; background:var(--card-panel); border:1px solid var(--card-line); border-radius:calc(var(--_card-radius)*.8); box-shadow:0 22px 45px -15px #24324f30,0 3px 9px #24324f0a; padding:20px; font-size:14px; }
+  & .slice-front-heading { display:flex; align-items:center; gap:7px; font-weight:550; font-size:15px; margin-bottom:11px; }
+  & .slice-symbol,& .slice-more { color:var(--card-muted); } & .slice-more { margin-left:auto; }
+  & .slice-task { display:flex; gap:10px; align-items:center; padding:8px 0; margin:0; & i { width:16px; height:16px; border:1px solid var(--card-muted); border-radius:5px; font-size:10px; display:grid; place-items:center; font-style:normal; } & b { margin-left:auto; width:26px; height:26px; border-radius:50%; background:#dce9f7; display:grid; place-items:center; font-size:10px; font-weight:450; color:#385677; } &:nth-of-type(2) b { background:#f4dfdb; color:#7c514b; } &:nth-of-type(3) b { background:#dde9df; color:#48614d; } &.done,&.checked { & i { background:var(--card-accent); color:var(--_card-on-accent); border-color:var(--card-accent); } & > span { color:var(--card-muted); text-decoration:line-through; } } }
+  
+  & .slice-demo i { background:color-mix(in oklab,var(--card-accent) calc(var(--task-done,0)*100%),transparent);color:color-mix(in oklab,var(--_card-on-accent) calc(var(--task-done,0)*100%),transparent);border-color:color-mix(in oklab,var(--card-accent) calc(var(--task-done,0)*100%),var(--card-muted));transform:scale(calc(1 - sin(var(--task-done,0)*3.14159)*.12)); }
+  & .slice-demo > span { color:color-mix(in oklab,var(--card-muted) calc(var(--task-done,0)*100%),var(--card-ink)); }
+  & .slice-progress { display:flex; flex-wrap:wrap; justify-content:space-between; margin-top:15px; font-size:10px; color:var(--card-muted); & > div { width:100%; height:4px; margin-top:9px; background:var(--card-line); border-radius:3px; overflow:clip; & i { display:block; width:100%; height:100%; background:var(--card-accent); border-radius:inherit; transform-origin:left;transform:scaleX(.33333); } } }
+  @media(max-width:650px) { & .slice-front { padding:18px; font-size:13px; } & .slice-front-heading { font-size:13px; } & .slice-progress { font-size:10px; } }
+}

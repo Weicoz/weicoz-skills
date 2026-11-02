@@ -1,0 +1,150 @@
+/* The host supplies the accent and font. Geometry is intentionally fixed. */
+:where(.card, .showcase-card, .card-dialog) {
+  --_card-accent-2: var(--card-accent-2, oklch(from var(--card-accent) calc(l + .06) c calc(h + 50)));
+  --_card-accent-3: var(--card-accent-3, oklch(from var(--card-accent) calc(l + .10) calc(c * .8) calc(h + 100)));
+  --_card-accent-ink: oklch(from var(--card-accent) min(l,.5) c h);
+  --_card-accent-2-ink: oklch(from var(--_card-accent-2) min(l,.5) c h);
+  --_card-accent-3-ink: oklch(from var(--_card-accent-3) min(l,.5) c h);
+  /* A checkmark sits on the chosen color itself, independently of page theme. */
+  --_card-on-accent: oklch(from var(--card-accent) clamp(0, round(up, calc(.65 - l), 1), 1) 0 h);
+  --_card-radius: var(--card-radius, 8px);
+  color-scheme:light;
+  --card-surface: #fff;
+  --card-panel: #fff;
+  --card-ink: #233044;
+  --card-muted: #7b8798;
+  --card-line: #e5edf5;
+  --card-wash: #f5f7fa;
+  --card-shadow: 0 12px 32px -12px #23364c26, 0 2px 8px #23364c06;
+  --_card-edge-core: color-mix(in oklab, var(--card-accent) 56%, var(--card-surface));
+  color: var(--card-ink);
+}
+:where([data-theme="dark"]) :where(.card, .showcase-card, .card-dialog), :where(.card, .showcase-card, .card-dialog)[data-theme="dark"] {
+  --_card-accent-ink: oklch(from var(--card-accent) max(l,.8) c h);
+  --_card-accent-2-ink: oklch(from var(--_card-accent-2) max(l,.8) c h);
+  --_card-accent-3-ink: oklch(from var(--_card-accent-3) max(l,.8) c h);
+  color-scheme:dark;
+  --card-surface: #14171e;
+  --card-panel: #20242d;
+  --card-ink: #edf0f5;
+  --card-muted: #979fad;
+  --card-line: #ffffff12;
+  --card-wash: #191e27;
+  --card-shadow: 0 14px 40px -12px #0008, 0 0 0 1px #ffffff08;
+  --_card-edge-core: color-mix(in oklab, var(--card-accent) 48%, #fff);
+}
+/* A local light theme also works inside a dark host. */
+:is(.card, .showcase-card, .card-dialog)[data-theme="light"] {
+  --_card-accent-ink: oklch(from var(--card-accent) min(l,.5) c h);
+  --_card-accent-2-ink: oklch(from var(--_card-accent-2) min(l,.5) c h);
+  --_card-accent-3-ink: oklch(from var(--_card-accent-3) min(l,.5) c h);
+  color-scheme:light;
+  --card-surface: #fff;
+  --card-panel: #fff;
+  --card-ink: #233044;
+  --card-muted: #7b8798;
+  --card-line: #e5edf5;
+  --card-wash: #f5f7fa;
+  --card-shadow: 0 12px 32px -12px #23364c26, 0 2px 8px #23364c06;
+  --_card-edge-core: color-mix(in oklab, var(--card-accent) 56%, var(--card-surface));
+}
+
+.card {
+  width:100%; min-width:0;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  /* Clip without an internal scroll box when focus/scrollIntoView targets art. */
+  overflow: clip;
+  border: 1px solid var(--card-line);
+  border-radius: var(--_card-radius);
+  background: var(--card-surface);
+  aspect-ratio: 1.2;
+  &.portrait { aspect-ratio: .6; }
+  &.banner { aspect-ratio: 2.7; }
+  &.strip { aspect-ratio: 4.7; }
+  & .card-heading {
+    position: absolute; z-index: 4; top: 24px; left: 24px; right: 24px;
+    margin: 0; font-size: clamp(22px, 1.8vw, 26px); font-weight: 400;
+    line-height: 1.12; letter-spacing: -.045em;
+  }
+  & .card-stage { position: absolute; inset: 78px 0 0; overflow: hidden; overflow:clip; }
+  &.bottom-title {
+    & .card-stage { inset: 0 0 94px; }
+    & .card-caption { position: absolute; bottom: 23px; left: 24px; right: 24px; z-index: 4; }
+    & h2 { margin: 0 0 8px; font-size: 18px; font-weight: 550; letter-spacing: -.035em; }
+    & .card-caption p { margin: 0; font-size: 13px; line-height: 1.55; color: var(--card-muted); }
+  }
+  & canvas { display: block; width: 100%; height: 100%; }
+}
+.card::after, .showcase-window::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 9;
+    padding: 1px; border-radius: inherit;
+    background: radial-gradient(150px circle at var(--pointer-x, -300px) var(--pointer-y, -300px) in oklab,
+      var(--_card-edge-core) 0%,
+      color-mix(in oklab, var(--card-accent) 45%, transparent) 24%,
+      color-mix(in oklab, var(--card-accent) 16%, transparent) 52%,
+      transparent 76%);
+    mask: linear-gradient(in oklab,#fff 0 0) content-box, linear-gradient(in oklab,#fff 0 0);
+    mask-composite: exclude; opacity: 0;
+    transition: opacity .45s cubic-bezier(.16,1,.3,1);
+  }
+
+.card:hover::after, .showcase-card:hover .showcase-window::before { transition-duration:.2s; }
+.card[data-effects~="glow"]::after, .showcase-card[data-effects~="glow"] .showcase-window::before { opacity:calc(var(--pointer-on,0) * .85); }
+:is(.card,.showcase-card)[data-effects~="tilt"] { transform:perspective(1000px) rotateX(var(--_card-rotate-x,0deg)) rotateY(var(--_card-rotate-y,0deg)); }
+.card-dialog {
+  border: 0; padding: 0; background: transparent; overflow: visible;
+  width: min(560px, calc((100vh - 48px) * .6), calc(100vw - 40px)); max-height: calc(100vh - 48px);
+  &.wide { width: min(1100px, calc(100vw - 40px)); }
+  &::backdrop { background: #10172682; backdrop-filter: blur(8px); }
+  & .card { width: 100%; max-height: calc(100vh - 48px); }
+  & :is(.card,.showcase-card)[data-effects~="tilt"] { transform:none; }
+  & .dialog-close { position: absolute; right: -12px; top: -12px; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--card-line); background: var(--card-panel); color: var(--card-ink); z-index: 20; cursor: pointer; font-size: 20px; }
+}
+@media (max-width: 650px) {
+  .card {
+    & .card-heading { font-size: 24px; }
+    &.banner { aspect-ratio: 1.2; }
+    &.strip { aspect-ratio: 1.2; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card *, .showcase-card * { transition-duration: 0s !important; animation: none !important; }
+  .card[data-effects]::after, .showcase-card[data-effects] .showcase-window::before { opacity:0; transition:none; }
+  :is(.card,.showcase-card)[data-effects~="tilt"] { transform:none; }
+}
+
+/* Text occupies a real row; the art keeps its own crop and minimum stage. */
+.card:has(> .card-stage):not(.line-ribbons) {
+  --_card-stage-min:240px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto minmax(var(--_card-stage-track-min,var(--_card-stage-min)),1fr);
+  row-gap:var(--_card-stage-gap,26px);
+  min-height:min-content;
+  & > .card-heading, & > .card-caption {
+    position:relative; inset:auto; min-width:0; order:0;
+    margin:24px 24px 0; flex:none;
+  }
+  & > .card-caption h2 { font-size:22px; line-height:1.15; font-weight:450; margin:0 0 8px; }
+  & > .card-stage {
+    position:relative; inset:auto; order:1; min-width:0; min-height:var(--_card-stage-min);
+    margin:0;
+  }
+  &[data-title="bottom"] {
+    grid-template-rows:minmax(var(--_card-stage-track-min,var(--_card-stage-min)),1fr) auto; row-gap:28px;
+    &:has(> .card-caption) { row-gap:25px; }
+    & > .card-stage { order:0; }
+    & > .card-heading { order:1; margin:0 24px 28px; }
+    & > .card-caption { order:1; margin:0 24px 23px; }
+  }
+}
+.card:is(.ui-slice,.terminal,.beam-graph,.keycaps) {
+  height:420px; aspect-ratio:auto; --_card-stage-gap:20px;
+}
+/* Runtime resolves the closest motion mode, speed=0 and reduced motion together. */
+:is(.card,.showcase-card)[data-static-motion] *, .card[data-motion="off"] * { transition-duration:0s!important; animation:none!important; }
+.card[data-motion="off"]::after, .showcase-card[data-motion="off"] .showcase-window::before { opacity:0; transition:none; }
+:is(.card,.showcase-card)[data-motion="off"][data-effects~="tilt"] { transform:none; }
+[data-text] { white-space:pre-line; overflow-wrap:anywhere; }

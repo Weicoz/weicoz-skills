@@ -1,0 +1,27 @@
+.promo-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.promo-band {
+  display:flex; align-items:flex-start; min-height:180px; aspect-ratio:auto; padding:30px 24px;
+  text-decoration:none; background:var(--card-wash);
+  & .promo-copy { position:relative; z-index:2; width:65%; }
+  & p { margin:0 0 20px; color:var(--card-muted); font-size:16px; line-height:1.5; letter-spacing:-.025em; }
+  & strong { color:var(--card-ink); font-weight:650; }
+  & .promo-link { color:color-mix(in oklab,var(--_card-accent-ink) 85%,var(--card-ink)); font-size:16px; font-weight:600; }
+  & .promo-link > span:last-child { display:inline-block; margin-left:4px; transition:transform .3s ease; }
+  &:is(:hover,:focus-visible) .promo-link > span:last-child { transform:translateX(4px); }
+  & .promo-art { position:absolute; right:0; top:0; bottom:0; width:43%; pointer-events:none; }
+  &[data-art="prism"] .promo-art {
+    width:44%; clip-path:polygon(43% 0,100% 0,100% 100%,0 100%);
+    background:
+      radial-gradient(ellipse at 93% 1% in oklab,var(--_card-accent-2),transparent 69%),
+      radial-gradient(ellipse at 4% 97% in oklab,color-mix(in oklab,var(--card-accent) 80%,#4812bd),transparent 74%),
+      linear-gradient(155deg in oklab,var(--_card-accent-2),var(--card-accent) 68%);
+    &::after { content:""; position:absolute; inset:0; background:linear-gradient(119deg,var(--card-wash) 11%,transparent 37%); }
+  }
+  & svg { width:100%; height:100%; display:block; }
+  & .facet-back { fill:var(--_card-accent-3); }
+  & .facet-top { fill:oklch(from var(--_card-accent-3) calc(l - .01) calc(c * 1.45) calc(h + 12)); }
+  & .facet-front { fill:oklch(from var(--_card-accent-3) calc(l + .13) calc(c * .95) calc(h + 36)); }
+  & .facet-side { fill:oklch(from var(--_card-accent-3) calc(l + .07) calc(c * 1.3) calc(h + 30)); }
+  @media(max-width:650px) { min-height:204px; padding:25px 20px; & .promo-copy { width:73%; } & p { font-size:15px; } & .promo-art { width:32%; opacity:.85; } &[data-art="prism"] .promo-art { width:34%; } }
+}
+@media(max-width:850px) { .promo-grid { grid-template-columns:1fr; } }

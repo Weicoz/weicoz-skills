@@ -1,0 +1,17 @@
+.particle-ring {
+  & .ring-mist { position:absolute; inset:0 -15%; background:radial-gradient(ellipse at 37% 33% in oklab,color-mix(in oklab,var(--_card-accent-2) 17%,transparent),transparent 64%); mask-image:linear-gradient(in oklab,transparent,#000 12%,#000 82%,transparent); }
+  & .ring-canvas { position:absolute; inset:0; }
+  & .shop-conversation { position:absolute; top:21%; left:10%; width:80%; z-index:2; font-size:11.5px; line-height:1.55; }
+  & .shop-message { width:88%; margin:0 0 13px; background:var(--card-panel); padding:11px 13px; border:1px solid var(--card-line); border-radius:calc(var(--_card-radius)*.7); box-shadow:0 5px 14px #3023520a; }
+  & .customer { margin-left:12%; }
+  & .shop-products { display:grid; grid-template-columns:1fr 1fr; padding:8px; gap:8px; background:var(--card-panel); border:1px solid var(--card-line); border-radius:calc(var(--_card-radius)*.85); box-shadow:0 18px 35px -15px #2523422b,0 3px 10px #2523420a; }
+  & .shop-product { display:flex; flex-direction:column; border:1px solid var(--card-line); border-radius:calc(var(--_card-radius)*.45); overflow:hidden; padding-bottom:8px;
+    & strong,& span,& b { padding:0 9px; }
+    & strong { margin-top:8px; font-size:11px; font-weight:550; }
+    & span { font-size:9px; color:var(--card-muted); }
+    & b { margin-top:3px; font-size:10px; font-weight:600; }
+  }
+  & .garment { background:var(--card-wash); height:116px; display:grid; place-items:center; & svg { width:87%; height:96%; } }
+  & .shop-cta { grid-column:1/-1; background:color-mix(in oklab,var(--card-accent) 11%,var(--card-surface)); color:var(--_card-accent-ink); padding:11px; text-align:center; border-radius:calc(var(--_card-radius)*.4); font-weight:550; & > span:last-child { margin-left:10px; } }
+}
+:where([data-theme="dark"]) .particle-ring .garment, .particle-ring[data-theme="dark"] .garment { background:color-mix(in oklab,var(--card-wash) 35%,#bdcde5); }
