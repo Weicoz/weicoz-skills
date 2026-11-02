@@ -8,6 +8,8 @@ weicoz-zero-tts 语音合成客户端
 
 import sys
 import os
+import getpass
+import signal
 import argparse
 import tempfile
 import subprocess
@@ -202,6 +204,192 @@ def ensure_service(endpoints, no_autostart=False):
         print(f"  等待 {wait} 秒仍未就绪。", file=sys.stderr)
 
 
+# ---------------------------------------------------------------------------
+# 排队与插队
+# 服务端（Qwen3-TTS 加速版）提供任务队列：/status 查状态，/jobs 排队并轮询。
+# 同一时刻只合成一个任务，其余按先后顺序排队；只有 --force 才中断当前任务并插队。
+# 不支持队列的引擎（GPT-SoVITS 备用）退化为本机文件锁排队。
+# ---------------------------------------------------------------------------
+EXIT_BUSY = 75          # --no-wait 且服务忙：未排队直接退出
+EXIT_INTERRUPTED = 3    # 本任务被别人强制插队中断
+
+
+class JobInterrupted(Exception):
+    pass
+
+
+class BusyExit(Exception):
+    pass
+
+
+def client_label():
+    return os.environ.get("ZERO_TTS_CLIENT") or f"{getpass.getuser()}@{socket.gethostname()}:{os.getpid()}"
+
+
+def base_url(ep):
+    ep = ep.rstrip("/")
+    return ep[:-4] if ep.endswith("/tts") else ep
+
+
+def http_json(method, url, payload=None, headers=None, timeout=5):
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else None
+    h = {"Content-Type": "application/json; charset=utf-8"}
+    h.update(headers or {})
+    req = urllib.request.Request(url, data=data, headers=h, method=method)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8") or "{}")
+
+
+def http_json_retry(method, url, tries=5, timeout=15, **kw):
+    """幂等请求（GET/DELETE）的重试：EasyTier 链路偶发卡顿超过 10 秒时，不应让已在服务端排队或完成的任务白白丢掉。"""
+    last = None
+    for i in range(tries):
+        try:
+            return http_json(method, url, timeout=timeout, **kw)
+        except urllib.error.HTTPError:
+            raise
+        except Exception as e:
+            last = e
+            time.sleep(min(2 * (i + 1), 8))
+    raise RuntimeError(f"与服务连续 {tries} 次通信失败：{last}")
+
+
+def get_status(ep):
+    """查询服务队列状态；服务不支持队列（如 GPT-SoVITS）返回 None。"""
+    try:
+        st = http_json("GET", base_url(ep) + "/status", timeout=3)
+        return st if "queue" in st else None
+    except Exception:
+        return None
+
+
+def describe_status(st):
+    if not st.get("busy"):
+        return "空闲，没有任务在跑。"
+    cur, q = st.get("current"), st.get("queue", [])
+    lines = []
+    if cur:
+        lines.append(f"正在合成：{cur['client']}，{cur['chars']} 字，已运行 {cur['elapsed']:.0f} 秒（开头：{cur.get('preview', '')}…）")
+    if q:
+        lines.append(f"排队中 {len(q)} 个：" + "；".join(f"{x['client']}（{x['chars']}字，已等 {x['waited']:.0f}s）" for x in q))
+    return "\n".join(lines)
+
+
+def fetch_via_queue(ep, payload, args, st):
+    base = base_url(ep)
+    if st.get("busy"):
+        if args.no_wait and not args.force:
+            print("服务忙，未排队（--no-wait）。\n" + describe_status(st), file=sys.stderr)
+            raise BusyExit()
+        if not args.force:
+            print("有任务在跑，进入排队等待。\n" + describe_status(st), file=sys.stderr)
+        else:
+            print("有任务在跑，--force：中断当前任务并插队。\n" + describe_status(st), file=sys.stderr)
+    headers = {"X-Client": urllib.parse.quote(client_label(), safe="")}
+    if args.force:
+        headers["X-Priority"] = "force"
+    job = http_json("POST", base + "/jobs", payload, headers, timeout=20)
+    jid, last_pos = job["id"], None
+    queue_wait = int(os.environ.get("ZERO_TTS_QUEUE_WAIT", "1800"))
+    run_cap = max(args.timeout, 600)
+    t_queue = time.time()
+    t_run = None
+    try:
+        while True:
+            v = http_json_retry("GET", f"{base}/jobs/{jid}")
+            state = v["state"]
+            if state == "done":
+                last_dl = None
+                for _ in range(4):  # 音频已在服务端，下载失败就重下，别重新合成
+                    try:
+                        with urllib.request.urlopen(f"{base}/jobs/{jid}/audio", timeout=60) as resp:
+                            return resp.read()
+                    except Exception as e:
+                        last_dl = e
+                        time.sleep(2)
+                raise RuntimeError(f"音频已合成但下载失败：{last_dl}（任务号 {jid}，10 分钟内可重新下载）")
+            if state == "cancelled":
+                reason = v.get("reason") or ""
+                if reason.startswith("interrupted_by:"):
+                    print(f"本任务被 {reason.split(':', 1)[1]} 强制插队中断（已丢弃）。如仍需要请重新提交。", file=sys.stderr)
+                else:
+                    print(f"任务已取消：{reason}", file=sys.stderr)
+                raise JobInterrupted()
+            if state == "failed":
+                raise RuntimeError(f"合成失败：{v.get('error')}")
+            if state == "queued":
+                if v["position"] != last_pos:
+                    print(f"排队中：前面还有 {v['position'] - 1} 个任务。", file=sys.stderr)
+                    last_pos = v["position"]
+                if time.time() - t_queue > queue_wait:
+                    http_json("DELETE", f"{base}/jobs/{jid}", timeout=5)
+                    raise RuntimeError(f"排队超过 {queue_wait} 秒，已放弃（ZERO_TTS_QUEUE_WAIT 可调）")
+            else:  # running
+                if t_run is None:
+                    t_run = time.time()
+                    if last_pos is not None:
+                        print("轮到本任务，开始合成。", file=sys.stderr)
+                if time.time() - t_run > run_cap:
+                    http_json("DELETE", f"{base}/jobs/{jid}", timeout=5)
+                    raise RuntimeError(f"合成超过 {run_cap} 秒，已取消")
+            time.sleep(2)
+    except KeyboardInterrupt:
+        try:
+            http_json("DELETE", f"{base}/jobs/{jid}", timeout=5)
+        except Exception:
+            pass
+        raise
+
+
+def fetch_legacy(ep, req_data, args):
+    """不支持队列的引擎：本机文件锁串行化，服务端自身处理同步请求。"""
+    lock_f = None
+    try:
+        import fcntl
+        lock_f = open(os.path.join(tempfile.gettempdir(), "zero_tts.lock"), "w")
+        try:
+            fcntl.flock(lock_f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            if args.no_wait:
+                print("本机已有 zero_tts 在运行，未排队（--no-wait）。", file=sys.stderr)
+                raise BusyExit()
+            print("本机已有 zero_tts 在运行，排队等待……", file=sys.stderr)
+            fcntl.flock(lock_f, fcntl.LOCK_EX)
+    except ImportError:
+        pass
+    if args.force:
+        print("该引擎不支持强制插队，已按排队处理。", file=sys.stderr)
+    try:
+        req = urllib.request.Request(ep, data=req_data, method="POST",
+                                     headers={"Content-Type": "application/json; charset=utf-8"})
+        with urllib.request.urlopen(req, timeout=args.timeout) as resp:
+            content = resp.read()
+            if resp.status == 200 and len(content) > 1000:
+                return content
+            raise RuntimeError(f"HTTP {resp.status}: {content[:200].decode('utf-8', errors='ignore')}")
+    finally:
+        if lock_f:
+            lock_f.close()
+
+
+def apply_speed(path, speed):
+    """用 ffmpeg atempo 做保持音高的变速（atempo 单级范围 0.5–2.0，超出会拆成多级）。
+    Qwen3-TTS 没有语速参数，所以由客户端后处理；GPT-SoVITS 用服务端原生 speed_factor，不走这里。"""
+    if abs(speed - 1.0) < 0.01:
+        return
+    sp = min(max(speed, 0.5), 2.0)
+    if sp != speed:
+        print(f"警告：语速 {speed} 超出 0.5–2.0，已按 {sp} 处理。", file=sys.stderr)
+    tmp = path + ".speed.wav"
+    try:
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-af", f"atempo={sp}", tmp], check=True)
+        os.replace(tmp, path)
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        print(f"警告：变速失败，保留原语速（需要 ffmpeg）：{e}", file=sys.stderr)
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
 # 清晰化后处理：低切 90Hz、削 220/400Hz 闷音、提 3.2k/5.5k 咬字频段、轻压缩、响度归一、升到 48k。
 # 实测同一句话，2–8kHz 能量占比由 ~10% 升到 ~35%，听感明显更清楚。
 CLARITY_FILTER = (
@@ -260,7 +448,13 @@ def print_voices():
     print("提示：使用 -v <别名> 即可选用指定角色音色。")
 
 
+def _raise_interrupt(signum, frame):
+    raise KeyboardInterrupt()
+
+
 def main():
+    # 脚本或 Agent 超时通常发 SIGTERM：与 Ctrl-C 一样，主动把任务从服务端队列撤销
+    signal.signal(signal.SIGTERM, _raise_interrupt)
     parser = argparse.ArgumentParser(
         description="weicoz-zero-tts: 基于 GPT-SoVITS api_v2 的语音合成客户端",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -280,7 +474,7 @@ def main():
     parser.add_argument("--prompt", help="参考音频对齐文本 (覆盖预设)")
     parser.add_argument("--prompt-lang", default="zh", help="参考音频语言 (默认 zh)")
     parser.add_argument("--text-lang", default="zh", help="输入文本语言 (默认 zh)")
-    parser.add_argument("--speed", type=float, default=1.0, help="语速缩放因子 (默认 1.0)")
+    parser.add_argument("--speed", type=float, default=1.0, help="语速倍率 0.5–2.0（默认 1.0；建议 0.8–1.25）。SoVITS 由服务端原生处理；Qwen 由本机 ffmpeg 变速")
     parser.add_argument("--split", default="cut5", choices=["cut0", "cut1", "cut2", "cut3", "cut4", "cut5"],
                         help="文本分句策略 (默认 cut5 按中英文标点拆分)")
     parser.add_argument("--clarity", action="store_true",
@@ -288,6 +482,11 @@ def main():
                         help="合成后用 ffmpeg 做清晰化 EQ（可选，默认关闭；也可设环境变量 ZERO_TTS_CLARITY=1）")
     parser.add_argument("--no-autostart", action="store_true",
                         help="服务未运行时不通过 SSH 自动启动（默认在设置了 ZERO_TTS_SSH_HOST 时自动启动）")
+    parser.add_argument("--force", action="store_true",
+                        help="强制中断当前正在合成的任务并插队（会丢弃别人的任务，仅在用户明确同意时使用）")
+    parser.add_argument("--no-wait", action="store_true",
+                        help="服务忙时不排队，直接以退出码 75 退出")
+    parser.add_argument("--status", action="store_true", help="只查看服务当前是否有任务在跑、队列情况，然后退出")
     parser.add_argument("--no-play", action="store_true", help="不自动播放音频")
     parser.add_argument("--list-voices", action="store_true", help="列出全部预设音色清单")
     parser.add_argument("--api-url", help="显式指定服务端点 URL (覆盖环境变量 ZERO_TTS_API_URL)")
@@ -297,6 +496,16 @@ def main():
 
     if args.list_voices:
         print_voices()
+        sys.exit(0)
+
+    if args.status:
+        eps = get_endpoints(args.api_url)
+        for ep in eps:
+            if is_endpoint_reachable(ep, timeout=1.2):
+                st = get_status(ep)
+                print(f"端点 {ep}\n" + (describe_status(st) if st else "该引擎不提供队列状态（GPT-SoVITS 备用）。"))
+                sys.exit(0)
+        print("服务未运行（空闲 10 分钟会自动关闭，下次调用时自动启动）。")
         sys.exit(0)
 
     # 读取输入文本
@@ -333,24 +542,24 @@ def main():
 
     audio_bytes = None
     last_error = None
+    need_client_speed = False
 
     for ep in endpoints:
         if not is_endpoint_reachable(ep, timeout=1.2):
             continue
         try:
-            req = urllib.request.Request(
-                ep,
-                data=req_data,
-                headers={"Content-Type": "application/json; charset=utf-8"},
-                method="POST"
-            )
-            with urllib.request.urlopen(req, timeout=args.timeout) as resp:
-                content = resp.read()
-                if resp.status == 200 and len(content) > 1000:
-                    audio_bytes = content
-                    break
-                else:
-                    last_error = f"HTTP {resp.status}: {content[:200].decode('utf-8', errors='ignore')}"
+            st = get_status(ep)
+            need_client_speed = st is not None
+            audio_bytes = fetch_via_queue(ep, payload, args, st) if st is not None else fetch_legacy(ep, req_data, args)
+            if audio_bytes:
+                break
+        except BusyExit:
+            sys.exit(EXIT_BUSY)
+        except JobInterrupted:
+            sys.exit(EXIT_INTERRUPTED)
+        except KeyboardInterrupt:
+            print("已中断，任务已从队列移除。", file=sys.stderr)
+            sys.exit(130)
         except Exception as e:
             last_error = str(e)
             continue
@@ -376,6 +585,9 @@ def main():
     try:
         with open(out_file, "wb") as f:
             f.write(audio_bytes)
+
+        if need_client_speed:
+            apply_speed(out_file, args.speed)
 
         if args.clarity:
             apply_clarity(out_file)

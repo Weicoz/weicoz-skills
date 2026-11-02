@@ -1,6 +1,6 @@
 ---
 name: weicoz-zero-tts
-version: 1.3.0
+version: 1.4.0
 description: >
   远端 GPU (GPT-SoVITS) 语音合成：将中文或中英混合文本合成为自然流畅的语音音频（WAV），
   内置 16 套原神/星铁等知识讲解与角色音色预设（钟离/那维莱特/艾尔海森/提纳里/瓦尔特/
@@ -87,11 +87,31 @@ python3 scripts/zero_tts.py "本次系统升级共包含三项重大改动..." -
 cat article.txt | python3 scripts/zero_tts.py -v ruan_mei -o output/reading.wav
 ```
 
-### 3.4 调整语速与分句策略
+### 3.4 调整语速
 ```bash
-# 稍微加快语速至 1.15 倍
-python3 scripts/zero_tts.py "快速播报一段要闻..." -v news --speed 1.15
+python3 scripts/zero_tts.py "快速播报一段要闻..." --speed 1.15
 ```
+- 范围 0.5–2.0，建议 0.8–1.25（超出会警告并钳制）。
+- **Qwen3-TTS 没有原生语速参数**，由客户端用本机 `ffmpeg atempo` 做保持音高的变速（需本机装有 ffmpeg）；GPT-SoVITS 备用引擎由服务端原生处理。
+- 变速本身精确（时长误差 <1%），但模型每次采样的自然时长有约 ±10% 的波动，所以成片时长不能只靠倍率预测。需要精确时长时，用 `weicoz-video-shotcraft-patch` 的 `calibrate-voice.py` 实测校准。
+
+### 3.4b 排队与插队（执行前必看）
+服务同一时刻只合成一个任务，**其余自动排队（先进先出）**。多个会话、多个 Agent 共用同一台 GPU 时尤其重要。
+
+```bash
+python3 scripts/zero_tts.py --status                 # 先看：有没有任务在跑、谁在排队
+python3 scripts/zero_tts.py "..." -v sunday           # 默认：忙就排队，显示"前面还有 N 个"，轮到再合成
+python3 scripts/zero_tts.py "..." --no-wait           # 忙就直接退出（退出码 75），不排队
+python3 scripts/zero_tts.py "..." --force             # 中断当前任务并插队（别人的任务会被丢弃）
+```
+
+给 Agent 的规则：
+1. **执行前先 `--status`**。有任务在跑，就按默认排队等待，不要绕开。
+2. **不得自行使用 `--force`**。它会丢弃别人正在合成的任务；只在用户明确说"插队 / 强制 / 打断当前任务"时才用。
+3. 退出码：`75` 服务忙且指定了 `--no-wait`；`3` 本任务被别人 `--force` 中断（告知用户，不要自动再 `--force` 抢回来）；`130` 被 Ctrl-C/SIGTERM 取消。
+4. 中断粒度是"一个句段"（几秒）。排队中的客户端被取消或掉线，服务端会自动移出队列；合成中的客户端掉线，服务端会中途取消，不白跑。
+5. 环境变量：`ZERO_TTS_QUEUE_WAIT`（最长排队秒数，默认 1800）、`ZERO_TTS_CLIENT`（队列里显示的客户端名，默认 `用户@主机:进程号`）。
+6. 备用的 GPT-SoVITS 没有队列接口，退化为**本机**文件锁排队，不支持 `--force`。
 
 ### 3.5 清晰化后处理（可选，默认关闭）
 ```bash
@@ -118,6 +138,7 @@ python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-p
   - **Qwen3-TTS 0.6B 加速版（主力）**：CUDA Graph，3050 上约 4–6 秒合成 8–10 秒音频（1.1–1.8× 实时），首次启动预热约 45 秒；输出 24kHz。接口兼容 GPT-SoVITS `api_v2`，`zero_tts.py` 不用改。
   - **GPT-SoVITS v2ProPlus（备用）**：更快更省显存，输出 32kHz；官方称 v2Pro 系列音质超过 V4。
 - **不常驻，用时自动启动、空闲自动关闭。** 服务占约 2.7GB 显存（整卡 4GB 的 2/3），空闲也不释放，所以：客户端发现服务没运行就按需通过 SSH 拉起（`ZERO_TTS_SSH_HOST`，冷启动约 30 秒）；服务空闲超过 10 分钟自动退出并释放显存（Qwen 由服务自身判断，环境变量 `QWEN_TTS_IDLE_MIN` 可调，`0` 为常驻；SoVITS 由切换脚本顺带启动的看门狗按日志写入时间判断）。`--no-autostart` 可禁用自动启动。
+- 服务端源码在本技能的 `server/` 目录（`qwen_server.py` 队列与推理、`tts-switch.ps1` 切换引擎、`idle-watch.ps1` 空闲看门狗、`start_qwen.bat` 启动）；部署到远端 `D:\\TTS_Services\\` 对应子目录。
 - 切换（在远端执行）：`pwsh -File D:\TTS_Services\tools\tts-switch.ps1 -Engine qwen|sovits`。服务文件统一放在 `D:\TTS_Services\`（说明见该目录 `README.md`）。
 - 零样本下**音色完全跟随参考音频**。游戏角色参考音频本身低沉（音高中位 95–115Hz），500Hz 以下能量占 80% 以上，所以 SoVITS 下偏沉；Qwen3-TTS 加速版 + `sunday` 实际试听效果最好（用户选定）。偏沉时可试 `--clarity`，或换更干净、音高适中的参考音频。
 - 实测清晰度（SoVITS v2ProPlus，2–8kHz 占比，未加 EQ）：news、sunday、default、neuvillette、tighnari 较好；welt、ruan_mei、jingyuan 偏闷；`mitya` 合成会吞字，暂不可用。讲解视频首选 `sunday` 或 `tighnari` 并加 `--clarity`。
