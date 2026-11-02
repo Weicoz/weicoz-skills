@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -268,6 +269,110 @@ def build_sheet_xml(title: str, rows: list[tuple[str, str, str, str]], config: d
     return xml.encode("utf-8")
 
 
+CONFIRM_SHEET = "方案确认项"
+CONFIRM_HEADERS = ["条目", "问题", "选项", "我方建议", "影响"]
+CONFIRM_WIDTHS = [10, 30, 36, 24, 36]
+CT_WORKSHEET = "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"
+REL_WORKSHEET = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"
+
+
+def normalize_confirm_items(items: list[dict[str, Any]]) -> list[list[str]]:
+    """客户版「方案确认项」：第N条从 1 连续编号，正文引用写“建议值，见方案确认项第N条”。"""
+    normalized = []
+    for number, item in enumerate(items, start=1):
+        question = str(item.get("问题", "")).strip()
+        if not question:
+            raise ValueError(f"方案确认项第{number}条缺少问题")
+        normalized.append([f"第{number}条"] + [str(item.get(key, "")).strip() for key in CONFIRM_HEADERS[1:]])
+    return normalized
+
+
+def build_confirm_sheet_xml(items: list[list[str]], styles: dict[str, list[str]]) -> bytes:
+    cols = "ABCDE"
+    header_style, body_style = styles["header"][0], styles["body"][3]
+    rows_xml = [row_xml(1, [inline_cell(f"{c}1", header_style, v) for c, v in zip(cols, CONFIRM_HEADERS)], 30)]
+    for idx, values in enumerate(items, start=2):
+        height = max(row_height(value) for value in values)
+        rows_xml.append(row_xml(idx, [inline_cell(f"{c}{idx}", body_style, v) for c, v in zip(cols, values)], height))
+    cols_xml = "".join(
+        f'<col min="{n}" max="{n}" width="{w}" customWidth="1"/>' for n, w in enumerate(CONFIRM_WIDTHS, start=1)
+    )
+    return f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="{MAIN_NS}">
+  <dimension ref="A1:E{len(items) + 1}"/>
+  <sheetViews><sheetView workbookViewId="0"/></sheetViews>
+  <sheetFormatPr defaultRowHeight="14.1"/>
+  <cols>{cols_xml}</cols>
+  <sheetData>{''.join(rows_xml)}</sheetData>
+  <pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>
+</worksheet>'''.encode("utf-8")
+
+
+def drop_existing_confirm_sheet(files: dict[str, bytes]) -> None:
+    """模板沿用旧项目的「方案确认项」时整张删掉，避免旧条目混进新交付物。"""
+    workbook = files["xl/workbook.xml"].decode("utf-8")
+    match = re.search(rf'<sheet\b[^>]*name="{CONFIRM_SHEET}"[^>]*?:id="(rId\d+)"[^>]*/>', workbook)
+    if match is None:
+        return
+    rels = files["xl/_rels/workbook.xml.rels"].decode("utf-8")
+    rel = re.search(rf'<Relationship\b[^>]*Id="{match.group(1)}"[^>]*/>', rels)
+    if rel:
+        target = re.search(r'Target="([^"]+)"', rel.group(0))
+        if target:
+            part = normalize_target(target.group(1))
+            files.pop(part, None)
+            types = files["[Content_Types].xml"].decode("utf-8")
+            types = re.sub(rf'<Override\b[^>]*PartName="/{re.escape(part)}"[^>]*/>', "", types)
+            files["[Content_Types].xml"] = types.encode("utf-8")
+        files["xl/_rels/workbook.xml.rels"] = rels.replace(rel.group(0), "").encode("utf-8")
+    files["xl/workbook.xml"] = workbook.replace(match.group(0), "").encode("utf-8")
+
+
+def write_confirm_sheet(output: Path, items: list[list[str]], styles: dict[str, list[str]]) -> None:
+    with zipfile.ZipFile(output, "r") as zin:
+        files = {info.filename: zin.read(info.filename) for info in zin.infolist()}
+    drop_existing_confirm_sheet(files)
+    if not items:
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as zout:
+            for name, data in files.items():
+                zout.writestr(name, data)
+        return
+    used = [int(m) for name in files for m in re.findall(r"^xl/worksheets/sheet(\d+)\.xml$", name)]
+    number = max(used, default=0) + 1
+    sheet_part = f"worksheets/sheet{number}.xml"
+    files[f"xl/{sheet_part}"] = build_confirm_sheet_xml(items, styles)
+
+    rels = files["xl/_rels/workbook.xml.rels"].decode("utf-8")
+    rel_ids = [int(m) for m in re.findall(r'Id="rId(\d+)"', rels)]
+    rel_id = f"rId{max(rel_ids, default=0) + 1}"
+    rels = rels.replace(
+        "</Relationships>", f'<Relationship Id="{rel_id}" Type="{REL_WORKSHEET}" Target="{sheet_part}"/></Relationships>'
+    )
+    files["xl/_rels/workbook.xml.rels"] = rels.encode("utf-8")
+
+    workbook = files["xl/workbook.xml"].decode("utf-8")
+    sheet_ids = [int(m) for m in re.findall(r'sheetId="(\d+)"', workbook)]
+    prefix = re.search(r'xmlns:(\w+)="' + re.escape(REL_NS) + '"', workbook)
+    if prefix is None:
+        workbook = workbook.replace("<workbook ", f'<workbook xmlns:r="{REL_NS}" ', 1)
+        rel_prefix = "r"
+    else:
+        rel_prefix = prefix.group(1)
+    workbook = workbook.replace(
+        "</sheets>",
+        f'<sheet name="{CONFIRM_SHEET}" sheetId="{max(sheet_ids, default=0) + 1}" {rel_prefix}:id="{rel_id}"/></sheets>',
+    )
+    files["xl/workbook.xml"] = workbook.encode("utf-8")
+
+    types = files["[Content_Types].xml"].decode("utf-8")
+    types = types.replace("</Types>", f'<Override PartName="/xl/{sheet_part}" ContentType="{CT_WORKSHEET}"/></Types>')
+    files["[Content_Types].xml"] = types.encode("utf-8")
+
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as zout:
+        for name, data in files.items():
+            zout.writestr(name, data)
+
+
 def create_from_template(template: Path, output: Path, title: str, rows: list[tuple[str, str, str, str]]) -> Path:
     with zipfile.ZipFile(template, "r") as zin:
         sheet_path = resolve_template_sheet_path(zin)
@@ -425,13 +530,20 @@ def create_xlsx(payload: dict[str, Any]) -> Path:
     title = str(payload.get("title") or "功能清单").strip()
     output = Path(payload["output"]).expanduser()
     rows = normalize_rows(payload.get("rows") or DEFAULT_ROWS)
+    confirm_items = normalize_confirm_items(payload.get("confirm_items") or [])
     template_value = payload.get("template")
 
     output.parent.mkdir(parents=True, exist_ok=True)
+    styles = DEFAULT_STYLES
     if template_value:
         template = Path(str(template_value)).expanduser()
-        return create_from_template(template, output, title, rows)
-    return create_minimal_xlsx(output, title, rows)
+        create_from_template(template, output, title, rows)
+        with zipfile.ZipFile(template, "r") as zin:
+            styles = template_sheet_config(zin, resolve_template_sheet_path(zin))["styles"]
+    else:
+        create_minimal_xlsx(output, title, rows)
+    write_confirm_sheet(output, confirm_items, styles)
+    return output
 
 
 def main() -> None:

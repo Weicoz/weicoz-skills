@@ -24,29 +24,56 @@ CLIENT_BLOCKERS = r"待确认|待定|未定|暂定|客户需确认|参考|以最
 CLIENT_ALLOWED = ["待确认收货", "待确认付款", "待确认订单", "参考价", "参考售价"]
 
 
+# 与 check_client_ready.py 的确认页规则保持一致：「方案确认项」分支不查禁词，条目编号与正文引用一一对应
+CONFIRM_HEAD_RE = re.compile(r"^方案确认项(?!\s*第\s*\d)")
+ITEM_RE = re.compile(r"^第\s*(\d+)\s*条")
+REF_RE = re.compile(r"方案确认项第\s*(\d+)\s*条")
+
+
 def client_hits(root: dict[str, Any]) -> list[str]:
     hits: list[str] = []
+    items: dict[int, str] = {}
+    refs: dict[int, str] = {}
+    has_section = False
 
-    def walk(topic: dict[str, Any], trail: list[str]) -> None:
+    def walk(topic: dict[str, Any], trail: list[str], confirm: bool) -> None:
+        nonlocal has_section
         title = topic.get("title")
         title = title if isinstance(title, str) else ""
+        confirm = confirm or bool(CONFIRM_HEAD_RE.match(title.strip()))
         path = trail + [title]
+        loc = ">".join(path)
         texts = [title]
         notes = topic.get("notes")
         if isinstance(notes, dict) and isinstance(notes.get("plain"), dict):
             content = notes["plain"].get("content")
             if isinstance(content, str):
                 texts.append(content)
-        for text in texts:
-            masked = text
-            for phrase in CLIENT_ALLOWED:
-                masked = masked.replace(phrase, "\0" * len(phrase))
-            for match in re.finditer(CLIENT_BLOCKERS, masked):
-                hits.append(f"{'>'.join(path)}: {match.group(0)}")
+        if confirm:
+            has_section = True
+            match = ITEM_RE.match(title.strip())
+            if match:
+                number = int(match.group(1))
+                if number in items:
+                    hits.append(f"{loc}: 方案确认项第{number}条重复")
+                items.setdefault(number, loc)
+        else:
+            for text in texts:
+                masked = text
+                for phrase in CLIENT_ALLOWED:
+                    masked = masked.replace(phrase, "\0" * len(phrase))
+                for match in re.finditer(CLIENT_BLOCKERS, masked):
+                    hits.append(f"{loc}: {match.group(0)}")
+                for match in REF_RE.finditer(text):
+                    refs.setdefault(int(match.group(1)), loc)
         for child in children(topic):
-            walk(child, path)
+            walk(child, path, confirm)
 
-    walk(root, [])
+    walk(root, [], False)
+    if has_section and not items:
+        hits.append("方案确认项没有任何“第N条”条目")
+    hits.extend(f"{refs[n]}: 引用方案确认项第{n}条，但确认分支没有该条" for n in sorted(set(refs) - set(items)))
+    hits.extend(f"{items[n]}: 方案确认项第{n}条未在正文引用" for n in sorted(set(items) - set(refs)))
     return hits
 
 

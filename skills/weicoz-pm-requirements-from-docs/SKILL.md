@@ -1,6 +1,6 @@
 ---
 name: weicoz-pm-requirements-from-docs
-version: 1.2.0
+version: 1.3.0
 description: Use this skill when the user provides customer requirement documents, DOCX/PDF/files, business model notes, marketing reward plans, or says to整理需求/PM需求文档/商业模式解释/玩法/报价工期. This skill turns raw customer materials into a concise product-manager-readable requirements document with business model, industry terms, flows, identity rules, reward formulas, settlement cycles, open questions, and rough quote/timeline. Use it especially when the user complains output is too long, asks for报价/工期, or needs a document suitable for client confirmation.
 ---
 
@@ -19,6 +19,15 @@ Use when user asks to:
 - 加身份、升级、奖励、结算周期
 - 加报价和工期
 - 把客户宣传资料变成可开发需求
+
+## 出错后果与提问闭环（强制）
+
+> **出错后果**：需求文档（含「商业模式与玩法」）写错影响很大，会失去客户对我们的信任，所以不得出错。任何不确定点都必须问用户，不得推断、补默认值或用模糊说法带过。
+
+- 提问按 `weicoz-jy-design-demand-archive` 第 4 节「提问闭环」执行：先汇总所有问题，用宿主提问工具一次问完；每题首项是我方建议并标“(推荐)”，至少 5 个可选项（工具上限 4 个时加工具自带的 Other）；回答与之前前提冲突时以用户为准；多轮迭代到全部定值。单独调用本 skill 时同样执行。
+- 本 skill 的必问点：商业模式（卖什么、钱从哪来、谁付给谁、循环怎么闭合）、行业名词含义、身份与升级条件、奖励公式与基数、结算周期、冲突公式、表格还原不确定的行。
+- 用户回答“需和客户确认”的项：客户版进文末 `## 方案确认项`，正文写 `建议值，见方案确认项第N条`；内部版进「待确认重点」。格式以归档 skill 第 4 节为准。
+- 下文 Workflow 与 Failure handling 里的“列为待确认 / 需确认”兜底，只在用户明确说先出内部版、不等回答时适用。
 
 ## Core rule
 
@@ -50,7 +59,7 @@ Default target:
    - Admin controls.
    - Risk and unclear rules.
 
-材料完全不可读且没有其他可靠输入时，请求可读材料；部分可读或规则不全时，完成有证据的整理，将缺口列为“待确认”，不设百分比停止门槛。只有缺项使用户要求的交付无法成立时才暂停受影响部分；不得推断补造业务规则。
+材料完全不可读且没有其他可靠输入时，请求可读材料。部分可读或规则不全时，把缺口并入提问闭环一次问清，再写正文；不得推断补造业务规则。
 
 3. Set length and scope.
    - Count source lines or estimate source size.
@@ -104,7 +113,7 @@ Default target:
 - 标题用 `# [项目名] 需求文档`，正文首行标注“客户版”。
 - 删去「待确认重点」与「PM 判断」；风险与合规提示只留在内部版或沟通记录。
 - 不写报价与工期节；报价由 `weicoz-project-quote-estimator` 单独出文件。
-- 数值取自同项目沟通记录里的「已确认参数表」。冲突公式、缺失基数不写“需确认”，回到归档 skill 的提问闭环问清后再写。
+- 数值取自同项目沟通记录里的「已确认参数表」。冲突公式、缺失基数不写“需确认”，回到提问闭环问清后再写。用户也定不了的项进文末 `## 方案确认项`（每条 `第N条` 开头，写问题、选项 A/B/C、我方建议、影响），正文写建议值并引用编号。
 - 交付前运行归档 skill 的门禁：`check_client_ready.py 需求文档路径 --old-term 需确认`；“需确认”命中时逐条核对，属于业务用语（如“用户需确认收货”）可保留，其余回到提问闭环。
 - 下方 Failure handling 里的“需确认 / 放进待确认重点”兜底只适用于内部版。
 
