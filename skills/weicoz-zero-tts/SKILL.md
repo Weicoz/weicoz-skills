@@ -1,6 +1,6 @@
 ---
 name: weicoz-zero-tts
-version: 1.0.0
+version: 1.1.0
 description: >
   远端 GPU (GPT-SoVITS) 语音合成：将中文或中英混合文本合成为自然流畅的语音音频（WAV），
   内置 16 套原神/星铁等知识讲解与角色音色预设（钟离/那维莱特/艾尔海森/提纳里/瓦尔特/
@@ -107,3 +107,20 @@ python3 scripts/zero_tts.py "快速播报一段要闻..." -v news --speed 1.15
 ### 4.3 客户端网络超时保持 ≥ 90 秒
 > [!NOTE]
 > 远端 GPU 处理 200 字长文本约需 20~40 秒推理。客户端必须将 HTTP 超时时间设为 90 秒，避免被本地 socket 过早截断。
+
+---
+
+## 5. 依赖环境与项目背景（按需读取）
+
+底层服务部署要求、上游开源项目架构及技术背景已独立整理为参考文件：
+👉 **[`references/environment-and-background.md`](references/environment-and-background.md)**
+
+> [!TIP]
+> **日常使用本 Skill 合成语音时，无需将该参考文件载入上下文**（以节约模型上下文与 Token 开销）。仅在初次搭建远端 GPU 推理节点、迁移工作站或深度排查底层服务端异常时才按需读取。
+
+- **依赖项目**：GPT-SoVITS (V2) 核心推理引擎、`api_v2.py` 服务、V2 官方底模（`s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt` 与 `s2G2333k.pth`）、ACGN 纯净角色干声数据集。
+- **环境要求**：
+  - **服务端**：Windows 11 / Linux、NVIDIA GPU（推荐显存 ≥ 4GB，如 RTX 3050+）、CUDA 11.8/12.1+、Python 3.9+ 虚拟环境；严格禁止向 C 盘写入数据，统一存放在数据盘（如 `D:\TTS_GPT_SoVITS\`）。
+  - **网络**：局域网 LAN（`9880` 端口）优先，搭配 EasyTier / FRP 虚拟组网异地热备。
+  - **客户端**：macOS / Linux / Windows 跨平台兼容，纯 Python 3.8+ 标准库实现，零第三方 pip 依赖。
+
