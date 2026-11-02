@@ -1,9 +1,9 @@
 ---
 name: weicoz-jy-design-demand-archive
-version: 1.10.0
+version: 1.11.0
 description: >
   把会议纪要、沟通记录、聊天内容或客户原话，完整落盘到 `$WEICOZ_JY_DESIGN_ROOT` 对应项目目录，再按需产出功能清单、思维导图、需求文档或报价文档。
-  当用户提到“保存到 jy-design”“把这段沟通记录存起来”“根据内容出导图”“会议纪要转 jy-design 文档”“把客户沟通整理到 jy-design 并输出需求材料”“会议纪要转功能清单”时必须使用；用户还要求报价、预算、服务器、第三方服务/API/SDK 价格或完整项目评估时，同时调用 `weicoz-project-quote-estimator`。
+  当用户提到“保存到 jy-design”“把这段沟通记录存起来”“根据内容出导图”“会议纪要转 jy-design 文档”“把客户沟通整理到 jy-design 并输出需求材料”“会议纪要转功能清单”“客户定了，做份讲解稿给产品/开发讲”时必须使用；用户还要求报价、预算、服务器、第三方服务/API/SDK 价格或完整项目评估时，同时调用 `weicoz-project-quote-estimator`。
 allowed-tools: Read, Write, Edit, Bash
 ---
 
@@ -19,6 +19,7 @@ allowed-tools: Read, Write, Edit, Bash
 | 思维导图 | `weicoz-demand-mindmap-organizer` | 项目目录、文件名、交付对象、已确认参数表 |
 | 报价 | `weicoz-project-quote-estimator` | 项目目录、文件名、已归档范围 |
 | 需求文档 | `weicoz-pm-requirements-from-docs` | 项目目录、文件名、交付对象、已确认参数表 |
+| 讲解稿（内部） | `weicoz-gameplay-briefing` | 项目目录、文件名、沟通记录与已确认参数表位置 |
 
 - 同轮命中多个 skill 时，先加载专项 skill，再按本 skill 落盘。不得因为本文件提过某交付物就跳过专项 skill。
 - 格式冲突以专项 skill 为准；目录、文件名、交付对象、参数基线、客户版门禁以本 skill 为准。
@@ -39,6 +40,7 @@ allowed-tools: Read, Write, Edit, Bash
 | 思维导图 | `项目名-思维导图-YYYYMMDD.xmind`，同名 `.md` 与 `项目名-ASCII树状图-YYYYMMDD.txt` |
 | 报价 | `项目名-项目报价与第三方服务费用-YYYYMMDD.md` |
 | 功能清单 | 按 `weicoz-custom-feature-checklist`，前缀与日期规则同上 |
+| 讲解稿 | `项目名-讲解稿-YYYYMMDD.md` |
 
 - 本表覆盖专项 skill 的默认文件名（例如导图 skill 的 `思维导图-YYYYMMDD.xmind`）。
 - 版本标在文件名时放在类型后，例如 `项目名-思维导图-内部版-YYYYMMDD.xmind`。
@@ -124,6 +126,10 @@ python3 "$WEICOZ_SKILLS_ROOT/weicoz-jy-design-demand-archive/scripts/check_clien
 
 ### 功能清单
 按 `weicoz-custom-feature-checklist` 执行，落同项目目录。调用时明确告诉它交付对象（客户版/内部版）和参数表位置。
+
+### 讲解稿
+- 用户要给产品/开发讲清玩法与分工时，按 `weicoz-gameplay-briefing` 执行，落 `项目名-讲解稿-YYYYMMDD.md`；调用时告诉它沟通记录与已确认参数表位置。
+- 讲解稿是内部产物，读者是用户本人；保留未定点与建议默认，不跑客户版门禁（第 4 节）。
 
 ### 报价
 仅用户明确要求时调用 `weicoz-project-quote-estimator`。先完成原文归档和范围收口，再生成报价；报价内部规则以该 skill 为准。
