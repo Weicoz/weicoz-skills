@@ -24,6 +24,11 @@ description: >
 # 语音合成服务端点列表（支持单个 URL 或逗号分隔的多个备用端点，优先使用首个可用端点）
 export ZERO_TTS_API_URL="http://gpu-server.local:9880/tts,http://vpn-node.internal:9880/tts"
 
+# 按需自动启动（可选）：~/.ssh/config 里的远端主机别名，可逗号分隔多个。
+# 服务没运行时，客户端自动 SSH 触发远端计划任务 ZERO_TTS_START_TASK（默认 tts_qwen），等就绪再合成。
+# 不设置则保持原行为（连不上直接报错）。
+export ZERO_TTS_SSH_HOST="gpu-server-ssh-alias"
+
 # 默认音色预设（可选，留空默认 sunday）
 export ZERO_TTS_DEFAULT_VOICE="sunday"
 
@@ -112,6 +117,7 @@ python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-p
 - 远端 9880 端口有两个可互换的引擎，**同一时刻只能运行一个**（4GB 显存放不下两个）：
   - **Qwen3-TTS 0.6B 加速版（主力）**：CUDA Graph，3050 上约 4–6 秒合成 8–10 秒音频（1.1–1.8× 实时），首次启动预热约 45 秒；输出 24kHz。接口兼容 GPT-SoVITS `api_v2`，`zero_tts.py` 不用改。
   - **GPT-SoVITS v2ProPlus（备用）**：更快更省显存，输出 32kHz；官方称 v2Pro 系列音质超过 V4。
+- **不常驻，用时自动启动、空闲自动关闭。** 服务占约 2.7GB 显存（整卡 4GB 的 2/3），空闲也不释放，所以：客户端发现服务没运行就按需通过 SSH 拉起（`ZERO_TTS_SSH_HOST`，冷启动约 30 秒）；服务空闲超过 10 分钟自动退出并释放显存（Qwen 由服务自身判断，环境变量 `QWEN_TTS_IDLE_MIN` 可调，`0` 为常驻；SoVITS 由切换脚本顺带启动的看门狗按日志写入时间判断）。`--no-autostart` 可禁用自动启动。
 - 切换（在远端执行）：`pwsh -File D:\TTS_Services\tools\tts-switch.ps1 -Engine qwen|sovits`。服务文件统一放在 `D:\TTS_Services\`（说明见该目录 `README.md`）。
 - 零样本下**音色完全跟随参考音频**。游戏角色参考音频本身低沉（音高中位 95–115Hz），500Hz 以下能量占 80% 以上，所以偏沉。必须配合 `--clarity`，或换更干净、音高适中的参考音频。
 - 实测清晰度（SoVITS v2ProPlus，2–8kHz 占比，未加 EQ）：news、sunday、default、neuvillette、tighnari 较好；welt、ruan_mei、jingyuan 偏闷；`mitya` 合成会吞字，暂不可用。讲解视频首选 `sunday` 或 `tighnari` 并加 `--clarity`。

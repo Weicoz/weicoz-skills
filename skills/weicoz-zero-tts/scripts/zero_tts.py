@@ -13,6 +13,7 @@ import tempfile
 import subprocess
 import json
 import socket
+import time
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -166,6 +167,41 @@ def is_endpoint_reachable(url, timeout=1.2):
         return False
 
 
+def ensure_service(endpoints, no_autostart=False):
+    """所有端点都连不上时，按需通过 SSH 拉起远端服务（不依赖开机自启）。
+
+    需设置 ZERO_TTS_SSH_HOST（~/.ssh/config 里的主机别名，可逗号分隔多个，按序尝试）。
+    远端以计划任务 ZERO_TTS_START_TASK（默认 tts_qwen）启动服务；端口开始监听即视为就绪
+    （服务在预热完成后才监听）。未配置 SSH 主机时直接跳过，保持原有行为。
+    """
+    if no_autostart or any(is_endpoint_reachable(ep) for ep in endpoints):
+        return
+    hosts = [h.strip() for h in os.environ.get("ZERO_TTS_SSH_HOST", "").split(",") if h.strip()]
+    if not hosts:
+        return
+    task = os.environ.get("ZERO_TTS_START_TASK", "tts_qwen")
+    wait = int(os.environ.get("ZERO_TTS_START_WAIT", "150"))
+    for host in hosts:
+        print(f"TTS 服务未运行，正在通过 SSH（{host}）启动任务 {task} ……", file=sys.stderr)
+        try:
+            r = subprocess.run(
+                ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", host, f"schtasks /run /tn {task}"],
+                capture_output=True, timeout=30)
+        except Exception as e:
+            print(f"  SSH 失败：{e}", file=sys.stderr)
+            continue
+        if r.returncode != 0:
+            print(f"  启动命令返回 {r.returncode}，换下一台", file=sys.stderr)
+            continue
+        deadline = time.time() + wait
+        while time.time() < deadline:
+            if any(is_endpoint_reachable(ep) for ep in endpoints):
+                print("TTS 服务已就绪。", file=sys.stderr)
+                return
+            time.sleep(3)
+        print(f"  等待 {wait} 秒仍未就绪。", file=sys.stderr)
+
+
 # 清晰化后处理：低切 90Hz、削 220/400Hz 闷音、提 3.2k/5.5k 咬字频段、轻压缩、响度归一、升到 48k。
 # 实测同一句话，2–8kHz 能量占比由 ~10% 升到 ~35%，听感明显更清楚。
 CLARITY_FILTER = (
@@ -250,6 +286,8 @@ def main():
     parser.add_argument("--clarity", action="store_true",
                         default=os.environ.get("ZERO_TTS_CLARITY", "") == "1",
                         help="合成后用 ffmpeg 做清晰化 EQ（解说/讲解视频推荐；也可设环境变量 ZERO_TTS_CLARITY=1）")
+    parser.add_argument("--no-autostart", action="store_true",
+                        help="服务未运行时不通过 SSH 自动启动（默认在设置了 ZERO_TTS_SSH_HOST 时自动启动）")
     parser.add_argument("--no-play", action="store_true", help="不自动播放音频")
     parser.add_argument("--list-voices", action="store_true", help="列出全部预设音色清单")
     parser.add_argument("--api-url", help="显式指定服务端点 URL (覆盖环境变量 ZERO_TTS_API_URL)")
@@ -291,6 +329,7 @@ def main():
 
     req_data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     endpoints = get_endpoints(args.api_url)
+    ensure_service(endpoints, args.no_autostart)
 
     audio_bytes = None
     last_error = None
