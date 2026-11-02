@@ -37,11 +37,11 @@ run_timeout 10 tmutil listlocalsnapshots / 2>/dev/null | head -10 || printf '查
 
 line "常见大户目录（各自独立超时 ${TIMEOUT}s）"
 
-# 低磁盘保护门禁：可用空间 < 15GB 时默认跳过深层 du 遍历，防止 APFS 元数据排队卡死机器
+# 低磁盘保护门禁：可用空间 < 10GB 时默认跳过深层 du 遍历，防止 APFS 元数据排队卡死机器
 avail_kb=$(df -k "$target_vol" 2>/dev/null | awk 'NR==2 {print $4}')
-if [[ -n "$avail_kb" && "$avail_kb" =~ ^[0-9]+$ ]] && (( avail_kb < 15728640 )) && (( FORCE == 0 )); then
+if [[ -n "$avail_kb" && "$avail_kb" =~ ^[0-9]+$ ]] && (( avail_kb < 10485760 )) && (( FORCE == 0 )); then
   avail_h=$(df -h "$target_vol" 2>/dev/null | awk 'NR==2 {print $4}')
-  printf '⚠️ 触发低磁盘保护：可用空间仅 %s，低于 15GB 安全线。\n' "$avail_h"
+  printf '⚠️ 触发低磁盘保护：可用空间仅 %s，低于 10GB 安全线。\n' "$avail_h"
   printf '为避免 APFS 元数据锁死加剧系统卡顿，已自动跳过目录 du 遍历。\n'
   printf '若确认必须强制扫描，请加 --force：bash scripts/disk-hogs.sh --force\n'
   candidates=()
