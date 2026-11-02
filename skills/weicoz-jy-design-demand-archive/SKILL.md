@@ -19,7 +19,7 @@ allowed-tools: Read, Write, Edit, Bash
 | 思维导图 | `weicoz-demand-mindmap-organizer` | 项目目录、文件名、交付对象、已确认参数表 |
 | 报价 | `weicoz-project-quote-estimator` | 项目目录、文件名、已归档范围 |
 | 需求文档 | `weicoz-pm-requirements-from-docs` | 项目目录、文件名、交付对象、已确认参数表 |
-| 讲解稿（内部） | `weicoz-internal-briefing` | 项目目录、文件名、沟通记录与已确认参数表位置 |
+| 讲解稿（内部） | `weicoz-briefing-script` | 项目目录、文件名、沟通记录与已确认参数表位置 |
 
 - 同轮命中多个 skill 时，先加载专项 skill，再按本 skill 落盘。不得因为本文件提过某交付物就跳过专项 skill。
 - 格式冲突以专项 skill 为准；目录、文件名、交付对象、参数基线、客户版门禁以本 skill 为准。
@@ -128,7 +128,7 @@ python3 "$WEICOZ_SKILLS_ROOT/weicoz-jy-design-demand-archive/scripts/check_clien
 按 `weicoz-custom-feature-checklist` 执行，落同项目目录。调用时明确告诉它交付对象（客户版/内部版）和参数表位置。
 
 ### 讲解稿
-- 用户要给产品/开发讲清玩法与分工时，按 `weicoz-internal-briefing` 执行，落 `项目名-讲解稿-YYYYMMDD.md`；调用时告诉它沟通记录与已确认参数表位置。
+- 用户要给产品/开发讲清玩法与分工时，按 `weicoz-briefing-script` 执行，落 `项目名-讲解稿-YYYYMMDD.md`；调用时告诉它沟通记录与已确认参数表位置。
 - 讲解稿是内部产物，读者是用户本人；保留未定点与建议默认，不跑客户版门禁（第 4 节）。
 
 ### 报价

@@ -1,5 +1,5 @@
 ---
-name: weicoz-internal-briefing
+name: weicoz-briefing-script
 version: 1.0.0
 description: >
   把已确定的客户玩法资料（沟通记录、功能清单、方案原文、会议转写）整理成一份“讲解稿”：
