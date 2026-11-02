@@ -172,7 +172,8 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | Skill | 版本 | 说明 |
 | --- | --- | --- |
 | [`weicoz-video-frame-density`](skills/weicoz-video-frame-density/) | 1.0.0 | 修复深色视频「画面太空」：覆盖率诊断、程序化氛围层、第二层信息重构，附帧号/字幕/音效/文档防漂移规则 |
-| [`weicoz-video-shotcraft-patch`](skills/weicoz-video-shotcraft-patch/) | 1.0.0 | video-shotcraft 补偿包：字幕与安全区、色系连续、配音语速校准、确定性检查、只重渲改动镜头、独立审查循环（与 video-shotcraft 同时使用） |
+| [`weicoz-video-shotcraft-patch`](skills/weicoz-video-shotcraft-patch/) | 1.1.0 | video-shotcraft 补偿包：字幕与安全区、色系连续、配音语速校准、确定性检查、只重渲改动镜头、独立审查循环（与 video-shotcraft 同时使用） |
+| [`weicoz-zero-tts`](skills/weicoz-zero-tts/) | 1.0.0 | 远端 GPU (GPT-SoVITS) 语音合成：内置 16 套原神/星铁等知识讲解音色预设、长文本切分与多端点自适应回退 |
 
 #### 交付与表达规范
 
