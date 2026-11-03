@@ -7,6 +7,9 @@
                   [--per-source 12] [--allow-sa] [--allow-lowres]
   media-source.py get <工程> <source:id> --picked-by user|"agent:理由" [--kind photo|video] [--shot s4]
                   [--name slug] [--fps 30] [--keep-audio] [--allow-sa]
+  media-source.py sheet <工程> --name <名> --files a.png b.mp4 ...   用本地图片/视频（视频取第 1 秒）拼联系表
+  media-source.py import <工程> <本地文件> --shot s4 --tool "途径" --prompt "提示词" --picked-by user|"agent:理由"
+                  [--model 模型名] [--name slug] [--kind photo|video] [--fps 30] [--keep-audio]
   media-source.py fetch <工程> [--all]
   media-source.py credits <工程>
 
@@ -14,8 +17,13 @@
   search  写 <工程>/media/candidates/<shot|关键词>.json 与同名 .html，并生成缩略图联系表 <名>_sheet.jpg
   sheet   <工程> --name <shot|关键词> [--top 12]：重新生成联系表（代理挑素材前看这一张图）
   get     写 <工程>/public/media/<shot>/<slug>.<ext>，更新 <工程>/media/sources.json（按 file 去重）
-  fetch   按 sources.json 重新下载缺失文件；src_sha256 变化报错，最终 sha256 变化只警告
-  credits 写 <工程>/media/CREDITS.md
+  sheet --files  写 <工程>/media/candidates/<名>_sheet.jpg，打印「第 N 张 = 文件路径」（不读候选 json）
+  import  导入 AI 生成的本地文件（本脚本不调用任何生成模型）：转码后存两份——
+          入库副本 <工程>/media/generated/<shot>/<slug>.<ext>（唯一真相源，必须入库）与
+          渲染副本 <工程>/public/media/<shot>/<slug>.<ext>（不入库）；写 sources.json（source=generated）
+  fetch   按 sources.json 重新下载缺失文件；src_sha256 变化报错，最终 sha256 变化只警告；
+          generated 条目不联网，从 generated_file 复制（缺失则报错）
+  credits 写 <工程>/media/CREDITS.md；有 generated 条目时增加「AI 生成」一节与简介声明
 环境变量（缺失时跳过该来源并提示，不报错）：
   PEXELS_API_KEY、PIXABAY_API_KEY、UNSPLASH_ACCESS_KEY；Wikimedia 不需要 Key。
   MEDIA_SOURCE_UA 覆盖 Wikimedia 要求的 User-Agent。
@@ -136,14 +144,15 @@ def normalize_license(source, raw=""):
 def license_ok(lic, allow_sa=False):
     if re.fullmatch(r"cc-by-sa-[\d.]+", lic):
         return allow_sa
-    return lic in ("pexels", "pixabay", "unsplash", "cc0", "pd") or bool(re.fullmatch(r"cc-by-[\d.]+", lic))
+    return lic in ("pexels", "pixabay", "unsplash", "cc0", "pd", "generated") or bool(re.fullmatch(r"cc-by-[\d.]+", lic))
 
 
 def license_label(lic):
     if lic.startswith("cc-by"):
         return _cc_label(lic)
     return {"pexels": "Pexels License", "pixabay": "Pixabay Content License",
-            "unsplash": "Unsplash License", "cc0": "CC0", "pd": "Public Domain"}.get(lic, lic)
+            "unsplash": "Unsplash License", "cc0": "CC0", "pd": "Public Domain",
+            "generated": "AI 生成"}.get(lic, lic)
 
 
 def _cc_label(lic):
@@ -559,6 +568,52 @@ def cmd_search(a):
             print(f"提示：{e}")
 
 
+def compose_sheet(imgs, sheet, cols=4):
+    """把若干图片缩放后平铺成一张联系表 jpg。"""
+    rows = (len(imgs) + cols - 1) // cols
+    args = ["ffmpeg", "-v", "error", "-y"]
+    for d in imgs:
+        args += ["-i", str(d)]
+    fc = "".join(f"[{i}:v]scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2:color=0x202020,setsar=1[v{i}];"
+                 for i in range(len(imgs)))
+    fc += "".join(f"[v{i}]" for i in range(len(imgs))) + f"concat=n={len(imgs)}:v=1:a=0,tile={cols}x{rows}:padding=6:color=0xffffff"
+    r = subprocess.run(args + ["-filter_complex", fc, "-frames:v", "1", str(sheet)], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise Fail(f"联系表生成失败：{r.stderr.strip()[:200]}")
+
+
+def build_sheet_files(root, files, name, cols=4):
+    """用本地图片/视频（视频取第 1 秒的帧）拼联系表，打印「第 N 张 = 文件路径」。"""
+    need_ff()
+    out_dir = root / "media" / "candidates"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths = [Path(f).expanduser().resolve() for f in files]
+    for p in paths:
+        if not p.is_file():
+            raise Usage(f"文件不存在：{p}")
+    with tempfile.TemporaryDirectory() as td:
+        imgs = []
+        for i, p in enumerate(paths):
+            if p.suffix.lower() in VIDEO_EXT:
+                fr = Path(td) / f"f{i}.jpg"
+                for ss in (["-ss", "1"], []):  # 不足 1 秒的视频退回第 1 帧
+                    subprocess.run(["ffmpeg", "-y", "-v", "error", *ss, "-i", str(p), "-frames:v", "1", str(fr)],
+                                   capture_output=True, text=True)
+                    if fr.exists() and fr.stat().st_size > 0:
+                        break
+                if not fr.exists():
+                    raise Fail(f"取不到视频帧：{p}")
+                imgs.append(fr)
+            else:
+                imgs.append(p)
+        sheet = out_dir / f"{name}_sheet.jpg"
+        compose_sheet(imgs, sheet, cols)
+    print(f"联系表：{sheet}（{cols} 列，从左到右、从上到下）")
+    for i, p in enumerate(paths, 1):
+        print(f"  第 {i:>2} 张 = {p}")
+    return sheet
+
+
 def build_sheet(root, name, top=12, cols=4):
     """把候选前 top 条的缩略图拼成一张联系表（从左到右、从上到下 = 排名顺序），供代理用视觉比较画面内容。"""
     out_dir = root / "media" / "candidates"
@@ -581,17 +636,8 @@ def build_sheet(root, name, top=12, cols=4):
             print(f"  缩略图下载失败 {c['key']}：{e}", file=sys.stderr)
     if not got:
         raise Fail("没有可用的缩略图，联系表未生成；改看候选页。")
-    rows = (len(got) + cols - 1) // cols
-    args = ["ffmpeg", "-v", "error", "-y"]
-    for _, d in got:
-        args += ["-i", str(d)]
-    fc = "".join(f"[{i}:v]scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2:color=0x202020,setsar=1[v{i}];"
-                 for i in range(len(got)))
-    fc += "".join(f"[v{i}]" for i in range(len(got))) + f"concat=n={len(got)}:v=1:a=0,tile={cols}x{rows}:padding=6:color=0xffffff"
     sheet = out_dir / f"{name}_sheet.jpg"
-    r = subprocess.run(args + ["-filter_complex", fc, "-frames:v", "1", str(sheet)], capture_output=True, text=True)
-    if r.returncode != 0:
-        raise Fail(f"联系表生成失败：{r.stderr.strip()[:200]}")
+    compose_sheet([d for _, d in got], sheet, cols)
     print(f"联系表：{sheet}（{cols} 列，从左到右、从上到下）")
     for i, (c, _) in enumerate(got, 1):
         print(f"  第 {i:>2} 张  {c['key']:<22} {c.get('title') or c['page_url'][-60:]}")
@@ -599,6 +645,9 @@ def build_sheet(root, name, top=12, cols=4):
 
 
 def cmd_sheet(a):
+    if a.files:
+        build_sheet_files(Path(a.project).resolve(), a.files, a.name, 4)
+        return
     build_sheet(Path(a.project).resolve(), a.name, a.top)
 
 
@@ -699,6 +748,57 @@ def cmd_get(a):
           f"记录：{root / 'media' / 'sources.json'}")
 
 
+def cmd_import(a):
+    need_ff()
+    root = project_root(a.project)
+    src = Path(a.file).expanduser().resolve()
+    if not src.is_file():
+        raise Usage(f"文件不存在：{src}")
+    for k, v in (("--tool", a.tool), ("--prompt", a.prompt), ("--picked-by", a.picked_by)):
+        if not (v or "").strip():
+            raise Usage(f"{k} 不能为空（AI 生成素材无法复现，必须登记途径、提示词和挑选依据）")
+    kind = a.kind or ("video" if src.suffix.lower() in VIDEO_EXT else "photo")
+    shot = a.shot
+    stem = a.name or slugify("gen-" + src.stem)
+    gen_dir = root / "media" / "generated" / shot
+    if kind == "video":
+        gen_dir.mkdir(parents=True, exist_ok=True)
+        dest = gen_dir / f"{stem}.mp4"
+        transcode_video(src, dest, a.fps, a.keep_audio)
+    else:
+        dest = place_photo(src, gen_dir, stem)
+    pub = root / "public" / "media" / shot / dest.name
+    pub.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(dest, pub)
+    info = probe(dest)
+    entry = {"file": pub.relative_to(root / "public").as_posix(), "kind": kind, "source": "generated",
+             "license": "generated", "tool": a.tool, "model": a.model or "", "prompt": a.prompt,
+             "generated_file": dest.relative_to(root).as_posix(), "retrieved": today(),
+             "sha256": sha256_file(dest), "w": info["w"], "h": info["h"],
+             "dur": info["dur"] if kind == "video" else None, "fps": info["fps"] if kind == "video" else None,
+             "shot": shot, "picked_by": a.picked_by, "keep_audio": bool(a.keep_audio), "transcode_fps": a.fps,
+             "attribution": f"AI 生成（{a.tool}）"}
+    save_sources(root, upsert_source(load_sources(root), entry))
+    print(f"已导入：入库副本 {dest}\n渲染副本 {pub}\n{info['w']}x{info['h']} license=generated "
+          f"sha256={entry['sha256'][:12]}…\n记录：{root / 'media' / 'sources.json'}")
+
+
+def fetch_generated(root, e, force):
+    dest = root / "public" / e["file"]
+    if dest.exists() and not force:
+        return
+    gf = e.get("generated_file")
+    gp = root / gf if gf else None
+    if not gp or not gp.is_file():
+        raise Fail(f"{e['file']} 是 AI 生成素材，只能从入库副本复原，但 generated_file 缺失：{gf or '(未记录)'}。"
+                   "无法重新生成，请从版本库找回 media/generated/ 下的文件。")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(gp, dest)
+    if sha256_file(dest) != e.get("sha256"):
+        raise Fail(f"{e['file']} 入库副本 sha256 与记录不一致，副本可能被改动。")
+    print(f"已复原：{e['file']}（从入库副本复制，sha256 一致）")
+
+
 def cmd_fetch(a):
     need_ff()
     root = project_root(a.project)
@@ -708,6 +808,13 @@ def cmd_fetch(a):
         return
     bad = 0
     for e in items:
+        if e.get("source") == "generated":
+            try:
+                fetch_generated(root, e, a.all)
+            except Fail as ex:
+                print(f"错误：{ex}")
+                bad += 1
+            continue
         dest = root / "public" / e["file"]
         if dest.exists() and not a.all:
             continue
@@ -730,7 +837,7 @@ def cmd_fetch(a):
         else:
             print(f"已复原：{e['file']}（src_sha256 一致，sha256 一致）")
     if bad:
-        raise Fail(f"{bad} 个素材的来源文件已变化。")
+        raise Fail(f"{bad} 个素材无法复原或来源文件已变化。")
 
 
 def cmd_credits(a):
@@ -739,21 +846,32 @@ def cmd_credits(a):
     if not items:
         raise Fail("sources.json 为空或不存在，没有可署名的素材。")
     need = [e for e in items if e["license"].startswith("cc-by") or e["license"] == "unsplash"]
+    gen = [e for e in items if e.get("source") == "generated"]
     L = ["# 素材署名 CREDITS", ""]
     L.append("## 需要署名的素材")
     L.append("")
     if need:
         for e in need:
-            L.append(f"- `{e['file']}`：{e['attribution']}（{e['url']}；{license_label(e['license'])}"
+            L.append(f"- `{e['file']}`：{e['attribution']}（{e.get('url', '')}；{license_label(e['license'])}"
                      + (f" {e['license_url']}" if e.get("license_url") else "") + "）")
     else:
         L.append("（无）")
     L += ["", "## 全部素材来源", ""]
     for e in items:
+        if e.get("source") == "generated":
+            L.append(f"- `{e['file']}`：AI 生成 · {e.get('tool') or '-'}")
+            continue
         L.append(f"- `{e['file']}`：{SRC_LABEL.get(e['source'], e['source'])} · {license_label(e['license'])} · "
-                 f"{e.get('author') or '-'} · {e['url']}")
+                 f"{e.get('author') or '-'} · {e.get('url', '')}")
+    if gen:
+        L += ["", "## AI 生成", ""]
+        for e in gen:
+            L.append(f"- `{e['file']}`：途径 {e.get('tool') or '-'}；模型 {e.get('model') or '-'}")
     L += ["", "## 视频简介署名文字", "", "```"]
-    L += [e["attribution"] for e in need] or ["（无需署名）"]
+    lines = [e["attribution"] for e in need]
+    if gen:
+        lines.append("部分画面由 AI 生成。")
+    L += lines or ["（无需署名）"]
     L += ["```", ""]
     out = root / "media" / "CREDITS.md"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -780,7 +898,8 @@ def build_parser():
     s.add_argument("--no-sheet", action="store_true", help="不生成缩略图联系表")
     sh = sub.add_parser("sheet")
     sh.add_argument("project")
-    sh.add_argument("--name", required=True, help="search 时的 --shot，或关键词 slug")
+    sh.add_argument("--name", required=True, help="search 时的 --shot，或关键词 slug；配合 --files 时是输出名")
+    sh.add_argument("--files", nargs="+", help="用本地图片/视频拼联系表（不读候选 json）")
     sh.add_argument("--top", type=int, default=12)
     g = sub.add_parser("get")
     g.add_argument("project")
@@ -792,6 +911,18 @@ def build_parser():
     g.add_argument("--fps", type=int, default=30)
     g.add_argument("--keep-audio", action="store_true")
     g.add_argument("--allow-sa", action="store_true")
+    im = sub.add_parser("import")
+    im.add_argument("project")
+    im.add_argument("file")
+    im.add_argument("--shot", required=True)
+    im.add_argument("--tool", required=True, help="生成途径，如 gpt-image-2 skill、即梦网页、可灵网页")
+    im.add_argument("--prompt", required=True)
+    im.add_argument("--picked-by", required=True)
+    im.add_argument("--model")
+    im.add_argument("--name")
+    im.add_argument("--kind", choices=["photo", "video"])
+    im.add_argument("--fps", type=int, default=30)
+    im.add_argument("--keep-audio", action="store_true")
     f = sub.add_parser("fetch")
     f.add_argument("project")
     f.add_argument("--all", action="store_true")
@@ -803,7 +934,7 @@ def build_parser():
 def main(argv=None):
     a = build_parser().parse_args(argv)
     try:
-        {"search": cmd_search, "sheet": cmd_sheet, "get": cmd_get, "fetch": cmd_fetch, "credits": cmd_credits}[a.cmd](a)
+        {"search": cmd_search, "sheet": cmd_sheet, "get": cmd_get, "import": cmd_import, "fetch": cmd_fetch, "credits": cmd_credits}[a.cmd](a)
     except Fail as e:
         print(f"失败：{e}", file=sys.stderr)
         return 1
