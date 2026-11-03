@@ -170,8 +170,8 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | Skill | 版本 | 说明 |
 | --- | --- | --- |
 | [`weicoz-video-frame-density`](skills/weicoz-video-frame-density/) | 1.0.0 | 修复深色视频「画面太空」：覆盖率诊断、程序化氛围层、第二层信息重构，附帧号/字幕/音效/文档防漂移规则 |
-| [`weicoz-video-shotcraft-patch`](skills/weicoz-video-shotcraft-patch/) | 1.2.0 | video-shotcraft 补偿包：字幕与安全区、色系连续、配音语速校准、中文数字配音稿与多音字检查、确定性检查、只重渲改动镜头、独立审查循环（与 video-shotcraft 同时使用） |
-| [`weicoz-zero-tts`](skills/weicoz-zero-tts/) | 1.1.0 | 远端 GPU (GPT-SoVITS) 语音合成：内置 16 套原神/星铁等知识讲解音色预设、长文本切分与多端点自适应回退 |
+| [`weicoz-video-shotcraft-patch`](skills/weicoz-video-shotcraft-patch/) | 1.5.0 | 做解说片或宣传片的总入口（自行加载 video-shotcraft 与 weicoz-zero-tts）：旁白当时钟、字级对齐与识别回读、按字卡点核对、素材选材（素材库与 AI 生成）与来源登记、字幕与安全区、配音语速校准、多音字检查、只重渲改动镜头、独立审查循环 |
+| [`weicoz-zero-tts`](skills/weicoz-zero-tts/) | 1.6.0 | 远端 GPU 语音合成（主力 Qwen3-TTS，备用 GPT-SoVITS）：音色库与试听页、字级时间与识别回读、逐句漂移分析、远端运维脚本，本机只用标准库客户端 |
 
 #### 交付与表达规范
 

@@ -1,6 +1,6 @@
 ---
 name: weicoz-zero-tts
-version: 1.5.0
+version: 1.6.0
 description: >
   远端 GPU 语音合成（主力 Qwen3-TTS，备用 GPT-SoVITS）：将中文或中英混合文本合成为自然流畅的语音音频（WAV），
   内置 16 套原神/星铁等知识讲解与角色音色预设，可在远端音色库扩展，并提供带编号、标签的试听页（钟离/那维莱特/艾尔海森/提纳里/瓦尔特/
