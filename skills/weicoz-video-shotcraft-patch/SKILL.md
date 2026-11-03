@@ -1,12 +1,21 @@
 ---
 name: weicoz-video-shotcraft-patch
-version: 1.3.0
-description: video-shotcraft 的补偿包。做完整宣传片或讲解片时与 video-shotcraft 同时使用，补它缺的环节：旁白当时钟的解说片顺序、字幕与安全区、色系连续、配音语速校准（主力 weicoz-zero-tts，兜底 edge-tts）、中文数字配音稿与多音字检查、选声线与识别回读、词级时间、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
+version: 1.4.0
+description: 做解说片、讲解视频或产品宣传片的总入口：用户只点本 skill 即可，本 skill 会自行加载 video-shotcraft（镜头与画面流程）和 weicoz-zero-tts（配音、字级对齐）。补 video-shotcraft 缺的环节：旁白当时钟的解说片顺序、字幕与安全区、色系连续、配音语速校准（主力 weicoz-zero-tts，兜底 edge-tts）、中文数字配音稿与多音字检查、选声线与识别回读、词级时间、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
 ---
 
 # video-shotcraft 补偿包
 
 补 video-shotcraft 的缺口，不复制它的流程。主流程以 `video-shotcraft` 为准；本 skill 只追加下面几步。脚本路径相对本 skill 目录，`<工程>` 是 Remotion 工程根目录。
+
+## 入口：只点本 skill，另外两个由本 skill 加载
+
+用户做视频时只需调用本 skill，不必再点另外两个。开始时依次加载：
+
+1. **`video-shotcraft`**：开工即加载，用它的模式选择、镜头卡、分镜、终检流程；本 skill 的各步插在它的流程里。
+2. **`weicoz-zero-tts`**：有旁白时，在选声线、合成之前加载，用它的音色库、试听页、排队规则。本 skill 的 `calibrate-voice.py`、`voice-consistency.py`、`align-words.py` 都调用它的 `zero_tts.py`。
+
+按宿主的方式调用（Claude Code 用 Skill 工具，Codex 用 `$name`）。调用被拒或找不到时，按全局规则读该 skill 的原文 `SKILL.md` 执行，不判定为未安装。两者已在本轮加载过就不重复加载。
 
 ## 0. 解说片：旁白是时钟
 video-shotcraft 面向产品宣传片，时间线跟 BGM 节拍走。有旁白的解说片改用旁白当时钟，顺序固定：定稿 → 合成整片旁白（`calibrate-voice.py`，得到句界）→ 字级时间与识别回读（`align-words.py`，回读差异处理完才往下走）→ 按字级锚点写镜头节拍（`cueN@词`，帧号用 `align-words.py --find` 查）→ `check-sync.py` 核对 → 逐帧渲染后合入旁白。稿子或声线改了，从合成重来，`align-words.py` 必须重跑，时间按新旁白重排。video-shotcraft 核心理念 1–2（真实页面截图、从产品设计系统取 tokens）在有产品页面时照做；讲概念、讲模式的片子没有产品页面，视觉 tokens 在 `design-spec.md` 自定，并写明来源。细则见 [references/voice.md](references/voice.md)。
