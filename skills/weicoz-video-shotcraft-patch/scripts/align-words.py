@@ -10,7 +10,7 @@
   不一致的地方列为「回读差异」：可能是 TTS 读错、漏读、多读，也可能是识别误差，必须逐条听过。
 回读差异试听页：有差异时把这些句子按句界切成 out/readback/<seg>-<cue>.m4a，并生成 out/readback/index.html
   （稿子原文、识别结果、差异、可直接播放；单文件静态页，支持深色模式），打印页面路径；--open 用系统默认浏览器打开
-  （仅 macOS）。无差异时清空 out/readback/。out/ 不入库。
+  （仅 macOS）。只替换本次处理的段，其他段的试听保留；所有段都没有差异时删除页面。out/ 不入库。
 退出码：有回读差异且没加 --accept 时为 1（字级时间照常写出）；缺文件或服务失败为 2。
 依赖：本机 ffmpeg；weicoz-zero-tts 的远端服务（ZERO_TTS_API_URL）。本机不装模型。
 """
@@ -47,24 +47,36 @@ __ROWS__
 """
 
 
-def write_readback(root, mp3s, rows):
-    """rows: [(seg, cue, text, heard, diffs, t0, t1)]。切 m4a 并生成 index.html，返回页面路径。"""
+def write_readback(root, mp3s, rows, segs):
+    """rows: [(seg, cue, text, heard, diffs, t0, t1)]；segs：本次处理的段。
+    只替换这些段的试听文件，其他段的保留；index.html 汇总所有段。没有任何差异时删除页面，返回 None。"""
     out = root / "out/readback"
-    shutil.rmtree(out, ignore_errors=True)
-    out.mkdir(parents=True)
-    trs, nd = [], 0
+    out.mkdir(parents=True, exist_ok=True)
+    for seg in segs:  # 本次处理的段：先清掉旧文件
+        for f in list(out.glob(f"{seg}-*.m4a")) + [out / f"{seg}.rows.json"]:
+            f.unlink(missing_ok=True)
+    by_seg = {}
     for seg, cue, text, heard, diffs, t0, t1 in rows:
         name = f"{seg}-{cue}.m4a"
         r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t0:.3f}", "-to", f"{t1:.3f}", "-i", str(mp3s[seg]),
                             "-c:a", "aac", "-b:a", "96k", str(out / name)], capture_output=True)
         audio = f'<audio controls preload="none" src="{name}"></audio>' if r.returncode == 0 else "（切音频失败）"
         dtxt = "<br>".join(f"稿子「{html.escape(d['script'] or '（无）')}」→ 听成「<b>{html.escape(d['heard'] or '（无）')}</b>」" for d in diffs)
-        nd += len(diffs)
-        trs.append(f'<tr><td class="id">{seg} 第 {cue} 句</td><td>{html.escape(text)}</td><td>{html.escape(heard)}</td>'
-                   f'<td class="d">{dtxt}</td><td>{audio}</td></tr>')
+        by_seg.setdefault(seg, []).append({"cue": cue, "diffs": len(diffs),
+                                           "tr": f'<tr><td class="id">{seg} 第 {cue} 句</td><td>{html.escape(text)}</td><td>{html.escape(heard)}</td>'
+                                                 f'<td class="d">{dtxt}</td><td>{audio}</td></tr>'})
+    for seg, items in by_seg.items():
+        (out / f"{seg}.rows.json").write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+    all_items = []
+    for f in sorted(out.glob("*.rows.json")):
+        all_items += json.loads(f.read_text(encoding="utf-8"))
     page = out / "index.html"
-    page.write_text(PAGE.replace("__N__", str(len(rows))).replace("__D__", str(nd)).replace("__ROWS__", "\n".join(trs)),
-                    encoding="utf-8")
+    if not all_items:
+        page.unlink(missing_ok=True)
+        return None
+    nd = sum(x["diffs"] for x in all_items)
+    page.write_text(PAGE.replace("__N__", str(len(all_items))).replace("__D__", str(nd))
+                    .replace("__ROWS__", "\n".join(x["tr"] for x in all_items)), encoding="utf-8")
     return page
 
 
@@ -178,13 +190,12 @@ def main():
     for seg, rows in per_seg.items():
         (out_dir / f"{seg}.json").write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"已写入 vo/cues-words/（{len(per_seg)} 段）；时间来源：" + "，".join(f"{k} {v} 句" for k, v in src_count.items()))
-    if rb:
-        page = write_readback(root, {f.stem: root / "public/audio/vo" / f"{f.stem}.mp3" for f in cue_files}, rb)
-        print(f"回读试听页：{page}")
+    page = write_readback(root, {f.stem: root / "public/audio/vo" / f"{f.stem}.mp3" for f in cue_files}, rb,
+                          [f.stem for f in cue_files])
+    if page:
+        print(f"回读试听页：{page}（含其他段之前留下的差异）")
         if a.open and sys.platform == "darwin":
             subprocess.run(["open", str(page)])
-    else:
-        shutil.rmtree(root / "out/readback", ignore_errors=True)
     if diffs and not a.accept:
         print(f"\n{diffs} 处回读差异：逐条听过。TTS 读错就改稿或写 vo/pronounce.json 后重新合成；确认是识别误差就加 --accept。")
         return 1
