@@ -67,6 +67,7 @@ python3 scripts/align-words.py <工程> --find segNN 词   # 查词在镜头内�
 python3 scripts/render-shots.py <工程> --base <旧整片.mp4> --out <新整片.mp4> --ids s7,s8 --props '<与旧片相同的 props>'
 ```
 镜头总帧数没变时才能用；变了就全片重渲。先验后渲的顺序见 [references/process-hygiene.md](references/process-hygiene.md)。完成判据：输出帧数等于 `timing.ts` 合计。
+**注意：它是无声拼片**（分片用 `--muted` 渲、concat 只接视频流）。旁白在 composition 里的片子，用它拼出来的成片没有音轨；要么拼完自己 mux 回音频，要么直接全片重渲。
 
 ## 5. 交付前：独立审查循环
 读 [references/review-loop.md](references/review-loop.md)。每轮派全新审查员，FAIL 就修、重渲、再派新审查员，直到结论 PASS（无高、无中）。
