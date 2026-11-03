@@ -11,7 +11,8 @@
   media-source.py credits <工程>
 
 读写：
-  search  写 <工程>/media/candidates/<shot|关键词>.json 与同名 .html
+  search  写 <工程>/media/candidates/<shot|关键词>.json 与同名 .html，并生成缩略图联系表 <名>_sheet.jpg
+  sheet   <工程> --name <shot|关键词> [--top 12]：重新生成联系表（代理挑素材前看这一张图）
   get     写 <工程>/public/media/<shot>/<slug>.<ext>，更新 <工程>/media/sources.json（按 file 去重）
   fetch   按 sources.json 重新下载缺失文件；src_sha256 变化报错，最终 sha256 变化只警告
   credits 写 <工程>/media/CREDITS.md
@@ -210,7 +211,11 @@ def parse_pixabay_item(it, kind, rank=0):
              for v in (it.get("videos") or {}).values() if v.get("url")]
     big = max(files, key=lambda f: f["w"]) if files else {"w": 0, "h": 0}
     small = min(files, key=lambda f: f["w"])["url"] if files else ""
-    thumb = f"https://i.vimeocdn.com/video/{it['picture_id']}_640x360.jpg" if it.get("picture_id") else ""
+    vids = it.get("videos") or {}
+    # 现行接口在各清晰度条目里给 thumbnail；旧接口只有 picture_id
+    thumb = next((vids[k]["thumbnail"] for k in ("medium", "small", "large", "tiny") if (vids.get(k) or {}).get("thumbnail")), "")
+    if not thumb and it.get("picture_id"):
+        thumb = f"https://i.vimeocdn.com/video/{it['picture_id']}_640x360.jpg"
     return cand("pixabay", kind, it["id"], thumb=thumb, preview_url=small, w=big["w"], h=big["h"],
                 dur=it.get("duration"), files=files, **common)
 
@@ -547,6 +552,54 @@ def cmd_search(a):
         print(f"{c['key']:<22}{c['score']:>6}  {str(c['w'])+'x'+str(c['h']):<11}{dur:>6}  "
               f"{c['license']:<12}{c['author'][:16]:<18}{c['page_url']}")
     print(f"候选已写入：{out_dir / (name + '.json')}\n候选页：{out_dir / (name + '.html')}")
+    if not a.no_sheet:
+        try:
+            build_sheet(root, name)
+        except Fail as e:
+            print(f"提示：{e}")
+
+
+def build_sheet(root, name, top=12, cols=4):
+    """把候选前 top 条的缩略图拼成一张联系表（从左到右、从上到下 = 排名顺序），供代理用视觉比较画面内容。"""
+    out_dir = root / "media" / "candidates"
+    cj = out_dir / f"{name}.json"
+    if not cj.exists():
+        raise Usage(f"{cj} 不存在，先跑 search。")
+    pool = json.loads(cj.read_text(encoding="utf-8"))["candidates"][:top]
+    tdir = out_dir / f"{name}_thumbs"
+    tdir.mkdir(parents=True, exist_ok=True)
+    got = []
+    for c in pool:
+        if not c.get("thumb"):
+            continue
+        dest = tdir / (re.sub(r"[^A-Za-z0-9_-]", "_", c["key"]) + ".jpg")
+        try:
+            if not dest.exists():
+                download(c["thumb"], dest)
+            got.append((c, dest))
+        except Exception as e:  # 单张缩略图失败不影响其他
+            print(f"  缩略图下载失败 {c['key']}：{e}", file=sys.stderr)
+    if not got:
+        raise Fail("没有可用的缩略图，联系表未生成；改看候选页。")
+    rows = (len(got) + cols - 1) // cols
+    args = ["ffmpeg", "-v", "error", "-y"]
+    for _, d in got:
+        args += ["-i", str(d)]
+    fc = "".join(f"[{i}:v]scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2:color=0x202020,setsar=1[v{i}];"
+                 for i in range(len(got)))
+    fc += "".join(f"[v{i}]" for i in range(len(got))) + f"concat=n={len(got)}:v=1:a=0,tile={cols}x{rows}:padding=6:color=0xffffff"
+    sheet = out_dir / f"{name}_sheet.jpg"
+    r = subprocess.run(args + ["-filter_complex", fc, "-frames:v", "1", str(sheet)], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise Fail(f"联系表生成失败：{r.stderr.strip()[:200]}")
+    print(f"联系表：{sheet}（{cols} 列，从左到右、从上到下）")
+    for i, (c, _) in enumerate(got, 1):
+        print(f"  第 {i:>2} 张  {c['key']:<22} {c.get('title') or c['page_url'][-60:]}")
+    return sheet
+
+
+def cmd_sheet(a):
+    build_sheet(Path(a.project).resolve(), a.name, a.top)
 
 
 def get_command(c, root, shot):
@@ -724,6 +777,11 @@ def build_parser():
     s.add_argument("--per-source", type=int, default=12)
     s.add_argument("--allow-sa", action="store_true")
     s.add_argument("--allow-lowres", action="store_true")
+    s.add_argument("--no-sheet", action="store_true", help="不生成缩略图联系表")
+    sh = sub.add_parser("sheet")
+    sh.add_argument("project")
+    sh.add_argument("--name", required=True, help="search 时的 --shot，或关键词 slug")
+    sh.add_argument("--top", type=int, default=12)
     g = sub.add_parser("get")
     g.add_argument("project")
     g.add_argument("key")
@@ -745,7 +803,7 @@ def build_parser():
 def main(argv=None):
     a = build_parser().parse_args(argv)
     try:
-        {"search": cmd_search, "get": cmd_get, "fetch": cmd_fetch, "credits": cmd_credits}[a.cmd](a)
+        {"search": cmd_search, "sheet": cmd_sheet, "get": cmd_get, "fetch": cmd_fetch, "credits": cmd_credits}[a.cmd](a)
     except Fail as e:
         print(f"失败：{e}", file=sys.stderr)
         return 1

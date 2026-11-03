@@ -26,8 +26,8 @@
    ```bash
    python3 scripts/media-source.py search <工程> --q "water delivery station" --kind video --shot s4 --min-dur 6
    ```
-   结果按质量与合适度排序（分辨率、画幅接近 16:9、视频时长够不够、来源相关度），低于 1920 宽的默认过滤；默认只要横图（成片 16:9），确实要竖图或方图时加 `--orientation portrait|square|any`。同时生成候选页 `media/candidates/<shot>.html`：缩略图、来源、许可、作者、分辨率、时长、分数，每张卡可复制下载命令。缺 Key 的来源会跳过并提示怎么配。
-4. **挑选**：共同创作由用户在候选页挑；自主创作由代理挑。代理必须先看候选的缩略图（视频看预览帧），确认画面内容与该句旁白对得上，再在分数靠前的几条里选；不得只凭标题或分数挑（实测：标题含 delivery man 的视频，画面其实是一辆停着的厢式货车）。`--picked-by` 写明从画面里看到了什么。下载后出一张含该素材的静帧再确认一次。
+   结果按质量与合适度排序（分辨率、画幅接近 16:9、视频时长够不够、来源相关度），低于 1920 宽的默认过滤；默认只要横图（成片 16:9），确实要竖图或方图时加 `--orientation portrait|square|any`。同时生成候选页 `media/candidates/<shot>.html`：缩略图、来源、许可、作者、分辨率、时长、分数，每张卡可复制下载命令；另生成缩略图联系表 `media/candidates/<shot>_sheet.jpg`（前 12 条，4 列，从左到右、从上到下 = 排名顺序，终端打印每张对应的编号）。缺 Key 的来源会跳过并提示怎么配。
+4. **挑选**：共同创作由用户在候选页挑；自主创作由代理挑。代理必须先看联系表 `<shot>_sheet.jpg`（看不全时用 `media-source.py sheet <工程> --name <shot> --top 24` 重出），确认画面内容与该句旁白对得上，再在分数靠前的几条里选；不得只凭标题或分数挑（实测：标题含 delivery man 的视频，画面其实是一辆停着的厢式货车）。`--picked-by` 写明从画面里看到了什么。下载后出一张含该素材的静帧再确认一次。
 5. **下载与登记**（字级时间出来之后做，这时才知道每个镜头准确要多长）：
    ```bash
    python3 scripts/media-source.py get <工程> pexels:123456 --kind video --shot s4 --picked-by "agent:画面是送水站门口，与 cue2 对得上"
