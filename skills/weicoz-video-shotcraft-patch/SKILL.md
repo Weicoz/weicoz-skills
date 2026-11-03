@@ -1,7 +1,7 @@
 ---
 name: weicoz-video-shotcraft-patch
 version: 1.5.0
-description: 做解说片、讲解视频或产品宣传片的总入口：用户只点本 skill 即可，本 skill 会自行加载 video-shotcraft（镜头与画面流程）和 weicoz-zero-tts（配音、字级对齐）。补 video-shotcraft 缺的环节：旁白当时钟的解说片顺序、字幕与安全区、色系连续、配音语速校准（主力 weicoz-zero-tts，兜底 edge-tts）、中文数字配音稿与多音字检查、选声线与识别回读、词级时间、真实素材选材与来源登记、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
+description: 做解说片、讲解视频或产品宣传片的总入口：用户只点本 skill 即可，本 skill 会自行加载 video-shotcraft（镜头与画面流程）和 weicoz-zero-tts（配音、字级对齐）。补 video-shotcraft 缺的环节：旁白当时钟的解说片顺序、字幕与安全区、色系连续、配音语速校准（主力 weicoz-zero-tts，兜底 edge-tts）、中文数字配音稿与多音字检查、选声线与识别回读、词级时间、素材选材（素材库与 AI 生成）与来源登记、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
 ---
 
 # video-shotcraft 补偿包
@@ -39,17 +39,19 @@ python3 scripts/voice-consistency.py <工程> --voice <音色> [--fix]  # 逐句
 选声线、合成后的识别回读、词级时间也在 voice.md：声线可以由代理按客观指标初筛，用户听过再定；合成后把旁白识别回文字与配音稿逐字比对；句内节拍引用 `vo/cues-words/` 的词级时间。
 完成判据：`check-polyphones.py` 高风险为 0、需核对项已看过；`voice-consistency.py` 没有偏离句（weicoz-zero-tts）；识别回读只剩识别误差；实测字/分钟在容差内（edge ±2，weicoz-zero-tts ±5）；`vo/cues/segNN.json` 与 `src/vo-manifest.ts` 已生成；`align-words.py` 已生成 `vo/cues-words/segNN.json`，回读差异逐条听过（无差异或已 `--accept`）；`src/timing.ts` 按实测重排；`design-spec.md` 里的时长只写「见 timing.ts」。
 
-## 2b. 用真实素材时：搜索、挑选、登记
-读 [references/media.md](references/media.md)。分镜标出需要真实图片或视频的镜头后，从 Pexels、Pixabay、Unsplash、Wikimedia Commons 选材，合适度与质量优先；下载时登记来源与许可，素材文件不入库、靠来源清单复原。
+## 2b. 用素材时：先问，先找素材库，再生成
+读 [references/media.md](references/media.md)。先按镜头给出素材建议并问用户要不要；要的镜头先从 Pexels、Pixabay、Unsplash、Wikimedia Commons 找，合适度与质量优先；没有合适的或需要风格化时走 AI 生成，生成途径每次问用户，代理给提示词建议。素材库文件不入库、靠来源清单复原；AI 生成文件入库（`media/generated/`）。
 
 ```bash
 python3 scripts/media-source.py search <工程> --q "<英文关键词>" --kind photo|video --shot <镜头>   # 候选与候选页
 python3 scripts/media-source.py get <工程> <来源:编号> [--kind video] --shot <镜头> --picked-by "user|agent:理由"   # 下载、转码、登记（视频加 --kind video）
-python3 scripts/media-source.py fetch <工程>     # 克隆后按来源清单复原
+python3 scripts/media-source.py sheet <工程> --name <名> --files <生成候选...>   # AI 生成候选拼联系表
+python3 scripts/media-source.py import <工程> <文件> --shot <镜头> --tool "<途径>" --prompt "<提示词>" --picked-by "…"  # 登记 AI 生成素材
+python3 scripts/media-source.py fetch <工程>     # 克隆后复原（素材库重新下载，AI 生成从入库副本复制）
 python3 scripts/media-source.py credits <工程>   # 署名清单与简介署名文字
 python3 scripts/check-media.py <工程>            # 来源、许可、规格、署名、盗链检查
 ```
-完成判据：`check-media.py` 无错误；需要署名的素材都在 `media/CREDITS.md`。
+完成判据：`check-media.py` 无错误；需要署名的素材与「部分画面由 AI 生成」声明都在 `media/CREDITS.md`。
 
 ## 3. 派镜头实现
 读 [references/delegation.md](references/delegation.md) 套派单模板，完成判据以该文件为准：`check-shots.py` 无错误、`check-sync.py` 无红色、带字幕条的合成静帧已看。
