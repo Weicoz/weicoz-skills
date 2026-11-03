@@ -13,7 +13,7 @@
         [--dry-run]        只写到临时目录，不动工程里的旁白、清单、句界
 
 引擎：
-  zero-tts  主力。调用 weicoz-zero-tts 的 zero_tts.py（远端 GPU 的 Qwen3-TTS 服务）。该引擎不给时间戳，
+  zero-tts  主力，即 weicoz-zero-tts skill（不是其他同名产品）。调用它的 zero_tts.py（远端 GPU 的 Qwen3-TTS 服务）。该引擎不给时间戳，
             所以按句子逐句合成、量时长、补静音拼接，句界由累加得到。脚本位置用环境变量
             ZERO_TTS_SCRIPT 指定，未设置时在本仓库的 skills/weicoz-zero-tts/scripts/ 里找；
             端点、音色与参考音频的细节以 weicoz-zero-tts 为准。

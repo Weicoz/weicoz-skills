@@ -14,7 +14,7 @@
 
 ## 选声线
 
-- 用同一句（稿子第一句）给每个候选生成试听，横向比较。zero-tts 有自带试听页（`zero_tts.py --voices-page`）。
+- 用同一句（稿子第一句）给每个候选生成试听，横向比较。`weicoz-zero-tts` skill 有自带试听页（`zero_tts.py --voices-page`）。
 - 代理听不到声音，可以按客观指标初筛：语种和性别、实测字/分钟、音高、识别回读准确率。初筛给 3–4 个候选，每个写明语速、音高和特点。
 - 最终由用户听过再定。定下的引擎、声线、实测语速写进 `design-spec.md`。
 
@@ -28,7 +28,7 @@
 
 
 1. 口播稿按段拆成 `vo/script/segNN.txt`，一段一个文件，只放口播正文（不含画面提示和标题）。
-2. 运行 `scripts/calibrate-voice.py <工程> --target <字/分钟>`（引擎见下文「选引擎」）。edge 先用默认语速生成，再按比例调整，最多三轮；zero-tts 在样本上校准，见下文。
+2. 运行 `scripts/calibrate-voice.py <工程> --target <字/分钟>`（引擎见下文「选引擎」）。edge 先用默认语速生成，再按比例调整，最多三轮；`weicoz-zero-tts` 在样本上校准，见下文。
 3. 读输出的「最终 rate」和实测字/分钟，写进 `design-spec.md`。
 4. 用实测时长重排 `src/timing.ts`：一段里有几个镜头，就在句界处切分，每个镜头的帧数等于它覆盖的句子时长之和。成片时长以 `timing.ts` 为唯一真相源，`design-spec.md` 与口头汇报只写「见 timing.ts」。一个工程里曾同时出现过设计文档 576 秒、成片 564 秒、口头 557 秒三个数，终检就是拿这个抓出来的。
 
@@ -58,11 +58,11 @@ TTS 对阿拉伯数字和多音字的读法不稳：`39.8` 可能读成「三十
 
 | 引擎 | 什么时候用 | 句界从哪来 |
 |---|---|---|
-| `zero-tts`（主力） | 解说旁白，设置了 `ZERO_TTS_API_URL` 时默认用它 | 逐句合成后累加时长，句间补 `--gap` 秒静音 |
-| `edge`（兜底） | zero-tts 服务不可用时试听、先定时间线；成片前换回 zero-tts 并走「换配音后重排」 | edge-tts 一次生成整段，自带句级时间 |
+| `zero-tts`（主力，即 `weicoz-zero-tts` skill，不是其他同名产品） | 解说旁白，设置了 `ZERO_TTS_API_URL` 时默认用它 | 逐句合成后累加时长，句间补 `--gap` 秒静音 |
+| `edge`（兜底） | `weicoz-zero-tts` 服务不可用时试听、先定时间线；成片前换回 zero-tts 并走「换配音后重排」 | edge-tts 一次生成整段，自带句级时间 |
 
 ```bash
-python3 scripts/calibrate-voice.py <工程> --target 240 --voice <声线>   # 默认 zero-tts
+python3 scripts/calibrate-voice.py <工程> --target 240 --voice <声线>   # 默认 --engine zero-tts（weicoz-zero-tts）
 ```
 
 - zero-tts 调用 `weicoz-zero-tts` 的 `zero_tts.py`，主力引擎是 Qwen3-TTS（变速由服务端 ffmpeg 完成，默认声线 `sunday`，不加 EQ）。端点、音色、参考音频的规则以那个 skill 为准；本步骤只负责分段、校准语速和生成句界。
@@ -70,7 +70,7 @@ python3 scripts/calibrate-voice.py <工程> --target 240 --voice <声线>   # �
 - 前提：`ZERO_TTS_API_URL` 已设置。脚本位置由 `ZERO_TTS_SCRIPT` 指定，未设置时在同一仓库的 `skills/weicoz-zero-tts/scripts/` 里找。
 - 语速用 `--speed` 倍率校准。一次试跑里，加速不成比例（`zhongli` 速度加 5%，字/分钟只涨约 1.7%），所以在不超过 `--sample-chars` 字的样本上用割线法找倍率，再整片生成一次；倍率限制在 0.6–1.6，到了上下限会提示目标可能达不到。
 - 同一倍率重复生成，时长会有波动（Qwen3-TTS 每次采样的自然时长约 ±10%），所以默认容差放宽到 ±5，最终以生成出来的实测时长为准重排 `timing.ts`，不要为了凑精确的目标反复重生成。服务可能中途掉线：已合成的句子缓存在系统临时目录（`calibrate-voice-cache`，按音色、倍率、文本的哈希命名），单句失败自动等 60 秒重试 5 次，仍失败时报错退出，服务恢复后重跑会接着做；掉线时脚本可能已经覆盖了部分 `public/audio/vo/`，重跑成功前不要渲染，或从备份恢复。整片生成要等几分钟到十几分钟（取决于字数和 GPU），中间文件在系统临时目录，结束时清理。
-- 声线在 zero-tts 试听页挑（编号、标签、样板声），`--voice` 可写别名或编号；不指定时用 `ZERO_TTS_DEFAULT_VOICE`。下面是旧引擎（GPT-SoVITS）时期的观察，换到当前主力引擎后要重新量：商业模式讲解试过 `jingyuan`（战略漫谈）和 `zhongli`（沉稳讲解），speed 1.0 时 `zhongli` 约 228 字/分钟、`jingyuan` 约 189、`sunday` 约 165，仅作选音色参考，换文本和服务状态会变。慢的音色要靠高倍率才能到 240，倍率太高音质可能变差，用 `--dry-run` 出一版听过再写进工程。
+- 声线在 `weicoz-zero-tts` 试听页挑（编号、标签、样板声），`--voice` 可写别名或编号；不指定时用 `ZERO_TTS_DEFAULT_VOICE`。下面是旧引擎（GPT-SoVITS）时期的观察，换到当前主力引擎后要重新量：商业模式讲解试过 `jingyuan`（战略漫谈）和 `zhongli`（沉稳讲解），speed 1.0 时 `zhongli` 约 228 字/分钟、`jingyuan` 约 189、`sunday` 约 165，仅作选音色参考，换文本和服务状态会变。慢的音色要靠高倍率才能到 240，倍率太高音质可能变差，用 `--dry-run` 出一版听过再写进工程。
 
 ## 要点
 

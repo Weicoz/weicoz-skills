@@ -20,14 +20,14 @@ video-shotcraft 面向产品宣传片，时间线跟 BGM 节拍走。有旁白�
 ```bash
 python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --voice <音色>  # 校准并写入旁白、句界、清单；设置了 ZERO_TTS_API_URL 时用 weicoz-zero-tts
 python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --dry-run      # 只试，不动工程
-python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --engine edge  # 兜底：zero-tts 不可用时
+python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --engine edge  # 兜底：weicoz-zero-tts 服务不可用时
 python3 scripts/zh-numerals.py <工程>       # 字幕稿(vo/script-display，阿拉伯数字) → 配音稿(vo/script，中文数字)
 python3 scripts/check-polyphones.py <工程>  # 多音字与易读错的词；高风险未处理时退出码 1
-python3 scripts/voice-consistency.py <工程> --voice <音色> [--fix]  # 逐句音高/音色漂移（zero-tts；需 numpy）
+python3 scripts/voice-consistency.py <工程> --voice <音色> [--fix]  # 逐句音高/音色漂移（weicoz-zero-tts；需 numpy）
 ```
 配音稿与字幕稿分开：`vo/script-display/` 写阿拉伯数字，是文案唯一来源；`vo/script/` 由 `zh-numerals.py` 生成，读音有歧义的词在 `vo/pronounce.json` 里映射。字幕由 `make-captions.py` 按句序号取字幕稿。校准前必须跑这两个脚本并看输出。
 选声线、合成后的识别回读、词级时间也在 voice.md：声线可以由代理按客观指标初筛，用户听过再定；合成后把旁白识别回文字与配音稿逐字比对；句内节拍引用 `vo/cues-words/` 的词级时间。
-完成判据：`check-polyphones.py` 高风险为 0、需核对项已看过；`voice-consistency.py` 没有偏离句（zero-tts）；识别回读只剩识别误差；实测字/分钟在容差内（edge ±2，zero-tts ±5）；`vo/cues/segNN.json` 与 `src/vo-manifest.ts` 已生成；有词级工具时 `vo/cues-words/segNN.json` 已生成；`src/timing.ts` 按实测重排；`design-spec.md` 里的时长只写「见 timing.ts」。
+完成判据：`check-polyphones.py` 高风险为 0、需核对项已看过；`voice-consistency.py` 没有偏离句（weicoz-zero-tts）；识别回读只剩识别误差；实测字/分钟在容差内（edge ±2，weicoz-zero-tts ±5）；`vo/cues/segNN.json` 与 `src/vo-manifest.ts` 已生成；有词级工具时 `vo/cues-words/segNN.json` 已生成；`src/timing.ts` 按实测重排；`design-spec.md` 里的时长只写「见 timing.ts」。
 
 ## 3. 派镜头实现
 读 [references/delegation.md](references/delegation.md) 套派单模板，完成判据以该文件为准：`check-shots.py` 无错误、`check-sync.py` 无红色、带字幕条的合成静帧已看。
