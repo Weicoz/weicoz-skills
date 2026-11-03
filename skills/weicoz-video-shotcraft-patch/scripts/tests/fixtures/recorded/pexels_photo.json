@@ -1,0 +1,74 @@
+{
+ "page": 1,
+ "per_page": 3,
+ "photos": [
+  {
+   "id": 3737800,
+   "width": 4000,
+   "height": 6000,
+   "url": "https://www.pexels.com/photo/insulated-water-bottles-3737800/",
+   "photographer": "cottonbro studio",
+   "photographer_url": "https://www.pexels.com/@cottonbro",
+   "photographer_id": 1437723,
+   "avg_color": "#BEB6B5",
+   "src": {
+    "original": "https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg",
+    "large2x": "https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "large": "https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+    "medium": "https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&cs=tinysrgb&h=350",
+    "small": "https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&cs=tinysrgb&h=130",
+    "portrait": "https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
+    "landscape": "https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
+    "tiny": "https://images.pexels.com/photos/3737800/pexels-photo-3737800.jpeg?auto=compress&cs=tinysrgb&dpr=1&fit=crop&h=200&w=280"
+   },
+   "liked": false,
+   "alt": "Close-up of hands holding black and white insulated water bottles on a soft white background."
+  },
+  {
+   "id": 31699476,
+   "width": 6000,
+   "height": 4000,
+   "url": "https://www.pexels.com/photo/close-up-of-plastic-bottles-with-green-caps-31699476/",
+   "photographer": "Patrick",
+   "photographer_url": "https://www.pexels.com/@jaralol",
+   "photographer_id": 181009866,
+   "avg_color": "#747D7C",
+   "src": {
+    "original": "https://images.pexels.com/photos/31699476/pexels-photo-31699476.jpeg",
+    "large2x": "https://images.pexels.com/photos/31699476/pexels-photo-31699476.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "large": "https://images.pexels.com/photos/31699476/pexels-photo-31699476.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+    "medium": "https://images.pexels.com/photos/31699476/pexels-photo-31699476.jpeg?auto=compress&cs=tinysrgb&h=350",
+    "small": "https://images.pexels.com/photos/31699476/pexels-photo-31699476.jpeg?auto=compress&cs=tinysrgb&h=130",
+    "portrait": "https://images.pexels.com/photos/31699476/pexels-photo-31699476.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
+    "landscape": "https://images.pexels.com/photos/31699476/pexels-photo-31699476.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
+    "tiny": "https://images.pexels.com/photos/31699476/pexels-photo-31699476.jpeg?auto=compress&cs=tinysrgb&dpr=1&fit=crop&h=200&w=280"
+   },
+   "liked": false,
+   "alt": "Focused view of three clear plastic bottles with green caps outdoors."
+  },
+  {
+   "id": 3737799,
+   "width": 4000,
+   "height": 6000,
+   "url": "https://www.pexels.com/photo/black-and-white-insulated-bottles-3737799/",
+   "photographer": "cottonbro studio",
+   "photographer_url": "https://www.pexels.com/@cottonbro",
+   "photographer_id": 1437723,
+   "avg_color": "#B8ABAA",
+   "src": {
+    "original": "https://images.pexels.com/photos/3737799/pexels-photo-3737799.jpeg",
+    "large2x": "https://images.pexels.com/photos/3737799/pexels-photo-3737799.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "large": "https://images.pexels.com/photos/3737799/pexels-photo-3737799.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+    "medium": "https://images.pexels.com/photos/3737799/pexels-photo-3737799.jpeg?auto=compress&cs=tinysrgb&h=350",
+    "small": "https://images.pexels.com/photos/3737799/pexels-photo-3737799.jpeg?auto=compress&cs=tinysrgb&h=130",
+    "portrait": "https://images.pexels.com/photos/3737799/pexels-photo-3737799.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
+    "landscape": "https://images.pexels.com/photos/3737799/pexels-photo-3737799.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200",
+    "tiny": "https://images.pexels.com/photos/3737799/pexels-photo-3737799.jpeg?auto=compress&cs=tinysrgb&dpr=1&fit=crop&h=200&w=280"
+   },
+   "liked": false,
+   "alt": "Close-up of hands with black and white reusable bottles on a white surface, promoting eco-friendly habits."
+  }
+ ],
+ "total_results": 8000,
+ "next_page": "https://api.pexels.com/v1/v1/search?page=2&per_page=3&query=water+bottle"
+}

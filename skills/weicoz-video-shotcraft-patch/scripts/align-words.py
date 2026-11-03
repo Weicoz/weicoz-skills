@@ -1,26 +1,71 @@
 #!/usr/bin/env python3
 """字级时间 + 识别回读：给每句旁白算出每个字的开始和结束时间，并把旁白识别回文字与配音稿逐字比对。
 
-用法：align-words.py <工程目录> [--segs seg01,seg03] [--accept]
+用法：align-words.py <工程目录> [--segs seg01,seg03] [--accept] [--open]
       align-words.py <工程目录> --find seg03 推成 [--fps 30]   # 查词的帧号，写镜头 BEATS 用
 读：vo/cues/segNN.json（每句起止与文字）、public/audio/vo/segNN.mp3（calibrate-voice.py 生成的段音频）。
 写：vo/cues-words/segNN.json：[{cue, text, src, chars: [{c, start, end}]}]，时间相对该段音频，与 vo/cues 同一基准。
 做法：按句界从段音频切出每句（前后各留 0.05 秒），交给 weicoz-zero-tts skill 的远端服务（zero_tts.py --align-json）：
   先用 paraformer 识别，按编辑距离映射回配音稿的字；识别与配音稿不一致的句子改用 Qwen3-ForcedAligner 强制对齐。
   不一致的地方列为「回读差异」：可能是 TTS 读错、漏读、多读，也可能是识别误差，必须逐条听过。
+回读差异试听页：有差异时把这些句子按句界切成 out/readback/<seg>-<cue>.m4a，并生成 out/readback/index.html
+  （稿子原文、识别结果、差异、可直接播放；单文件静态页，支持深色模式），打印页面路径；--open 用系统默认浏览器打开
+  （仅 macOS）。无差异时清空 out/readback/。out/ 不入库。
 退出码：有回读差异且没加 --accept 时为 1（字级时间照常写出）；缺文件或服务失败为 2。
 依赖：本机 ffmpeg；weicoz-zero-tts 的远端服务（ZERO_TTS_API_URL）。本机不装模型。
 """
 import argparse
+import html
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 PAD = 0.05
+
+
+PAGE = """<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>回读差异试听</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--fg:#1b1b1f;--mut:#666;--line:#ddd;--bad:#c0392b;--hit:#1a7f37}
+@media(prefers-color-scheme:dark){:root{--bg:#16161a;--fg:#e8e8ec;--mut:#9a9aa5;--line:#34343c;--bad:#ff7b72;--hit:#56d364}}
+body{margin:0;padding:24px;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,"PingFang SC",sans-serif}
+h1{font-size:20px;margin:0 0 8px}.how{color:var(--mut);margin:0 0 20px}
+table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{color:var(--mut);font-weight:500}.id{white-space:nowrap}.d{color:var(--bad)}.d b{color:var(--hit)}audio{width:240px}
+</style></head><body>
+<h1>回读差异试听（__N__ 句，__D__ 处差异）</h1>
+<p class="how">逐条听。TTS 读错、漏读或多读：改稿，或写进 vo/pronounce.json，然后重新合成。确认是识别误差：运行 align-words.py 时加 --accept。</p>
+<table><tr><th>段 / 句</th><th>稿子原文</th><th>识别结果</th><th>差异</th><th>试听</th></tr>
+__ROWS__
+</table></body></html>
+"""
+
+
+def write_readback(root, mp3s, rows):
+    """rows: [(seg, cue, text, heard, diffs, t0, t1)]。切 m4a 并生成 index.html，返回页面路径。"""
+    out = root / "out/readback"
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    trs, nd = [], 0
+    for seg, cue, text, heard, diffs, t0, t1 in rows:
+        name = f"{seg}-{cue}.m4a"
+        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t0:.3f}", "-to", f"{t1:.3f}", "-i", str(mp3s[seg]),
+                            "-c:a", "aac", "-b:a", "96k", str(out / name)], capture_output=True)
+        audio = f'<audio controls preload="none" src="{name}"></audio>' if r.returncode == 0 else "（切音频失败）"
+        dtxt = "<br>".join(f"稿子「{html.escape(d['script'] or '（无）')}」→ 听成「<b>{html.escape(d['heard'] or '（无）')}</b>」" for d in diffs)
+        nd += len(diffs)
+        trs.append(f'<tr><td class="id">{seg} 第 {cue} 句</td><td>{html.escape(text)}</td><td>{html.escape(heard)}</td>'
+                   f'<td class="d">{dtxt}</td><td>{audio}</td></tr>')
+    page = out / "index.html"
+    page.write_text(PAGE.replace("__N__", str(len(rows))).replace("__D__", str(nd)).replace("__ROWS__", "\n".join(trs)),
+                    encoding="utf-8")
+    return page
 
 
 def find_tts():
@@ -76,6 +121,7 @@ def main():
     ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--segs", help="只处理这些段，逗号分隔，如 seg01,seg03")
     ap.add_argument("--accept", action="store_true", help="回读差异已逐条听过、确认无误时加，退出码为 0")
+    ap.add_argument("--open", action="store_true", help="有差异时用系统默认浏览器打开试听页（仅 macOS）")
     a = ap.parse_args()
     root = Path(a.project).resolve()
     if a.find:
@@ -106,7 +152,7 @@ def main():
                     return 2
                 key = f"{f.stem}#{i}"
                 job.append({"id": key, "wav": str(wav), "text": cue["text"]})
-                meta[key] = (f.stem, i, cue["text"], t0)
+                meta[key] = (f.stem, i, cue["text"], t0, cue["end"] + PAD)
         jp = Path(td) / "job.json"
         jp.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
         print(f"对齐 {len(job)} 句（{len(cue_files)} 段）……")
@@ -115,8 +161,8 @@ def main():
             print(f"错误：远端对齐失败：{(r.stderr or r.stdout).strip()[:300]}")
             return 2
         res = json.loads(r.stdout.strip().splitlines()[-1])
-    per_seg, src_count = {}, {}
-    for key, (seg, i, text, t0) in meta.items():
+    per_seg, src_count, rb = {}, {}, []
+    for key, (seg, i, text, t0, t1) in meta.items():
         x = res.get(key)
         if not x:
             print(f"错误：{seg} 第 {i} 句没有结果。")
@@ -124,12 +170,21 @@ def main():
         src_count[x["src"]] = src_count.get(x["src"], 0) + 1
         per_seg.setdefault(seg, []).append({"cue": i, "text": text, "src": x["src"],
                                             "chars": [{"c": c, "start": round(t0 + s, 3), "end": round(t0 + e, 3)} for c, s, e in x["chars"]]})
+        if x["diff"]:
+            rb.append((seg, i, text, x.get("heard") or "".join(d["heard"] for d in x["diff"]), x["diff"], t0, t1))
         for d in x["diff"]:
             diffs += 1
             print(f"  回读差异 {seg} 第 {i} 句：稿子「{d['script'] or '（无）'}」→ 听成「{d['heard'] or '（无）'}」  {text[:28]}")
     for seg, rows in per_seg.items():
         (out_dir / f"{seg}.json").write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"已写入 vo/cues-words/（{len(per_seg)} 段）；时间来源：" + "，".join(f"{k} {v} 句" for k, v in src_count.items()))
+    if rb:
+        page = write_readback(root, {f.stem: root / "public/audio/vo" / f"{f.stem}.mp3" for f in cue_files}, rb)
+        print(f"回读试听页：{page}")
+        if a.open and sys.platform == "darwin":
+            subprocess.run(["open", str(page)])
+    else:
+        shutil.rmtree(root / "out/readback", ignore_errors=True)
     if diffs and not a.accept:
         print(f"\n{diffs} 处回读差异：逐条听过。TTS 读错就改稿或写 vo/pronounce.json 后重新合成；确认是识别误差就加 --accept。")
         return 1

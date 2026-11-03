@@ -1,0 +1,332 @@
+{
+ "batchcomplete": "",
+ "continue": {
+  "gsroffset": 3,
+  "continue": "gsroffset||"
+ },
+ "query": {
+  "pages": {
+   "19133709": {
+    "pageid": 19133709,
+    "ns": 6,
+    "title": "File:Metal Water Bottles.jpeg",
+    "index": 1,
+    "imagerepository": "local",
+    "imageinfo": [
+     {
+      "size": 284011,
+      "width": 1024,
+      "height": 768,
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/45/Metal_Water_Bottles.jpeg/960px-Metal_Water_Bottles.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 640,
+      "thumbheight": 480,
+      "responsiveUrls": {
+       "2": "https://upload.wikimedia.org/wikipedia/commons/4/45/Metal_Water_Bottles.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+      },
+      "thumbattribs": {
+       "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/45/Metal_Water_Bottles.jpeg/960px-Metal_Water_Bottles.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 640,
+       "height": 480,
+       "srcset": "https://upload.wikimedia.org/wikipedia/commons/4/45/Metal_Water_Bottles.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/45/Metal_Water_Bottles.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Metal_Water_Bottles.jpeg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=19133709",
+      "extmetadata": {
+       "DateTime": {
+        "value": "2012-04-18 14:16:39",
+        "source": "mediawiki-metadata",
+        "hidden": ""
+       },
+       "ObjectName": {
+        "value": "Metal Water Bottles",
+        "source": "mediawiki-metadata"
+       },
+       "CommonsMetadataExtension": {
+        "value": 1.2,
+        "source": "extension",
+        "hidden": ""
+       },
+       "Categories": {
+        "value": "Taken with Sony DSC-W80|CC-Zero|Self-published work|Black lids|Metal materials water bottles",
+        "source": "commons-categories",
+        "hidden": ""
+       },
+       "Assessments": {
+        "value": "",
+        "source": "commons-categories",
+        "hidden": ""
+       },
+       "ImageDescription": {
+        "value": "Example of metal water bottles (Aluminium &amp; Stainless Steel)",
+        "source": "commons-desc-page"
+       },
+       "DateTimeOriginal": {
+        "value": "2012",
+        "source": "commons-desc-page"
+       },
+       "Credit": {
+        "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Amraepowell&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Amraepowell (page does not exist)\">Amraepowell</a>",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "CC0",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "UsageTerms": {
+        "value": "Creative Commons Zero, Public Domain Dedication",
+        "source": "commons-desc-page"
+       },
+       "AttributionRequired": {
+        "value": "false",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "LicenseUrl": {
+        "value": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+        "source": "commons-desc-page"
+       },
+       "Copyrighted": {
+        "value": "True",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "Restrictions": {
+        "value": "",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "License": {
+        "value": "cc0",
+        "source": "commons-templates",
+        "hidden": ""
+       }
+      },
+      "mime": "image/jpeg"
+     }
+    ]
+   },
+   "113356851": {
+    "pageid": 113356851,
+    "ns": 6,
+    "title": "File:Metal water bottle.jpg",
+    "index": 2,
+    "imagerepository": "local",
+    "imageinfo": [
+     {
+      "size": 2259018,
+      "width": 2140,
+      "height": 4640,
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/Metal_water_bottle.jpg/960px-Metal_water_bottle.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 640,
+      "thumbheight": 1388,
+      "responsiveUrls": {
+       "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/Metal_water_bottle.jpg/1280px-Metal_water_bottle.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+       "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/Metal_water_bottle.jpg/960px-Metal_water_bottle.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 640,
+       "height": 1388,
+       "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/Metal_water_bottle.jpg/1280px-Metal_water_bottle.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/a/a0/Metal_water_bottle.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Metal_water_bottle.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=113356851",
+      "extmetadata": {
+       "DateTime": {
+        "value": "2021-12-14 11:37:16",
+        "source": "mediawiki-metadata",
+        "hidden": ""
+       },
+       "ObjectName": {
+        "value": "Metal water bottle",
+        "source": "mediawiki-metadata"
+       },
+       "CommonsMetadataExtension": {
+        "value": 1.2,
+        "source": "extension",
+        "hidden": ""
+       },
+       "Categories": {
+        "value": "Self-published work|Taken with Motorola One Fusion+|Metal materials water bottles",
+        "source": "commons-categories",
+        "hidden": ""
+       },
+       "Assessments": {
+        "value": "",
+        "source": "commons-categories",
+        "hidden": ""
+       },
+       "ImageDescription": {
+        "value": "water bottle",
+        "source": "commons-desc-page"
+       },
+       "DateTimeOriginal": {
+        "value": "2021-12-10 11:33:58",
+        "source": "commons-desc-page"
+       },
+       "Credit": {
+        "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Srini297&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Srini297 (page does not exist)\">Srini297</a>",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "CC BY-SA 4.0",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "UsageTerms": {
+        "value": "Creative Commons Attribution-Share Alike 4.0",
+        "source": "commons-desc-page"
+       },
+       "AttributionRequired": {
+        "value": "true",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "LicenseUrl": {
+        "value": "https://creativecommons.org/licenses/by-sa/4.0",
+        "source": "commons-desc-page"
+       },
+       "Copyrighted": {
+        "value": "True",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "Restrictions": {
+        "value": "",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "License": {
+        "value": "cc-by-sa-4.0",
+        "source": "commons-templates",
+        "hidden": ""
+       }
+      },
+      "mime": "image/jpeg"
+     }
+    ]
+   },
+   "178976421": {
+    "pageid": 178976421,
+    "ns": 6,
+    "title": "File:Water bottle 11-26-2025.jpg",
+    "index": 3,
+    "imagerepository": "local",
+    "imageinfo": [
+     {
+      "size": 3514016,
+      "width": 3213,
+      "height": 5712,
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Water_bottle_11-26-2025.jpg/960px-Water_bottle_11-26-2025.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 640,
+      "thumbheight": 1138,
+      "responsiveUrls": {
+       "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Water_bottle_11-26-2025.jpg/1280px-Water_bottle_11-26-2025.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+      },
+      "thumbattribs": {
+       "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Water_bottle_11-26-2025.jpg/960px-Water_bottle_11-26-2025.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 640,
+       "height": 1138,
+       "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Water_bottle_11-26-2025.jpg/1280px-Water_bottle_11-26-2025.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/0/00/Water_bottle_11-26-2025.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Water_bottle_11-26-2025.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=178976421",
+      "extmetadata": {
+       "DateTime": {
+        "value": "2025-11-26 13:33:59",
+        "source": "mediawiki-metadata",
+        "hidden": ""
+       },
+       "ObjectName": {
+        "value": "Water bottle 11-26-2025",
+        "source": "mediawiki-metadata"
+       },
+       "CommonsMetadataExtension": {
+        "value": 1.2,
+        "source": "extension",
+        "hidden": ""
+       },
+       "Categories": {
+        "value": "Water bottles|Self-published work",
+        "source": "commons-categories",
+        "hidden": ""
+       },
+       "Assessments": {
+        "value": "",
+        "source": "commons-categories",
+        "hidden": ""
+       },
+       "ImageDescription": {
+        "value": "This is a water bottle from giant Eagle.",
+        "source": "commons-desc-page"
+       },
+       "DateTimeOriginal": {
+        "value": "2025-11-26 08:27:55",
+        "source": "commons-desc-page"
+       },
+       "Credit": {
+        "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "<a href=\"//commons.wikimedia.org/wiki/User:WikiGrower1\" title=\"User:WikiGrower1\">WikiGrower1</a>",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "CC BY 4.0",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "UsageTerms": {
+        "value": "Creative Commons Attribution 4.0",
+        "source": "commons-desc-page"
+       },
+       "AttributionRequired": {
+        "value": "true",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "LicenseUrl": {
+        "value": "https://creativecommons.org/licenses/by/4.0",
+        "source": "commons-desc-page"
+       },
+       "Copyrighted": {
+        "value": "True",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "Restrictions": {
+        "value": "",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "License": {
+        "value": "cc-by-4.0",
+        "source": "commons-templates",
+        "hidden": ""
+       }
+      },
+      "mime": "image/jpeg"
+     }
+    ]
+   }
+  }
+ }
+}
