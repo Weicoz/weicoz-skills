@@ -109,6 +109,30 @@ def metrics_from_wav(wav_bytes):
     return {"hf": hf_ratio(x, sr), "dur": round(len(x) / sr, 1)}
 
 
+def voice_profile(wav_bytes):
+    """逐句漂移检测用：音高中位数（自相关，60–320Hz）、频谱重心、时长。算法与 weicoz-video-shotcraft-patch 的 voice-consistency.py 原版一致。"""
+    r = ffmpeg(["-i", "pipe:0", "-ac", "1", "-ar", "16000", "-f", "f32le", "-"], data=wav_bytes)
+    if r.returncode != 0 or not r.stdout:
+        return None
+    x = np.frombuffer(r.stdout, dtype=np.float32)
+    sr, fl, hop = 16000, 640, 160
+    gate = 0.1 * float(np.sqrt((x ** 2).mean()) or 1e-9)
+    lo, hi = int(sr / 320), int(sr / 60)
+    f0 = []
+    for i in range(0, len(x) - fl, hop):
+        f = x[i:i + fl] - x[i:i + fl].mean()
+        if np.sqrt((f ** 2).mean()) < gate:
+            continue
+        ac = np.correlate(f, f, "full")[fl - 1:]
+        ac = ac / (ac[0] + 1e-9)
+        k = lo + int(np.argmax(ac[lo:hi]))
+        if ac[k] > 0.5:
+            f0.append(sr / k)
+    sp = np.abs(np.fft.rfft(x * np.hanning(len(x)))) ** 2
+    fr = np.fft.rfftfreq(len(x), 1 / sr)
+    return {"f0": float(np.median(f0)) if f0 else 0.0, "centroid": float((sp * fr).sum() / (sp.sum() + 1e-9)), "dur": len(x) / sr}
+
+
 def metrics_from_file(path):
     r = ffmpeg(["-i", path, "-ac", "1", "-ar", "24000", "-f", "s16le", "-"])
     if r.returncode != 0 or not r.stdout:
@@ -275,6 +299,25 @@ def register(app, submit, touch):
         if not os.path.isfile(f):
             return JSONResponse({"error": "not found"}, status_code=404)
         return FileResponse(f, media_type="audio/mp4")
+
+    @app.post("/voices/analyze")
+    async def voices_analyze(request: Request):
+        """逐句漂移检测：items=[{id, wav_b64}]，每批最多 40 条、单条 ≤8MB。只做计算，不用 GPU，常驻页面服务上也能用。"""
+        touch()
+        b = await request.json()
+        items = b.get("items") or []
+        if not isinstance(items, list) or not 1 <= len(items) <= 40:
+            return JSONResponse({"error": "items 须为 1–40 条"}, status_code=400)
+        out = {}
+        for it in items:
+            try:
+                data = base64.b64decode(it.get("wav_b64", ""), validate=True)
+            except Exception:
+                return JSONResponse({"error": f"{it.get('id')}: wav_b64 无法解码"}, status_code=400)
+            if not data or len(data) > 8 * 1024 * 1024:
+                return JSONResponse({"error": f"{it.get('id')}: 音频为空或超过 8MB"}, status_code=400)
+            out[str(it.get("id"))] = voice_profile(data)
+        return JSONResponse(out)
 
     if submit is None:  # 只读页面服务：不提供需要合成队列的管理接口
         return

@@ -526,6 +526,39 @@ def find_voices_page(args):
     return base + "/voices/" if base else None
 
 
+def run_analyze(args):
+    """逐句漂移检测的计算放在远端：上传本机音频，服务端算音高中位数、频谱重心、时长，输出 JSON（键为文件路径）。
+    优先用常驻的试听页服务（不占显存），连不上再用合成服务。"""
+    import base64
+    page = find_voices_page(args)
+    if page is None:
+        print("错误：分析服务连不上（页面服务和合成服务都连不上）。", file=sys.stderr)
+        sys.exit(1)
+    url = page.rstrip("/").rsplit("/voices", 1)[0] + "/voices/analyze"
+    files = [Path(f) for f in args.analyze]
+    for f in files:
+        if not f.is_file():
+            print(f"错误：文件不存在：{f}", file=sys.stderr)
+            sys.exit(2)
+    out = {}
+    for i in range(0, len(files), 20):
+        batch = files[i:i + 20]
+        body = {"items": [{"id": str(f), "wav_b64": base64.b64encode(f.read_bytes()).decode("ascii")} for f in batch]}
+        try:
+            out.update(http_json("POST", url, payload=body, timeout=max(args.timeout, 120)))
+        except urllib.error.HTTPError as e:
+            try:
+                msg = json.loads(e.read().decode("utf-8")).get("error") or e.reason
+            except Exception:
+                msg = e.reason
+            print(f"错误：{msg}", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"错误：请求失败：{e}", file=sys.stderr)
+            sys.exit(1)
+    print(json.dumps(out, ensure_ascii=False))
+
+
 def run_admin(args):
     """音色库管理：新增、改标签、重建样板声。全部在远端服务完成，本机只上传参考音频。"""
     def tags_of(v):
@@ -572,7 +605,7 @@ def main():
     # 脚本或 Agent 超时通常发 SIGTERM：与 Ctrl-C 一样，主动把任务从服务端队列撤销
     signal.signal(signal.SIGTERM, _raise_interrupt)
     parser = argparse.ArgumentParser(
-        description="weicoz-zero-tts: 基于 GPT-SoVITS api_v2 的语音合成客户端",
+        description="weicoz-zero-tts: 远端 GPU 语音合成客户端（主力 Qwen3-TTS，备用 GPT-SoVITS，接口兼容 api_v2）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例：
@@ -618,6 +651,8 @@ def main():
     parser.add_argument("--note", help="备注或警示（页面上显示）")
     parser.add_argument("--voices-page", action="store_true",
                         help="打开远端服务托管的音色试听页（服务没运行会自动拉起），可试听与筛选")
+    parser.add_argument("--analyze", nargs="+", metavar="音频",
+                        help="上传本机音频到远端，算音高中位数、频谱重心、时长，输出 JSON（逐句漂移检测用，本机不需要 numpy）")
     parser.add_argument("--api-url", help="显式指定服务端点 URL (覆盖环境变量 ZERO_TTS_API_URL)")
     parser.add_argument("--timeout", type=int, default=90, help="HTTP 请求超时秒数 (默认 90)")
 
@@ -629,6 +664,10 @@ def main():
 
     if args.add_voice or args.update_voice or args.rebuild_voices or args.rebuild_status:
         run_admin(args)
+        sys.exit(0)
+
+    if args.analyze:
+        run_analyze(args)
         sys.exit(0)
 
     if args.voices_page:

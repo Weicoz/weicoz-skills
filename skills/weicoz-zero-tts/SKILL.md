@@ -80,6 +80,7 @@ export ZERO_TTS_REMOTE_BASE="D:\\TTS_GPT_SoVITS"
 - **试听页**：`zero_tts.py --voices-page` 打开 `http://<服务>:9881/voices/`。页面由**常驻的轻量服务**提供（只读音色库和样板声，不加载模型、不占显存，内存约 56MB），所以 Qwen 空闲退出、或 SoVITS 占着 9880 时页面照常能开。它没运行时命令会通过 SSH 拉起计划任务 `tts_voices_page`（登录自启，也可按需拉起）。浏览器里直接输地址同样可以，不需要先起合成服务。每个音色一条同一句话的样板声，带编号、标签（冷静、清晰、清透……）、来源、高频占比（2–8kHz，反映明亮程度，低不等于听不清）、搜索与按性别/来源/标签筛选，页内按钮可复制 `-v 别名`。
 - **新增音色**：`zero_tts.py --add-voice 别名 --ref-file 参考.wav --prompt "参考音频逐字文本" --name 显示名 --gender 男 --tags 冷静,清晰 --source 来源说明`。参考音频由本机上传到服务端，须 3–10 秒，`--prompt` 必须与音频内容逐字一致（见 4.1）。新音色编号接在末尾，已有编号不变。
 - **改标签、来源、备注**：`--update-voice 别名 --tags 清晰,沉稳 --note "说明"`；改了 `--prompt` 要重建样板声。
+- **逐句漂移分析**：`zero_tts.py --analyze a.wav b.wav …` 把本机音频传到远端，算音高中位数、频谱重心、时长并输出 JSON（`weicoz-video-shotcraft-patch` 的 `voice-consistency.py` 用它）。走常驻的试听页服务，本机不需要 numpy。
 - **生成样板声**：新增或改过后运行 `--rebuild-voices`（只补缺少或过期的，`--force` 全部重做，`--rebuild-keys a,b` 只做指定的），`--rebuild-status` 看进度。它走服务的合成队列，一次只提交一个，不会堵住别人的任务。
 - **标签依据来源方的描述和风格整理，不是逐条人工试听的结论**；觉得不准用 `--update-voice` 改。
 - 第三方平台声音库（ElevenLabs、MiniMax）的音色只作个人使用，来源写在 `source` 字段；它们的参考音频和样板声只放在远端服务，不得提交进仓库。
@@ -150,7 +151,7 @@ python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-p
 > **切忌 Prompt 文本字符多于参考音频发音！**
 > 若参考音频仅录制了前半句（如 4.8 秒约 14 字），而 Prompt 文本填写了完整台词（如 33 字），GPT-SoVITS 会学到错误的单音素时长基准，导致合成时产生**极度拉长尾音、拖腔或复读**（例如原本 40 秒的文本被拉伸至 101 秒）。
 > **规则**：
-> 1. 参考音频时长控制在 **3 ~ 6 秒**。
+> 1. 参考音频时长 3–10 秒（服务端硬限制）；SoVITS 备用引擎下 3–6 秒更稳。
 > 2. Prompt 文本只保留参考音频中**实际发音的字词**，未发音的后半句必须全部删掉。
 
 ### 4.1b 服务引擎与选音色（2026-11 实测）
@@ -183,7 +184,7 @@ python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-p
 > [!TIP]
 > **日常使用本 Skill 合成语音时，无需将该参考文件载入上下文**（以节约模型上下文与 Token 开销）。仅在初次搭建远端 GPU 推理节点、迁移工作站或深度排查底层服务端异常时才按需读取。
 
-- **依赖项目**：GPT-SoVITS (V2) 核心推理引擎、`api_v2.py` 服务、V2 官方底模（`s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt` 与 `s2G2333k.pth`）、ACGN 纯净角色干声数据集。
+- **依赖项目**：主力 Qwen3-TTS 0.6B（faster-qwen3-tts，服务端 `server/qwen_server.py`）；备用 GPT-SoVITS (V2) 推理引擎、`api_v2.py` 服务、V2 官方底模（`s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt` 与 `s2G2333k.pth`）、ACGN 纯净角色干声数据集。
 - **环境要求**：
   - **服务端**：Windows 11 / Linux、NVIDIA GPU（推荐显存 ≥ 4GB，如 RTX 3050+）、CUDA 11.8/12.1+、Python 3.9+ 虚拟环境；严格禁止向 C 盘写入数据，统一存放在数据盘（如 `D:\TTS_GPT_SoVITS\`）。
   - **网络**：局域网 LAN（`9880` 端口）优先，搭配 EasyTier / FRP 虚拟组网异地热备。
