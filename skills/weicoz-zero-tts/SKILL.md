@@ -160,6 +160,8 @@ python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-p
   - **Qwen3-TTS 0.6B 加速版（主力）**：CUDA Graph，3050 上约 4–6 秒合成 8–10 秒音频（1.1–1.8× 实时），首次启动预热约 45 秒；输出 24kHz。接口兼容 GPT-SoVITS `api_v2`，`zero_tts.py` 不用改。
   - **GPT-SoVITS v2ProPlus（备用）**：更快更省显存，输出 32kHz；官方称 v2Pro 系列音质超过 V4。
 - **不常驻，用时自动启动、空闲自动关闭。** 服务占约 2.7GB 显存（整卡 4GB 的 2/3），空闲也不释放，所以：客户端发现服务没运行就按需通过 SSH 拉起（`ZERO_TTS_SSH_HOST`，冷启动约 30 秒）；服务空闲超过 10 分钟自动退出并释放显存（Qwen 由服务自身判断，环境变量 `QWEN_TTS_IDLE_MIN` 可调，`0` 为常驻；SoVITS 由切换脚本顺带启动的看门狗按日志写入时间判断）。`--no-autostart` 可禁用自动启动。
+- 远端运维用 `scripts/zero_remote.py`，不手写 scp/ssh：`run 名称 脚本.ps1` 后台跑长任务（断开 SSH 不中断，日志在远端 `logs\ops\`），`tail`/`wait` 看进度与退出码，`exec` 跑短脚本，`deploy 文件 --restart page,qwen` 部署服务端代码（旧文件留 .bak），`restart page|qwen` 重启服务。按 `ZERO_TTS_SSH_HOST` 顺序逐个试主机，带超时。
+- 远端新装模型或排查依赖前，先读远端 `D:\TTS_Services\README.md` 的「Python 环境关系」：只有 GPT-SoVITS 的环境装了 CUDA 版 torch，其余环境用 `.pth` 借用它，新环境要排除 torch 依赖安装。
 - 服务端源码在本技能的 `server/` 目录（`qwen_server.py` 队列与推理、`tts-switch.ps1` 切换引擎、`idle-watch.ps1` 空闲看门狗、`start_qwen.bat` 启动）；部署到远端 `D:\\TTS_Services\\` 对应子目录。
 - 切换（在远端执行）：`pwsh -File D:\TTS_Services\tools\tts-switch.ps1 -Engine qwen|sovits`。服务文件统一放在 `D:\TTS_Services\`（说明见该目录 `README.md`）。
 - 零样本下**音色完全跟随参考音频**。游戏角色参考音频本身低沉（音高中位 95–115Hz），500Hz 以下能量占 80% 以上，所以 SoVITS 下偏沉；Qwen3-TTS 加速版 + `sunday` 实际试听效果最好（用户选定）。偏沉时可试 `--clarity`，或换更干净、音高适中的参考音频。
