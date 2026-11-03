@@ -20,7 +20,7 @@
 
 被审查对象：<一句话说明片子和观众>。工程目录：<工程路径>
 成片：<各版本文件与内容说明>；无字幕画面：<路径>
-审查基准（必读）：design-spec.md；video-shotcraft 的 references/final-review.md 与 aesthetic-rules.md；口播稿与 vo/script；vo/cues 与 src/timing.ts；src/captions-data.ts；src/shots 各镜头顶部的 BEATS；<视觉参考静帧>；<用户原始需求>。
+审查基准（必读）：design-spec.md；media/sources.json 与 media/CREDITS.md（有真实素材时）；video-shotcraft 的 references/final-review.md 与 aesthetic-rules.md；口播稿与 vo/script；vo/cues 与 src/timing.ts；src/captions-data.ts；src/shots 各镜头顶部的 BEATS；<视觉参考静帧>；<用户原始需求>。
 证据（已备好）：<证据目录>（联系表 sheet_*.png、cues_global.txt）。
 
 必须逐条给结论：
@@ -28,6 +28,7 @@ P1 风格统一：「镜头 × 背景 / 字体 / 描边 / 配色 / 水波」核�
 P2 字幕：与旁白原文逐字对照；同步偏差 >0.5 秒记一条；srt 与烧录一致。
 P3 字幕遮挡：每个镜头在字幕在场时至少抽 4 帧，核对字幕条有没有压住文字、数字、标签、算式。
 P4 上一轮改动的回归：<逐项列出>。
+P5 真实素材（有 media/sources.json 时）：逐条核对画面内容与对应旁白是否相关；能认出的人脸、品牌标志、水印、可读的他人文字逐条列出；画质（模糊、压缩块、拉伸变形）与相邻手搭镜头是否断层；media/CREDITS.md 是否包含所有需署名的素材。
 另做完整终检：数字逐一对照 spec；文字裁切、重叠、错别字、对比度、字号（辅助文字 ≥32 px）；方案一致性与命门参数；旁白与画面同步；音频测量；20 岁普通人能否看懂；节奏（区分必要停留与空等）；镜头交界。
 
 设计意图补充（不是缺陷）：<例如 BGM 有意比旁白低 10–15 dB；旁白慢所以有必要停留；用户已决定不加合规提示；月入类数字沿用口播稿口径并已用小字标明计入项>。
