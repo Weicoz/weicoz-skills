@@ -2,7 +2,7 @@
 name: weicoz-zero-tts
 version: 1.5.0
 description: >
-  远端 GPU (GPT-SoVITS) 语音合成：将中文或中英混合文本合成为自然流畅的语音音频（WAV），
+  远端 GPU 语音合成（主力 Qwen3-TTS，备用 GPT-SoVITS）：将中文或中英混合文本合成为自然流畅的语音音频（WAV），
   内置 16 套原神/星铁等知识讲解与角色音色预设，可在远端音色库扩展，并提供带编号、标签的试听页（钟离/那维莱特/艾尔海森/提纳里/瓦尔特/
   真理医生/阮•梅/星期日/景元等）、远端参考音频与 Prompt 驱动、长文本切分与局域网/
   内网穿透多端点自适应回退。适用于"文本转语音""配音""朗读""生成解说音频""听听这段话""TTS"等场景。
@@ -10,7 +10,7 @@ description: >
 
 # 远端 GPU 语音合成 (weicoz-zero-tts)
 
-调用配置有 GPU（如 RTX 3050）的远端 Windows 工作站上运行的 GPT-SoVITS `api_v2` 服务，快速将文本合成高保真、低延迟的 WAV 语音。
+调用配置有 GPU（如 RTX 3050）的远端 Windows 工作站上运行的 TTS 服务，快速将文本合成高保真、低延迟的 WAV 语音。主力引擎是 Qwen3-TTS 0.6B 加速版（零样本克隆，默认声线 `sunday`，不加 EQ）；GPT-SoVITS v2ProPlus 保留作备用，也用来产出参考音色，再交给 Qwen 克隆（见 4.1b）。
 
 本项目遵循开源合规标准，**严禁硬编码任何私有 IP、端口或系统用户名**，全部端点连接均由环境变量驱动。
 
@@ -161,7 +161,7 @@ python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-p
 - 服务端源码在本技能的 `server/` 目录（`qwen_server.py` 队列与推理、`tts-switch.ps1` 切换引擎、`idle-watch.ps1` 空闲看门狗、`start_qwen.bat` 启动）；部署到远端 `D:\\TTS_Services\\` 对应子目录。
 - 切换（在远端执行）：`pwsh -File D:\TTS_Services\tools\tts-switch.ps1 -Engine qwen|sovits`。服务文件统一放在 `D:\TTS_Services\`（说明见该目录 `README.md`）。
 - 零样本下**音色完全跟随参考音频**。游戏角色参考音频本身低沉（音高中位 95–115Hz），500Hz 以下能量占 80% 以上，所以 SoVITS 下偏沉；Qwen3-TTS 加速版 + `sunday` 实际试听效果最好（用户选定）。偏沉时可试 `--clarity`，或换更干净、音高适中的参考音频。
-- 实测清晰度（SoVITS v2ProPlus，2–8kHz 占比，未加 EQ）：news、sunday、default、neuvillette、tighnari 较好；welt、ruan_mei、jingyuan 偏闷；`mitya` 合成会吞字，暂不可用。讲解视频首选 `sunday` 或 `tighnari` 并加 `--clarity`。
+- 实测清晰度（SoVITS v2ProPlus，2–8kHz 占比，未加 EQ）：news、sunday、default、neuvillette、tighnari 较好；welt、ruan_mei、jingyuan 偏闷；`mitya` 合成会吞字，暂不可用。这是 SoVITS 时期的结论；当前讲解视频用 Qwen3-TTS + `sunday`、不加 `--clarity`。
 - 参考音频必须 3–10 秒。`neuvillette` 预设的参考音频 12.7 秒，超限。
 - Windows 防火墙若给 uv 的 `python.exe` 生成了 Block 规则，会静默丢弃 9880 的入站连接（SSH 22 仍正常）。排查：临时开启防火墙丢包日志，看是否有 `DROP ... 9880`。
 

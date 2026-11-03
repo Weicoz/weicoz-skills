@@ -1,7 +1,7 @@
 ---
 name: weicoz-video-shotcraft-patch
 version: 1.3.0
-description: video-shotcraft 的补偿包。做完整宣传片或讲解片时与 video-shotcraft 同时使用，补它缺的环节：旁白当时钟的解说片顺序、字幕与安全区、色系连续、配音语速校准（edge-tts 或 weicoz-zero-tts）、中文数字配音稿与多音字检查、选声线与识别回读、词级时间、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
+description: video-shotcraft 的补偿包。做完整宣传片或讲解片时与 video-shotcraft 同时使用，补它缺的环节：旁白当时钟的解说片顺序、字幕与安全区、色系连续、配音语速校准（主力 weicoz-zero-tts，兜底 edge-tts）、中文数字配音稿与多音字检查、选声线与识别回读、词级时间、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
 ---
 
 # video-shotcraft 补偿包
@@ -18,9 +18,9 @@ video-shotcraft 面向产品宣传片，时间线跟 BGM 节拍走。有旁白�
 读 [references/voice.md](references/voice.md)。换配音后的时间线重排也在那里（`remap-timeline.py`、`make-captions.py`）。
 
 ```bash
-python3 scripts/calibrate-voice.py <工程> --target <字/分钟>            # 校准并写入旁白、句界、清单
-python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --dry-run  # 只试，不动工程
-python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --engine zero-tts --voice <音色>  # 用 weicoz-zero-tts
+python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --voice <音色>  # 校准并写入旁白、句界、清单；设置了 ZERO_TTS_API_URL 时用 weicoz-zero-tts
+python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --dry-run      # 只试，不动工程
+python3 scripts/calibrate-voice.py <工程> --target <字/分钟> --engine edge  # 兜底：zero-tts 不可用时
 python3 scripts/zh-numerals.py <工程>       # 字幕稿(vo/script-display，阿拉伯数字) → 配音稿(vo/script，中文数字)
 python3 scripts/check-polyphones.py <工程>  # 多音字与易读错的词；高风险未处理时退出码 1
 python3 scripts/voice-consistency.py <工程> --voice <音色> [--fix]  # 逐句音高/音色漂移（zero-tts；需 numpy）

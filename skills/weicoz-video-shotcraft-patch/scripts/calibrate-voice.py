@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """生成分段旁白，并把语速校准到目标「字/分钟」。支持两个引擎。
 
-用法：calibrate-voice.py <工程目录> --target 240 [--engine edge|zero-tts] [--tol 2]
-        [--voice <声线>]   edge 默认 zh-CN-XiaoxiaoNeural；zero-tts 默认读 ZERO_TTS_DEFAULT_VOICE，再退到 zhongli
+用法：calibrate-voice.py <工程目录> --target 240 [--engine zero-tts|edge] [--tol 5]
+        [--engine]         默认：设置了 ZERO_TTS_API_URL 用 zero-tts，否则用 edge
+        [--voice <声线>]   zero-tts 默认读 ZERO_TTS_DEFAULT_VOICE，再退到 sunday；edge 默认 zh-CN-XiaoxiaoNeural
         [--tol N]            容差（字/分钟）。edge 默认 2；zero-tts 默认 5（同一速度两次生成时长会差约 ±3%）
         [--rate +5%]       edge：已知语速时直接生成，不校准
         [--speed 1.1]      zero-tts：已知语速倍率时直接生成，不校准
@@ -12,16 +13,16 @@
         [--dry-run]        只写到临时目录，不动工程里的旁白、清单、句界
 
 引擎：
-  edge      edge-tts 命令行，一次生成整段并拿到句界（vtt）。
-  zero-tts  调用 weicoz-zero-tts 的 zero_tts.py（远端 GPU 的 GPT-SoVITS）。该引擎不给时间戳，
+  zero-tts  主力。调用 weicoz-zero-tts 的 zero_tts.py（远端 GPU 的 Qwen3-TTS 服务）。该引擎不给时间戳，
             所以按句子逐句合成、量时长、补静音拼接，句界由累加得到。脚本位置用环境变量
             ZERO_TTS_SCRIPT 指定，未设置时在本仓库的 skills/weicoz-zero-tts/scripts/ 里找；
             端点、音色与参考音频的细节以 weicoz-zero-tts 为准。
+  edge      兜底。edge-tts 命令行，一次生成整段并拿到句界（vtt）；zero-tts 不可用时试听、定时间线。
 读：vo/script/segNN.txt（每段口播正文）。
 写：public/audio/vo/segNN.mp3、vo/cues/segNN.json（每句 start/end 秒，相对该段音频）、
     src/vo-manifest.ts（每段文件名与实测时长）。
 字数口径：去掉空白与标点后的字符数（汉字、数字、字母各算一个）。
-依赖：edge-tts 命令行、ffprobe。edge-tts 的中文声线只给句级时间，词级时间需要另做对齐。
+依赖：ffprobe；zero-tts 需要 ZERO_TTS_API_URL，edge 需要 edge-tts 命令行。两个引擎都只给句级时间，词级时间需要另做对齐。
 """
 import argparse
 import json
@@ -154,7 +155,7 @@ def generate_zero(segments, tts, voice, speed, gap, outdir, tmp, timeout):
 
 
 def calibrate_zero(segments, tts, voice, gap, target, tol, sample_chars, tmp, timeout):
-    """在样本上用割线法找 --speed。GPT-SoVITS 的 speed 与字/分钟不成正比，不能只按比例调。"""
+    """在样本上用割线法找 --speed。模型每次采样的自然时长有波动，倍率与字/分钟不严格成正比，不能只按比例调。"""
     sample, n = [], 0
     for stem, sents in segments:
         take = []
@@ -205,9 +206,9 @@ def run():
     ap = argparse.ArgumentParser()
     ap.add_argument("project")
     ap.add_argument("--target", type=float, required=True, help="目标字/分钟")
-    ap.add_argument("--engine", choices=["edge", "zero-tts"], default="edge")
+    ap.add_argument("--engine", choices=["zero-tts", "edge"], default=None, help="默认：设置了 ZERO_TTS_API_URL 用 zero-tts，否则用 edge")
     ap.add_argument("--voice", default=None)
-    ap.add_argument("--speed", type=float, default=None, help="zero-tts 的语速倍率（0.3–3）")
+    ap.add_argument("--speed", type=float, default=None, help="zero-tts 的语速倍率（0.5–2.0，服务端范围）")
     ap.add_argument("--gap", type=float, default=0.15)
     ap.add_argument("--sample-chars", type=int, default=300, help="zero-tts 校准样本的字数上限")
     ap.add_argument("--timeout", type=int, default=300, help="zero-tts 单句合成超时秒数")
@@ -215,12 +216,15 @@ def run():
     ap.add_argument("--rate", default=None, help="edge 的语速，如 +5%%")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    if a.engine is None:
+        a.engine = "zero-tts" if os.environ.get("ZERO_TTS_API_URL") else "edge"
+        print(f"引擎：{a.engine}（未指定 --engine，按 ZERO_TTS_API_URL {'已' if a.engine == 'zero-tts' else '未'}设置选择）")
     if a.tol is None:
         a.tol = 2.0 if a.engine == "edge" else 5.0
     if a.voice is None:
-        a.voice = "zh-CN-XiaoxiaoNeural" if a.engine == "edge" else os.environ.get("ZERO_TTS_DEFAULT_VOICE", "zhongli")
-    if a.speed is not None and not (0.3 <= a.speed <= 3):
-        raise UserError("--speed 需要在 0.3 到 3 之间。")
+        a.voice = "zh-CN-XiaoxiaoNeural" if a.engine == "edge" else os.environ.get("ZERO_TTS_DEFAULT_VOICE", "sunday")
+    if a.speed is not None and not (0.5 <= a.speed <= 2.0):
+        raise UserError("--speed 需要在 0.5 到 2.0 之间（zero-tts 服务端范围）。")
     if a.engine == "edge" and a.speed is not None:
         print("提示：--speed 只对 zero-tts 生效，已忽略。")
     if a.engine == "zero-tts" and a.rate:
