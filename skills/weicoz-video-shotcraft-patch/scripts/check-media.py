@@ -5,6 +5,8 @@
 错误：public/media 下的文件不在 sources.json；许可不合（NC/ND/unknown，SA 未加 --allow-sa）；
       视频不是 H.264 或帧率不等于 --fps；需署名条目但 media/CREDITS.md 缺失或未包含该条目；
       src/ 的 .ts/.tsx 里有 http(s) 图片或视频地址（盗链）；src/ 引用的 media/ 文件不在 sources.json。
+      AI 生成条目（license=generated）缺 tool/prompt，generated_file 不存在，或入库副本 sha256 与记录不一致；
+      media/generated/ 下的文件没有对应条目；有 generated 条目但 CREDITS.md 缺「部分画面由 AI 生成」。
       picked_by 以 agent: 开头的条目，理由必须含「联系表第」并在去掉这几个字后还有不少于 8 个字的画面描述；user 开头不检查。
 警告：条目对应文件缺失（跑 media-source.py fetch）；照片或视频宽度小于 1920。
 没有 public/media 也没有 sources.json 时打印「本工程没有真实素材」并退出 0。
@@ -61,6 +63,15 @@ def main(argv=None):
                 if rel not in files:
                     errors.append(f"{rel} 不在 sources.json（来源不明的素材不能入片）")
 
+    gen_files = {e.get("generated_file") for e in items if e.get("source") == "generated"}
+    gdir = root / "media" / "generated"
+    if gdir.exists():
+        for p in sorted(gdir.rglob("*")):
+            if p.is_file() and not p.name.startswith("."):
+                rel = p.relative_to(root).as_posix()
+                if rel not in gen_files:
+                    errors.append(f"{rel} 不在 sources.json 的 generated_file 中（来源不明）")
+
     credits = root / "media" / "CREDITS.md"
     ctext = credits.read_text(encoding="utf-8") if credits.exists() else None
     ffok = True
@@ -79,6 +90,18 @@ def main(argv=None):
                 errors.append(f"{f} 代理挑选必须写联系表第几张和看到的画面内容（见 references/media.md）")
         if not ms.license_ok(lic, a.allow_sa):
             errors.append(f"{f} 许可 {lic} 不合策略" + ("（SA 需 --allow-sa）" if lic.startswith("cc-by-sa") else ""))
+        if e.get("source") == "generated" or lic == "generated":
+            for k in ("tool", "prompt"):
+                if not str(e.get(k) or "").strip():
+                    errors.append(f"{f} AI 生成素材缺 {k}")
+            gf = e.get("generated_file")
+            gp = root / gf if gf else None
+            if not gp or not gp.is_file():
+                errors.append(f"{f} 入库副本 generated_file 不存在：{gf or '(未记录)'}（它是 AI 生成素材的唯一真相源）")
+            elif ms.sha256_file(gp) != e.get("sha256"):
+                errors.append(f"{f} 入库副本 {gf} 的 sha256 与记录不一致")
+            if ctext is None or "部分画面由 AI 生成" not in ctext:
+                errors.append(f"{f} 是 AI 生成素材，但 media/CREDITS.md 缺「部分画面由 AI 生成」声明（重跑 media-source.py credits）")
         if lic.startswith("cc-by") or lic == "unsplash":
             if ctext is None:
                 errors.append(f"{f} 需署名，但 media/CREDITS.md 缺失（跑 media-source.py credits）")
