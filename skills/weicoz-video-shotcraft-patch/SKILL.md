@@ -1,6 +1,6 @@
 ---
 name: weicoz-video-shotcraft-patch
-version: 1.5.0
+version: 1.6.0
 description: 做解说片、讲解视频或产品宣传片的总入口：用户只点本 skill 即可，本 skill 会自行加载 video-shotcraft（镜头与画面流程）和 weicoz-zero-tts（配音、字级对齐）。补 video-shotcraft 缺的环节：旁白当时钟的解说片顺序、字幕与安全区、色系连续、配音语速校准（主力 weicoz-zero-tts，兜底 edge-tts）、中文数字配音稿与多音字检查、选声线与识别回读、词级时间、素材选材（素材库与 AI 生成）与来源登记、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
 ---
 
@@ -75,8 +75,9 @@ python3 scripts/render-shots.py <工程> --base <旧整片.mp4> --out <新整片
 ```bash
 python3 scripts/extract-review-frames.py <工程> <成片.mp4> <证据目录>     # 联系表 + 每句旁白帧号
 python3 scripts/check-caption-overlap.py <工程> --plain <无字幕画面.mp4>   # 字幕遮挡扫描
+python3 scripts/check-audio.py <工程> --final <成片.mp4> --out <证据目录> --listen   # 响度、旁白与背景差、成片可懂度、接缝；agy 试听
 ```
-完成判据：最后一轮报告结论是 PASS；轮次与遗留低项写进交付说明；每轮都有完整报告（在回复里，或在约定路径的文件里）。
+完成判据：`check-audio.py` 无红项；最后一轮报告结论是 PASS；轮次与遗留低项写进交付说明；每轮都有完整报告（在回复里，或在约定路径的文件里）。
 
 ## 6. 全程：过程卫生
 读 [references/process-hygiene.md](references/process-hygiene.md)：凭据不进输出、等完成通知、依赖真装好、先验后渲。完成判据：会话输出里没有环境变量或进程参数；渲染都已收到完成通知。
