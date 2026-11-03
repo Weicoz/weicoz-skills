@@ -11,9 +11,13 @@
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+# PATH 有 vrender（全局渲染排队）就用它，否则退回直接调用 remotion
+RENDER_CMD = ["vrender"] if shutil.which("vrender") else ["npx", "remotion"]
 
 
 def frames_of(video):
@@ -66,7 +70,7 @@ def main():
     part_files = []
     for st, en in merged:
         pf = parts / f"part_{st}_{en}.mp4"
-        subprocess.run(["npx", "remotion", "render", a.entry, a.comp, str(pf), "--muted", f"--crf={a.crf}", f"--frames={st}-{en}", f"--props={a.props}"], cwd=root, check=True)
+        subprocess.run(RENDER_CMD + ["render", a.entry, a.comp, str(pf), "--muted", f"--crf={a.crf}", f"--frames={st}-{en}", f"--props={a.props}"], cwd=root, check=True)
         if frames_of(str(pf)) != en - st + 1:
             print(f"错误：{pf} 帧数不对。")
             return 2
