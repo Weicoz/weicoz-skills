@@ -249,7 +249,8 @@ el("q").oninput=e=>{st.q=e.target.value;render()};
 
 # ---------- 路由 ----------
 def register(app, submit, touch):
-    """submit：qwen_server 的入队函数；touch：刷新「最近使用」时间，避免边听边被空闲退出。"""
+    """submit：qwen_server 的入队函数，传 None 表示只读页面服务（不挂管理接口）；
+    touch：刷新「最近使用」时间，避免边听边被空闲退出。"""
 
     @app.get("/voices")
     def voices_redirect():
@@ -274,6 +275,9 @@ def register(app, submit, touch):
         if not os.path.isfile(f):
             return JSONResponse({"error": "not found"}, status_code=404)
         return FileResponse(f, media_type="audio/mp4")
+
+    if submit is None:  # 只读页面服务：不提供需要合成队列的管理接口
+        return
 
     @app.post("/voices/admin/add")
     async def voices_add(request: Request):

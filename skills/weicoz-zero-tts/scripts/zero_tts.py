@@ -487,6 +487,45 @@ def print_voices(args):
     print("提示：-v <别名或编号> 选音色；--voices-page 打开可试听、可筛选的页面。")
 
 
+def find_voices_page(args):
+    """找试听页地址。页面由常驻的轻量服务提供（默认端口 ZERO_TTS_PAGE_PORT=9881，不占显存、不随合成服务空闲退出）；
+    它没运行时通过 SSH 拉起计划任务 ZERO_TTS_PAGE_TASK（默认 tts_voices_page）；仍不行再退回合成服务自带的页面。"""
+    eps = get_endpoints(args.api_url)
+    port = int(os.environ.get("ZERO_TTS_PAGE_PORT", "9881"))
+    pages = []
+    for ep in eps:
+        u = urllib.parse.urlparse(ep)
+        pages.append(f"{u.scheme}://{u.hostname}:{port}")
+
+    def alive():
+        return next((p for p in pages if is_endpoint_reachable(p, timeout=1.5)), None)
+
+    hit = alive()
+    hosts = [h.strip() for h in os.environ.get("ZERO_TTS_SSH_HOST", "").split(",") if h.strip()]
+    if hit is None and hosts and not args.no_autostart:
+        task = os.environ.get("ZERO_TTS_PAGE_TASK", "tts_voices_page")
+        for host in hosts:
+            print(f"试听页服务未运行，正在通过 SSH（{host}）启动任务 {task} ……", file=sys.stderr)
+            try:
+                r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", host,
+                                    f"schtasks /run /tn {task}"], capture_output=True, timeout=30)
+            except Exception:
+                continue
+            if r.returncode != 0:
+                continue
+            for _ in range(10):
+                hit = alive()
+                if hit:
+                    break
+                time.sleep(2)
+            if hit:
+                break
+    if hit:
+        return hit + "/voices/"
+    base = pick_endpoint(args)  # 退路：用合成服务自带的页面（会按需拉起合成服务）
+    return base + "/voices/" if base else None
+
+
 def run_admin(args):
     """音色库管理：新增、改标签、重建样板声。全部在远端服务完成，本机只上传参考音频。"""
     def tags_of(v):
@@ -593,18 +632,15 @@ def main():
         sys.exit(0)
 
     if args.voices_page:
-        eps = get_endpoints(args.api_url)
-        ensure_service(eps, args.no_autostart)
-        for ep in eps:
-            if is_endpoint_reachable(ep, timeout=1.2):
-                url = base_url(ep).rstrip("/") + "/voices/"
-                print(url)
-                if not os.environ.get("ZERO_TTS_NO_BROWSER"):
-                    import webbrowser
-                    webbrowser.open(url)
-                sys.exit(0)
-        print("错误：服务连不上，无法打开试听页。", file=sys.stderr)
-        sys.exit(1)
+        url = find_voices_page(args)
+        if url is None:
+            print("错误：试听页打不开（页面服务和合成服务都连不上）。", file=sys.stderr)
+            sys.exit(1)
+        print(url)
+        if not os.environ.get("ZERO_TTS_NO_BROWSER"):
+            import webbrowser
+            webbrowser.open(url)
+        sys.exit(0)
 
     if args.status:
         eps = get_endpoints(args.api_url)

@@ -29,6 +29,10 @@ export ZERO_TTS_API_URL="http://gpu-server.local:9880/tts,http://vpn-node.intern
 # 不设置则保持原行为（连不上直接报错）。
 export ZERO_TTS_SSH_HOST="gpu-server-ssh-alias"
 
+# 试听页端口与自启任务名（可选，默认 9881 与 tts_voices_page）
+export ZERO_TTS_PAGE_PORT="9881"
+export ZERO_TTS_PAGE_TASK="tts_voices_page"
+
 # 默认音色预设（可选，留空默认 sunday）
 export ZERO_TTS_DEFAULT_VOICE="sunday"
 
@@ -73,13 +77,13 @@ export ZERO_TTS_REMOTE_BASE="D:\\TTS_GPT_SoVITS"
 本机只需要本技能自带的 `scripts/zero_tts.py`（只用 Python 3 标准库，不装依赖、不存音色文件、不需要 ffmpeg/numpy）。音色库、样板声、试听页、变速、清晰化都在远端服务里完成。
 
 - **编号与选择**：内置 01–16，用户追加的音色接在后面。`-v` 写别名或编号都行：`-v sunday`、`-v 8`。`--list-voices` 向服务端取清单，输出编号、别名、性别、标签、来源。
-- **试听页**：`zero_tts.py --voices-page` 打开 `http://<服务>/voices/`（服务没运行会自动拉起）。每个音色一条同一句话的样板声，带编号、标签（冷静、清晰、清透……）、来源、高频占比（2–8kHz，反映明亮程度，低不等于听不清）、搜索与按性别/来源/标签筛选，页内按钮可复制 `-v 别名`。
+- **试听页**：`zero_tts.py --voices-page` 打开 `http://<服务>:9881/voices/`。页面由**常驻的轻量服务**提供（只读音色库和样板声，不加载模型、不占显存，内存约 56MB），所以 Qwen 空闲退出、或 SoVITS 占着 9880 时页面照常能开。它没运行时命令会通过 SSH 拉起计划任务 `tts_voices_page`（登录自启，也可按需拉起）。浏览器里直接输地址同样可以，不需要先起合成服务。每个音色一条同一句话的样板声，带编号、标签（冷静、清晰、清透……）、来源、高频占比（2–8kHz，反映明亮程度，低不等于听不清）、搜索与按性别/来源/标签筛选，页内按钮可复制 `-v 别名`。
 - **新增音色**：`zero_tts.py --add-voice 别名 --ref-file 参考.wav --prompt "参考音频逐字文本" --name 显示名 --gender 男 --tags 冷静,清晰 --source 来源说明`。参考音频由本机上传到服务端，须 3–10 秒，`--prompt` 必须与音频内容逐字一致（见 4.1）。新音色编号接在末尾，已有编号不变。
 - **改标签、来源、备注**：`--update-voice 别名 --tags 清晰,沉稳 --note "说明"`；改了 `--prompt` 要重建样板声。
 - **生成样板声**：新增或改过后运行 `--rebuild-voices`（只补缺少或过期的，`--force` 全部重做，`--rebuild-keys a,b` 只做指定的），`--rebuild-status` 看进度。它走服务的合成队列，一次只提交一个，不会堵住别人的任务。
 - **标签依据来源方的描述和风格整理，不是逐条人工试听的结论**；觉得不准用 `--update-voice` 改。
 - 第三方平台声音库（ElevenLabs、MiniMax）的音色只作个人使用，来源写在 `source` 字段；它们的参考音频和样板声只放在远端服务，不得提交进仓库。
-- 音色库文件在远端 `D:\TTS_Services\voices\`（`registry.json` 清单，`ref\` 参考音频，`site\demo\` 样板声）；服务端代码是本技能 `server/` 里的 `qwen_server.py` 与 `voices_site.py`。试听页和管理接口没有鉴权，和合成接口一样只应在内网或 EasyTier 里开放。
+- 音色库文件在远端 `D:\TTS_Services\voices\`（`registry.json` 清单，`ref\` 参考音频，`site\demo\` 样板声）；服务端代码是本技能 `server/` 里的 `qwen_server.py`（合成）、`voices_server.py`（页面常驻服务，`start_voices_page.bat` 启动）与 `voices_site.py`（音色库，两个服务共用）。管理与重建接口需要合成队列，只在 9880 的合成服务上。试听页和管理接口没有鉴权，只应在内网或 EasyTier 里开放；页面端口 9881 要像 9880 一样被远端防火墙放行（EasyTier 网卡是专用网络，默认就通；局域网/WLAN 是公用网络，需要加入站规则）。
 - GPT-SoVITS 备用引擎没有音色库，也不支持 `--clarity`，只能用内置 01–16 号。
 
 ---
