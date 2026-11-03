@@ -79,5 +79,8 @@ python3 scripts/check-audio.py <工程> --final <成片.mp4> --out <证据目录
 ```
 完成判据：`check-audio.py` 无红项；最后一轮报告结论是 PASS；轮次与遗留低项写进交付说明；每轮都有完整报告（在回复里，或在约定路径的文件里）。
 
+## 5b. 竖屏短片
+画幅 9:16 时读 [references/vertical.md](references/vertical.md)：安全区、字幕条位置、镜头开头不留空屏、限幅后合成保帧数。
+
 ## 6. 全程：过程卫生
 读 [references/process-hygiene.md](references/process-hygiene.md)：凭据不进输出、等完成通知、依赖真装好、先验后渲。完成判据：会话输出里没有环境变量或进程参数；渲染都已收到完成通知。

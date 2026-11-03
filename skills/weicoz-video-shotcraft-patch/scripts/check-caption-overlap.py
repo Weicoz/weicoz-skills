@@ -3,7 +3,8 @@
 
 在「无字幕」的画面里取字幕条区域，找内容色像素；水波、背景不算。
 用法：check-caption-overlap.py <工程目录> --plain out/video-silent.mp4
-        [--captions src/captions-data.ts] [--y0 946] [--y1 1034]
+        [--captions src/captions-data.ts] [--y0 946] [--y1 1034] [--width 1920]
+画面宽度和字幕条位置默认按视频方向取：横屏 y 946–1034，竖屏（1080×1920）y 1342–1470；字幕条在别处时手动给 --y0/--y1。
         [--colors 17324d,ff8a3d,ffc24b] [--step 12] [--min-px 8] [--tol 48]
 captions 文件里每条字幕写成 {a: 起始帧, b: 结束帧, ...}（全局帧号）。
 退出码：发现遮挡返回 1。依赖：ffmpeg；有 numpy 时更快，没有也能跑。
@@ -38,20 +39,37 @@ def load_timing(root):
     return out
 
 
+def probe_size(path):
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", path], capture_output=True, text=True)
+    try:
+        w, h = r.stdout.strip().split(",")[:2]
+        return int(w), int(h)
+    except ValueError:
+        return 1920, 1080
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("project")
     ap.add_argument("--plain", required=True, help="不带字幕的画面视频")
     ap.add_argument("--captions", default="src/captions-data.ts")
-    ap.add_argument("--y0", type=int, default=946)
-    ap.add_argument("--y1", type=int, default=1034)
-    ap.add_argument("--width", type=int, default=1920)
+    ap.add_argument("--y0", type=int, default=None, help="字幕条上沿；默认横屏 946、竖屏 1342")
+    ap.add_argument("--y1", type=int, default=None, help="字幕条下沿；默认横屏 1034、竖屏 1470")
+    ap.add_argument("--width", type=int, default=None, help="画面宽度；默认读视频")
     ap.add_argument("--colors", default="17324d,ff8a3d,ffc24b")
     ap.add_argument("--step", type=int, default=12)
     ap.add_argument("--min-px", type=int, default=8)
     ap.add_argument("--tol", type=int, default=48)
     a = ap.parse_args()
     root = Path(a.project)
+    vw, vh = probe_size(a.plain)
+    if a.width is None:
+        a.width = vw
+    portrait = vh > vw
+    if a.y0 is None:
+        a.y0 = 1342 if portrait else 946
+    if a.y1 is None:
+        a.y1 = 1470 if portrait else 1034
 
     caps = [(int(x), int(y)) for x, y in re.findall(r"\ba:\s*(\d+),\s*b:\s*(\d+)", (root / a.captions).read_text(encoding="utf-8"))]
     if not caps:

@@ -18,6 +18,7 @@ from pathlib import Path
 FPS = 30
 OBJ = re.compile(r"\{[^{}]*\}")
 PUN = r"[，,；;：:。？！?!]"
+PUN_ALL = r"[，,；;：:。？！?!、]"  # 字级时间的字表不含顿号，数字数时顿号也不算字
 CLOSERS = "”’）)」』】》"
 SENT = re.compile(r"[^。！？!?\n]+[。！？!?]*[" + CLOSERS + r"]*")
 WORD = re.compile(r"[一-鿿A-Za-z0-9]")
@@ -73,7 +74,7 @@ def word_lines(script, display, words, maxc):
     if len(sp) != len(dp):
         return None
     chars = words.get("chars") or []
-    n = [len(re.sub(PUN, "", x)) for x in sp]
+    n = [len(re.sub(PUN_ALL, "", x)) for x in sp]
     if sum(n) != len(chars):
         return None
     gs = groups(display, maxc)
