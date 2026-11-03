@@ -1,0 +1,15 @@
+{
+ "hits": [
+  {
+   "id": 303,
+   "pageURL": "https://pixabay.com/photos/x-303/",
+   "tags": "water, bottle",
+   "imageWidth": 5000,
+   "imageHeight": 3000,
+   "largeImageURL": "https://cdn.example/303_1280.jpg",
+   "webformatURL": "https://cdn.example/303_640.jpg",
+   "user": "carl",
+   "user_id": 9
+  }
+ ]
+}

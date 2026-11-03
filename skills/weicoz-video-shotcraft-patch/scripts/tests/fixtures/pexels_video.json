@@ -1,0 +1,36 @@
+{
+ "videos": [
+  {
+   "id": 202,
+   "width": 3840,
+   "height": 2160,
+   "duration": 12,
+   "url": "https://www.pexels.com/video/202/",
+   "image": "https://images.example/202.jpg",
+   "user": {
+    "name": "Bob",
+    "url": "https://www.pexels.com/@bob"
+   },
+   "video_files": [
+    {
+     "link": "https://v.example/202-hd.mp4",
+     "width": 1920,
+     "height": 1080,
+     "file_type": "video/mp4"
+    },
+    {
+     "link": "https://v.example/202-sd.mp4",
+     "width": 960,
+     "height": 540,
+     "file_type": "video/mp4"
+    },
+    {
+     "link": null,
+     "width": null,
+     "height": null,
+     "file_type": "application/x-mpegURL"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,17 @@
+{
+ "photos": [
+  {
+   "id": 101,
+   "width": 4000,
+   "height": 2250,
+   "url": "https://www.pexels.com/photo/101/",
+   "photographer": "Ann",
+   "photographer_url": "https://www.pexels.com/@ann",
+   "alt": "bottle",
+   "src": {
+    "original": "https://images.example/101.jpg",
+    "medium": "https://images.example/101m.jpg"
+   }
+  }
+ ]
+}
