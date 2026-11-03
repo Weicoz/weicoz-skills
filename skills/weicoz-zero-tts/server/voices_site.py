@@ -133,6 +133,96 @@ def voice_profile(wav_bytes):
     return {"f0": float(np.median(f0)) if f0 else 0.0, "centroid": float((sp * fr).sum() / (sp.sum() + 1e-9)), "dur": len(x) / sr}
 
 
+# ---------- 字级时间与识别回读 ----------
+# paraformer 识别出字和时间，按编辑距离映射回稿子；识别与稿子不一致的句子改用 Qwen3-ForcedAligner 强制对齐。
+# 两个模型各在自己的 venv 里，由 align_worker.py 按批启动，处理完就退出。
+SOVITS_PY = os.environ.get("ALIGN_PARA_PYTHON", r"D:\TTS_GPT_SoVITS\.venv\Scripts\python.exe")
+ALIGNER_PY = os.environ.get("ALIGN_FA_PYTHON", r"D:\TTS_Services\aligner\.venv\Scripts\python.exe")
+WORKER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "align_worker.py")
+MS_CACHE = os.environ.get("MODELSCOPE_CACHE", r"D:\TTS_Services\cache\modelscope")
+PUNCT = re.compile(r"[\s，。！？、；：“”‘’（）《》…—,.!?;:\"'()\[\]【】「」『』]")
+
+
+def _worker(mode, job, device, timeout=900):
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="align-") as td:
+        jp, op = os.path.join(td, "job.json"), os.path.join(td, "out.json")
+        json.dump(job, open(jp, "w", encoding="utf-8"), ensure_ascii=False)
+        env = dict(os.environ, MODELSCOPE_CACHE=MS_CACHE)
+        py = SOVITS_PY if mode == "para" else ALIGNER_PY
+        r = subprocess.run([py, WORKER, mode, jp, op, device], capture_output=True, text=True, timeout=timeout, env=env)
+        if r.returncode != 0 or not os.path.exists(op):
+            raise RuntimeError(f"{mode} 失败：{(r.stderr or r.stdout).strip()[-300:]}")
+        return json.load(open(op, encoding="utf-8"))
+
+
+def _fa_device():
+    """显卡空闲显存够 2.5GB 才用 GPU（合成服务运行时约占 2.7GB，整卡 4GB），否则用 CPU。"""
+    want = os.environ.get("ALIGN_FA_DEVICE", "auto")
+    if want != "auto":
+        return want
+    try:
+        r = subprocess.run(["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+                           capture_output=True, text=True, timeout=10)
+        return "cuda" if int(r.stdout.split()[0]) >= 2500 else "cpu"
+    except Exception:
+        return "cpu"
+
+
+def _map_chars(chars, units):
+    """units：[[文字, 开始, 结束]]，多字单元按字均分；映射到稿子的字，返回 (每字 [开始, 结束]，差异列表)。"""
+    seq, ts = [], []
+    for text, s, e in units:
+        cs = [c for c in text if not PUNCT.match(c)]
+        for k, c in enumerate(cs):
+            seq.append(c)
+            ts.append([s + (e - s) * k / len(cs), s + (e - s) * (k + 1) / len(cs)])
+    import difflib
+    n = len(chars)
+    times = [None] * n
+    sm = difflib.SequenceMatcher(None, chars, seq, autojunk=False)
+    for blk in sm.get_matching_blocks():
+        for k in range(blk.size):
+            times[blk.a + k] = ts[blk.b + k]
+    diff = [{"at": i1, "script": "".join(chars[i1:i2]), "heard": "".join(seq[j1:j2])}
+            for tag, i1, i2, j1, j2 in sm.get_opcodes() if tag != "equal"]
+    known = [i for i, t in enumerate(times) if t is not None]
+    if not known:
+        return [[0.0, 0.0]] * n, diff
+    for i in range(n):  # 没对上的字按前后已知时间线性插值
+        if times[i] is None:
+            lo = max((k for k in known if k < i), default=None)
+            hi = min((k for k in known if k > i), default=None)
+            if lo is None or hi is None:
+                times[i] = list(times[hi if lo is None else lo])
+            else:
+                t = times[lo][1] + (times[hi][0] - times[lo][1]) * (i - lo) / (hi - lo)
+                times[i] = [t, t]
+    return [[round(a, 3), round(b, 3)] for a, b in times], diff
+
+
+def align_items(items):
+    """items：[{id, wav（16k 单声道路径）, text}]。返回 {id: {chars, src, diff, heard}}。"""
+    para = _worker("para", items, os.environ.get("ALIGN_PARA_DEVICE", "cpu"))
+    out, redo = {}, []
+    for it in items:
+        chars = [c for c in it["text"] if not PUNCT.match(c)]
+        t, diff = _map_chars(chars, para.get(it["id"], []))
+        out[it["id"]] = {"chars": [[c, a, b] for c, (a, b) in zip(chars, t)], "src": "paraformer", "diff": diff,
+                         "heard": para.get("_heard", {}).get(it["id"], "")}
+        if diff:
+            redo.append(it)
+    if redo:
+        dev = _fa_device()
+        fa = _worker("fa", redo, dev)
+        for it in redo:
+            chars = [c for c in it["text"] if not PUNCT.match(c)]
+            t, _ = _map_chars(chars, fa.get(it["id"], []))
+            out[it["id"]]["chars"] = [[c, a, b] for c, (a, b) in zip(chars, t)]
+            out[it["id"]]["src"] = f"forced-aligner({dev})"
+    return out
+
+
 def metrics_from_file(path):
     r = ffmpeg(["-i", path, "-ac", "1", "-ar", "24000", "-f", "s16le", "-"])
     if r.returncode != 0 or not r.stdout:
@@ -318,6 +408,37 @@ def register(app, submit, touch):
                 return JSONResponse({"error": f"{it.get('id')}: 音频为空或超过 8MB"}, status_code=400)
             out[str(it.get("id"))] = voice_profile(data)
         return JSONResponse(out)
+
+    @app.post("/voices/align")
+    async def voices_align(request: Request):
+        """字级时间 + 识别回读：items=[{id, wav_b64, text}]，每批最多 80 句、单句 ≤8MB。
+        返回 {id: {chars: [[字, 开始秒, 结束秒]], src, diff: [{at, script, heard}], heard}}；时间相对该句音频。"""
+        import tempfile
+        touch()
+        b = await request.json()
+        items = b.get("items") or []
+        if not isinstance(items, list) or not 1 <= len(items) <= 80:
+            return JSONResponse({"error": "items 须为 1–80 条"}, status_code=400)
+        with tempfile.TemporaryDirectory(prefix="align-in-") as td:
+            job = []
+            for k, it in enumerate(items):
+                try:
+                    data = base64.b64decode(it.get("wav_b64", ""), validate=True)
+                except Exception:
+                    return JSONResponse({"error": f"{it.get('id')}: wav_b64 无法解码"}, status_code=400)
+                text = str(it.get("text", "")).strip()
+                if not data or len(data) > 8 * 1024 * 1024 or not text:
+                    return JSONResponse({"error": f"{it.get('id')}: 音频为空、超过 8MB 或缺少文字"}, status_code=400)
+                wav = os.path.join(td, f"{k}.wav")
+                r = ffmpeg(["-i", "pipe:0", "-ac", "1", "-ar", "16000", wav], data=data)
+                if r.returncode != 0:
+                    return JSONResponse({"error": f"{it.get('id')}: 音频解码失败"}, status_code=400)
+                job.append({"id": str(it.get("id")), "wav": wav, "text": text})
+            try:
+                import asyncio
+                return JSONResponse(await asyncio.to_thread(align_items, job))
+            except Exception as e:
+                return JSONResponse({"error": str(e)}, status_code=500)
 
     if submit is None:  # 只读页面服务：不提供需要合成队列的管理接口
         return

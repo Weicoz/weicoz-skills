@@ -559,6 +559,52 @@ def run_analyze(args):
     print(json.dumps(out, ensure_ascii=False))
 
 
+def run_align(args):
+    """字级时间 + 识别回读放在远端：任务文件为 [{id, wav（本机路径）, text}]，按批上传，输出 {id: {chars, src, diff, heard}} 的 JSON。
+    服务端先用 paraformer 识别并映射回文字，识别与文字不一致的句子改用 Qwen3-ForcedAligner 强制对齐。"""
+    import base64
+    page = find_voices_page(args)
+    if page is None:
+        print("错误：对齐服务连不上（页面服务和合成服务都连不上）。", file=sys.stderr)
+        sys.exit(1)
+    url = page.rstrip("/").rsplit("/voices", 1)[0] + "/voices/align"
+    job = json.loads(Path(args.align_json).read_text(encoding="utf-8"))
+    for it in job:
+        if not Path(it["wav"]).is_file():
+            print(f"错误：文件不存在：{it['wav']}", file=sys.stderr)
+            sys.exit(2)
+    out, batch, size = {}, [], 0
+
+    def flush():
+        nonlocal batch, size
+        if not batch:
+            return
+        body = {"items": [{"id": str(it["id"]), "text": it["text"],
+                           "wav_b64": base64.b64encode(Path(it["wav"]).read_bytes()).decode("ascii")} for it in batch]}
+        try:
+            out.update(http_json("POST", url, payload=body, timeout=max(args.timeout, 900)))
+        except urllib.error.HTTPError as e:
+            try:
+                msg = json.loads(e.read().decode("utf-8")).get("error") or e.reason
+            except Exception:
+                msg = e.reason
+            print(f"错误：{msg}", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"错误：请求失败：{e}", file=sys.stderr)
+            sys.exit(1)
+        batch, size = [], 0
+
+    for it in job:
+        n = Path(it["wav"]).stat().st_size
+        if batch and (len(batch) >= 80 or size + n > 24 * 1024 * 1024):
+            flush()
+        batch.append(it)
+        size += n
+    flush()
+    print(json.dumps(out, ensure_ascii=False))
+
+
 def run_admin(args):
     """音色库管理：新增、改标签、重建样板声。全部在远端服务完成，本机只上传参考音频。"""
     def tags_of(v):
@@ -653,6 +699,8 @@ def main():
                         help="打开远端服务托管的音色试听页（服务没运行会自动拉起），可试听与筛选")
     parser.add_argument("--analyze", nargs="+", metavar="音频",
                         help="上传本机音频到远端，算音高中位数、频谱重心、时长，输出 JSON（逐句漂移检测用，本机不需要 numpy）")
+    parser.add_argument("--align-json", metavar="任务文件",
+                        help="字级时间 + 识别回读：任务文件为 [{id, wav, text}]，在远端识别并对齐，输出 JSON（weicoz-video-shotcraft-patch 的 align-words.py 用）")
     parser.add_argument("--api-url", help="显式指定服务端点 URL (覆盖环境变量 ZERO_TTS_API_URL)")
     parser.add_argument("--timeout", type=int, default=90, help="HTTP 请求超时秒数 (默认 90)")
 
@@ -668,6 +716,10 @@ def main():
 
     if args.analyze:
         run_analyze(args)
+        sys.exit(0)
+
+    if args.align_json:
+        run_align(args)
         sys.exit(0)
 
     if args.voices_page:

@@ -81,6 +81,7 @@ export ZERO_TTS_REMOTE_BASE="D:\\TTS_GPT_SoVITS"
 - **新增音色**：`zero_tts.py --add-voice 别名 --ref-file 参考.wav --prompt "参考音频逐字文本" --name 显示名 --gender 男 --tags 冷静,清晰 --source 来源说明`。参考音频由本机上传到服务端，须 3–10 秒，`--prompt` 必须与音频内容逐字一致（见 4.1）。新音色编号接在末尾，已有编号不变。
 - **改标签、来源、备注**：`--update-voice 别名 --tags 清晰,沉稳 --note "说明"`；改了 `--prompt` 要重建样板声。
 - **逐句漂移分析**：`zero_tts.py --analyze a.wav b.wav …` 把本机音频传到远端，算音高中位数、频谱重心、时长并输出 JSON（`weicoz-video-shotcraft-patch` 的 `voice-consistency.py` 用它）。走常驻的试听页服务，本机不需要 numpy。
+- **字级时间与识别回读**：`zero_tts.py --align-json 任务.json`（`[{id, wav, text}]`）。服务端先用 paraformer 识别并映射回文字，不一致的句子改用 Qwen3-ForcedAligner 强制对齐，输出每个字的起止时间和回读差异。两个模型各在自己的远端 venv 里按批启动、用完退出：paraformer 默认用 CPU，对齐模型在显卡空闲显存 ≥2.5GB 时用 GPU（合成服务运行时会退到 CPU）。`weicoz-video-shotcraft-patch` 的 `align-words.py` 用它。
 - **生成样板声**：新增或改过后运行 `--rebuild-voices`（只补缺少或过期的，`--force` 全部重做，`--rebuild-keys a,b` 只做指定的），`--rebuild-status` 看进度。它走服务的合成队列，一次只提交一个，不会堵住别人的任务。
 - **标签依据来源方的描述和风格整理，不是逐条人工试听的结论**；觉得不准用 `--update-voice` 改。
 - 第三方平台声音库（ElevenLabs、MiniMax）的音色只作个人使用，来源写在 `source` 字段；它们的参考音频和样板声只放在远端服务，不得提交进仓库。

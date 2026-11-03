@@ -22,9 +22,9 @@
 
 旁白合成后，把每段音频用中文语音识别转回文字，和 `vo/script/segNN.txt` 逐字比对（去空白和标点）。差异逐条列出，按「读错 / 漏读 / 多读 / 识别误差」归类。读错和漏读必须修：改稿、写 `vo/pronounce.json`，或单句重合成；修完再回读，直到差异只剩识别误差。
 
-- 识别引擎：带时间戳的中文 ASR（如 funasr 的 paraformer-zh、Qwen3-ASR）。同一次识别同时产出词级时间，回读和对齐合成一步做。
+- 命令：`scripts/align-words.py <工程>`。它按句界从段音频切出每句，交给 `weicoz-zero-tts` 的远端服务：paraformer-zh 识别并按编辑距离映射回配音稿；识别与配音稿不一致的句子改用 Qwen3-ForcedAligner 强制对齐。回读和字级时间一步完成。
 - 它补的是 `check-polyphones.py` 查不到的错：规则表外的多音字、数字读法、吞字。它不能替代抽听带数字和多音字的句子。
-- 现状：本 skill 还没有回读脚本，按上面的方法手动跑。
+- 有差异时退出码为 1，字级时间照常写出。逐条听：TTS 读错就改稿或写 `vo/pronounce.json` 后重新合成；确认是识别误差（例如「哪」被听成「哪儿」）就加 `--accept`。
 
 
 1. 口播稿按段拆成 `vo/script-display/segNN.txt`（字幕稿，一段一个文件，只放口播正文，不含画面提示和标题），再用 `zh-numerals.py` 生成配音稿 `vo/script/segNN.txt`（见下文「数字与多音字」）。
@@ -88,10 +88,11 @@ edge-tts 的中文声线只给句级时间。镜头里一句话之内的节点�
 来源按优先级：
 
 1. 配音引擎随音频返回的字/词时间（部分云端 TTS 会返回）。
-2. 对成品旁白跑带时间戳的识别或对齐模型（funasr paraformer-zh、Qwen3-ASR、Montreal Forced Aligner），和识别回读同一次跑。
+2. 对成品旁白跑识别或对齐模型：`align-words.py`（paraformer-zh 为主，与稿子不一致的句子用 Qwen3-ForcedAligner），和识别回读同一次跑。
 3. 剪映字幕识别：只到句级，导出字幕文件要会员，只作兜底。
 
-- 现状：本 skill 还没有对齐脚本，`check-sync.py` 只比对句级 cue。有了 `vo/cues-words/` 后，节拍注释里写明对应的词，手动核对节拍帧落在该词起点之后。
+- 文件格式：每句一条 `{cue, text, src, chars: [{c, start, end}]}`，`cue` 是 `vo/cues` 的句序号，`src` 记录时间来自 paraformer 还是 forced-aligner。实测一段 20 秒旁白：两个模型的字开始时间中位相差 30 毫秒，句级均分估算与之中位相差 192 毫秒、最大 946 毫秒。
+- `check-sync.py` 仍只比对句级 cue。句内节拍从 `vo/cues-words/` 取该字的 `start` × 帧率写进 `BEATS`，注释写明对应的字（不再写「估算」）。
 - 没有词级时间时，规则是宁晚勿早：节点放在该词所在位置之后，不早于句首；拿不准的放在句子中点之后。镜头文件顶部的节拍常量用注释写明对应哪一句、是句界还是估算。
 
 ## 换配音后重排
