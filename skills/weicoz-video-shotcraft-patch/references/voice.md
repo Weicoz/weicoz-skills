@@ -24,7 +24,7 @@
 
 - 命令：`scripts/align-words.py <工程>`。它按句界从段音频切出每句，交给 `weicoz-zero-tts` 的远端服务：paraformer-zh 识别并按编辑距离映射回配音稿；识别与配音稿不一致的句子改用 Qwen3-ForcedAligner 强制对齐。回读和字级时间一步完成。
 - 它补的是 `check-polyphones.py` 查不到的错：规则表外的多音字、数字读法、吞字。它不能替代抽听带数字和多音字的句子。
-- 有差异时退出码为 1，字级时间照常写出。逐条听：TTS 读错就改稿或写 `vo/pronounce.json` 后重新合成；确认是识别误差（例如「哪」被听成「哪儿」）就加 `--accept`。
+- 有差异时退出码为 1，字级时间照常写出，并生成试听页 `out/readback/index.html`（每条差异一行：稿子、识别结果、可直接播放的那一句；加 `--open` 自动打开）。只处理部分段时，其他段之前的差异保留在页面里。逐条听：TTS 读错就改稿或写 `vo/pronounce.json` 后重新合成；确认是识别误差（例如「哪」被听成「哪儿」）就加 `--accept`。
 
 
 1. 口播稿按段拆成 `vo/script-display/segNN.txt`（字幕稿，一段一个文件，只放口播正文，不含画面提示和标题），再用 `zh-numerals.py` 生成配音稿 `vo/script/segNN.txt`（见下文「数字与多音字」）。
