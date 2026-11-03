@@ -1,0 +1,175 @@
+{
+ "query": {
+  "pages": {
+   "1": {
+    "pageid": 1,
+    "index": 1,
+    "title": "File:Bottle.jpg",
+    "imageinfo": [
+     {
+      "url": "https://upload.example/1",
+      "thumburl": "https://upload.example/t1.jpg",
+      "thumbwidth": 640,
+      "thumbheight": 360,
+      "width": 4000,
+      "height": 2250,
+      "mime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Bottle.jpg",
+      "extmetadata": {
+       "LicenseShortName": {
+        "value": "CC BY 4.0"
+       },
+       "LicenseUrl": {
+        "value": "https://creativecommons.org/licenses/by/4.0"
+       },
+       "Artist": {
+        "value": "<a href=\"//commons.wikimedia.org/wiki/User:Fay\">Fay &amp; Co</a>"
+       }
+      }
+     }
+    ]
+   },
+   "2": {
+    "pageid": 2,
+    "index": 2,
+    "title": "File:Sa.jpg",
+    "imageinfo": [
+     {
+      "url": "https://upload.example/2",
+      "thumburl": "https://upload.example/t2.jpg",
+      "thumbwidth": 640,
+      "thumbheight": 360,
+      "width": 3000,
+      "height": 2000,
+      "mime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Sa.jpg",
+      "extmetadata": {
+       "LicenseShortName": {
+        "value": "CC BY-SA 3.0"
+       },
+       "LicenseUrl": {
+        "value": ""
+       },
+       "Artist": {
+        "value": "Gus"
+       }
+      }
+     }
+    ]
+   },
+   "3": {
+    "pageid": 3,
+    "index": 3,
+    "title": "File:Nc.jpg",
+    "imageinfo": [
+     {
+      "url": "https://upload.example/3",
+      "thumburl": "https://upload.example/t3.jpg",
+      "thumbwidth": 640,
+      "thumbheight": 360,
+      "width": 3000,
+      "height": 2000,
+      "mime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Nc.jpg",
+      "extmetadata": {
+       "LicenseShortName": {
+        "value": "CC BY-NC 4.0"
+       },
+       "LicenseUrl": {
+        "value": ""
+       },
+       "Artist": {
+        "value": "Hal"
+       }
+      }
+     }
+    ]
+   },
+   "4": {
+    "pageid": 4,
+    "index": 4,
+    "title": "File:Zero.png",
+    "imageinfo": [
+     {
+      "url": "https://upload.example/4",
+      "thumburl": "https://upload.example/t4.jpg",
+      "thumbwidth": 640,
+      "thumbheight": 360,
+      "width": 3000,
+      "height": 2000,
+      "mime": "image/png",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zero.png",
+      "extmetadata": {
+       "LicenseShortName": {
+        "value": "CC0"
+       },
+       "LicenseUrl": {
+        "value": ""
+       },
+       "Artist": {
+        "value": "Ivy"
+       }
+      }
+     }
+    ]
+   },
+   "5": {
+    "pageid": 5,
+    "index": 5,
+    "title": "File:Clip.webm",
+    "imageinfo": [
+     {
+      "url": "https://upload.example/5",
+      "thumburl": "https://upload.example/t5.jpg",
+      "thumbwidth": 640,
+      "thumbheight": 360,
+      "width": 1920,
+      "height": 1080,
+      "mime": "video/webm",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Clip.webm",
+      "extmetadata": {
+       "LicenseShortName": {
+        "value": "Public domain"
+       },
+       "LicenseUrl": {
+        "value": ""
+       },
+       "Artist": {
+        "value": "Jo"
+       }
+      },
+      "duration": 8.5
+     }
+    ]
+   },
+   "6": {
+    "pageid": 6,
+    "index": 6,
+    "title": "File:Doc.pdf",
+    "imageinfo": [
+     {
+      "url": "https://upload.example/6",
+      "thumburl": "https://upload.example/t6.jpg",
+      "thumbwidth": 640,
+      "thumbheight": 360,
+      "width": 100,
+      "height": 100,
+      "mime": "application/pdf",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Doc.pdf",
+      "extmetadata": {
+       "LicenseShortName": {
+        "value": "CC0"
+       },
+       "LicenseUrl": {
+        "value": ""
+       },
+       "Artist": {
+        "value": "Kim"
+       }
+      }
+     }
+    ]
+   }
+  }
+ }
+}

@@ -1,0 +1,30 @@
+{
+ "hits": [
+  {
+   "id": 404,
+   "pageURL": "https://pixabay.com/videos/x-404/",
+   "tags": "water",
+   "duration": 20,
+   "picture_id": "555",
+   "user": "dee",
+   "user_id": 8,
+   "videos": {
+    "large": {
+     "url": "https://cdn.example/404l.mp4",
+     "width": 1920,
+     "height": 1080
+    },
+    "medium": {
+     "url": "https://cdn.example/404m.mp4",
+     "width": 1280,
+     "height": 720
+    },
+    "tiny": {
+     "url": "",
+     "width": 0,
+     "height": 0
+    }
+   }
+  }
+ ]
+}
