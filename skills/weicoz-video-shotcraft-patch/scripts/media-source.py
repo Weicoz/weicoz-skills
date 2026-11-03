@@ -3,7 +3,7 @@
 
 用法：
   media-source.py search <工程> --q "关键词" --kind photo|video [--sources pexels,pixabay,unsplash,wikimedia]
-                  [--orientation landscape|portrait|square] [--min-width 1920] [--min-dur 秒] [--shot s4]
+                  [--orientation landscape|portrait|square|any（默认 landscape）] [--min-width 1920] [--min-dur 秒] [--shot s4]
                   [--per-source 12] [--allow-sa] [--allow-lowres]
   media-source.py get <工程> <source:id> --picked-by user|"agent:理由" [--kind photo|video] [--shot s4]
                   [--name slug] [--fps 30] [--keep-audio] [--allow-sa]
@@ -514,7 +514,7 @@ def cmd_search(a):
             print("跳过 unsplash：它只有照片。")
             continue
         try:
-            items = api_search(s, a.q, a.kind, a.orientation, a.per_source)
+            items = api_search(s, a.q, a.kind, None if a.orientation == "any" else a.orientation, a.per_source)
         except Usage as e:
             print(f"跳过 {s}：\n  " + str(e).replace("\n", "\n  "))
             continue
@@ -529,7 +529,7 @@ def cmd_search(a):
             else:
                 pool.append(c)
     for c in pool:
-        c["score"] = score(c, a.min_width, a.orientation, a.min_dur, a.per_source, a.allow_lowres)
+        c["score"] = score(c, a.min_width, None if a.orientation == "any" else a.orientation, a.min_dur, a.per_source, a.allow_lowres)
     pool.sort(key=lambda c: -c["score"])
     print(f"过滤：许可不合 {filt['license']} 条，分辨率低于 {a.min_width} 宽 {filt['lowres']} 条。")
     if not pool:
@@ -716,7 +716,8 @@ def build_parser():
     s.add_argument("--q", required=True)
     s.add_argument("--kind", required=True, choices=["photo", "video"])
     s.add_argument("--sources", default=",".join(ALL_SOURCES))
-    s.add_argument("--orientation", choices=["landscape", "portrait", "square"])
+    s.add_argument("--orientation", choices=["landscape", "portrait", "square", "any"], default="landscape",
+                   help="默认 landscape（成片 16:9）；any 不按画幅过滤与加权")
     s.add_argument("--min-width", type=int, default=1920)
     s.add_argument("--min-dur", type=float)
     s.add_argument("--shot")
