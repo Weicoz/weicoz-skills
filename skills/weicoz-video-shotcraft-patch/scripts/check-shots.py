@@ -44,7 +44,7 @@ def main() -> int:
     ap.add_argument("--strict-colors", action="store_true")
     ap.add_argument("--no-tsc", action="store_true")
     a = ap.parse_args()
-    root = Path(a.project)
+    root = Path(a.project).resolve()
     patterns = a.glob or [
         "src/shots/*.tsx", "src/segments/*.tsx", "src/scenes/*.tsx",
         "src/components/*.tsx", "src/lib/*.tsx", "src/lib/*.ts",

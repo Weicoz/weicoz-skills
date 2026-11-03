@@ -33,7 +33,7 @@ def main():
     ap.add_argument("--crf", default="18")
     ap.add_argument("--parts-dir", default="out/parts")
     a = ap.parse_args()
-    root = Path(a.project)
+    root = Path(a.project).resolve()
     json.loads(a.props)  # 提前校验
 
     ranges, s = {}, 0
