@@ -3,7 +3,7 @@
 import asyncio, collections, io, os, re, threading, time, traceback, urllib.parse, uuid
 import numpy as np, soundfile as sf, torch, uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from faster_qwen3_tts import FasterQwen3TTS
 
 MODEL_DIR = os.environ.get("QWEN_TTS_MODEL", r"D:\TTS_Services\qwen3tts\model")
@@ -13,6 +13,7 @@ TOP_K = int(os.environ.get("QWEN_TTS_TOP_K", "50"))
 MAX_CHUNK = int(os.environ.get("QWEN_TTS_MAX_CHUNK", "70"))
 IDLE_MIN = float(os.environ.get("QWEN_TTS_IDLE_MIN", "10"))  # 空闲多少分钟后自动退出并释放显存；0 表示常驻
 GAP_SEC = float(os.environ.get("QWEN_TTS_GAP", "0.15"))
+VOICES_SITE = os.environ.get("QWEN_TTS_VOICES_SITE", r"D:\TTS_Services\voices\site")  # 音色试听页与样板声目录
 WARM_REF = os.environ.get("QWEN_TTS_WARM_REF", r"D:\TTS_GPT_SoVITS\models\voice_models\sunday\【中立】如果这些还不够，就得劳烦你出手了。.wav")
 WARM_TXT = "如果这些还不够，就得劳烦你出手了。"
 LANG = {"zh": "Chinese", "all_zh": "Chinese", "auto": "Chinese", "en": "English", "all_en": "English",
@@ -185,6 +186,38 @@ def worker():
 def busy():
     with cv:
         return current is not None or bool(queue)
+
+
+# ---- 音色试听页：GET /voices/ 打开页面，页内样板声走 /voices/demo/<文件> ----
+def _touch():
+    """浏览试听页也算使用，避免边听边被空闲退出打断。"""
+    global last_active
+    last_active = time.time()
+
+
+@app.get("/voices")
+def voices_redirect():
+    return RedirectResponse("/voices/")
+
+
+@app.get("/voices/")
+def voices_index():
+    _touch()
+    f = os.path.join(VOICES_SITE, "index.html")
+    if not os.path.isfile(f):
+        return JSONResponse({"error": "试听页还没发布，在客户端运行 build_voice_page.py --publish"}, status_code=404)
+    return FileResponse(f, media_type="text/html; charset=utf-8", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/voices/demo/{name}")
+def voices_demo(name: str):
+    _touch()
+    if not re.fullmatch(r"[\w.\-]+\.m4a", name):
+        return JSONResponse({"error": "bad name"}, status_code=400)
+    f = os.path.join(VOICES_SITE, "demo", name)
+    if not os.path.isfile(f):
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return FileResponse(f, media_type="audio/mp4")
 
 
 @app.get("/health")

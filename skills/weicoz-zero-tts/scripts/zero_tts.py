@@ -141,6 +141,70 @@ PRESET_VOICES = {
 }
 
 
+# 内置音色的来源、性别与标签。标签依据角色设定与风格描述整理，不是逐条人工试听的结论。
+_GI = "原神（米哈游）游戏角色语音"
+_SR = "崩坏：星穹铁道（米哈游）游戏角色语音"
+_LOCAL = "本地预置参考音频（来源未记录）"
+BUILTIN_META = {
+    "zhongli": {"source": _GI, "gender": "男", "tags": ["沉稳", "温润", "厚重", "偏沉"]},
+    "neuvillette": {"source": _GI, "gender": "男", "tags": ["庄重", "清朗", "条理", "偏沉"]},
+    "alhaitham": {"source": _GI, "gender": "男", "tags": ["冷静", "理性", "平稳"]},
+    "tighnari": {"source": _GI, "gender": "男", "tags": ["清晰", "干脆", "专业", "自信"]},
+    "welt": {"source": _SR, "gender": "男", "tags": ["儒雅", "沉静", "阅历", "偏闷"]},
+    "dr_ratio": {"source": _SR, "gender": "男", "tags": ["锐利", "清晰", "批判", "自信"]},
+    "ruan_mei": {"source": _SR, "gender": "女", "tags": ["空灵", "知性", "淡雅", "偏闷"]},
+    "sunday": {"source": _SR, "gender": "男", "tags": ["清晰", "庄重", "规整", "有仪式感"]},
+    "jingyuan": {"source": _SR, "gender": "男", "tags": ["闲适", "从容", "通透", "偏闷"]},
+    "lohen": {"source": _GI, "gender": "女", "tags": ["清朗", "干净", "青年", "真实"]},
+    "mitya": {"source": _GI, "gender": "男", "tags": ["明快", "少年", "活力", "⚠拖腔"]},
+    "news": {"source": _LOCAL, "gender": "男", "tags": ["端庄", "播音", "匀速", "正式"]},
+    "cinema": {"source": _LOCAL, "gender": "男", "tags": ["低沉", "磁性", "影视", "张力"]},
+    "youth": {"source": _LOCAL, "gender": "男", "tags": ["清爽", "亲切", "口语", "活力"]},
+    "story": {"source": _LOCAL, "gender": "男", "tags": ["沧桑", "深沉", "叙事", "颗粒感"]},
+    "default": {"source": _LOCAL, "gender": "男", "tags": ["中性", "通用", "平衡"]},
+}
+
+# 用户数据目录：外部音色清单 voices.json、试听页和样板声都放这里，不进仓库
+VOICES_HOME = Path(os.environ.get("ZERO_TTS_HOME") or (Path.home() / ".local/share/weicoz-zero-tts"))
+
+
+def load_voices():
+    """合并内置预设与用户音色文件（ZERO_TTS_VOICES_FILE，默认 <ZERO_TTS_HOME>/voices.json）。
+    编号按合并顺序从 1 起：内置在前，用户音色按文件顺序在后；只在文件末尾追加就不会变号。"""
+    voices = {}
+    for key, item in PRESET_VOICES.items():
+        voices[key] = {**item, **BUILTIN_META.get(key, {})}
+    path = Path(os.environ.get("ZERO_TTS_VOICES_FILE") or (VOICES_HOME / "voices.json"))
+    if path.is_file():
+        try:
+            extra = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            print(f"警告：读取音色文件失败 {path}：{e}", file=sys.stderr)
+            extra = {}
+        for key, item in extra.items():
+            if key in voices or not (item.get("ref") and item.get("prompt")):
+                print(f"警告：跳过音色 {key}（重名或缺少 ref/prompt）", file=sys.stderr)
+                continue
+            voices[key] = {"tag": "", "desc": "", "source": "", "gender": "", "tags": [], **item}
+    for number, item in enumerate(voices.values(), 1):
+        item["number"] = number
+    return voices
+
+
+VOICES = load_voices()
+
+
+def resolve_voice(value):
+    """-v 接受别名或编号（如 sunday、8、08）；找不到返回 None。"""
+    if value in VOICES:
+        return value
+    if str(value).isdigit():
+        for key, item in VOICES.items():
+            if item["number"] == int(value):
+                return key
+    return None
+
+
 def get_endpoints(custom_url=None):
     """
     获取可用 TTS 服务端点列表。
@@ -436,16 +500,16 @@ def play_audio(audio_path):
 
 
 def print_voices():
-    """输出所有可用音色预设"""
-    print("=" * 72)
-    print("weicoz-zero-tts 预设音色库清单")
-    print("=" * 72)
-    print(f"{'别名':<14} | {'角色名称':<24} | {'风格定位'}")
-    print("-" * 72)
-    for key, item in PRESET_VOICES.items():
-        print(f"{key:<14} | {item['name']:<24} | {item['tag']}")
-    print("=" * 72)
-    print("提示：使用 -v <别名> 即可选用指定角色音色。")
+    """输出所有可用音色（编号、别名、性别、标签、来源）"""
+    print("=" * 78)
+    print(f"weicoz-zero-tts 音色清单（共 {len(VOICES)} 个）")
+    print("=" * 78)
+    for key, item in VOICES.items():
+        tags = " ".join(item.get("tags") or []) or item.get("tag", "")
+        print(f"{item['number']:02d}  {key:<14} {item.get('gender', ''):<2} {tags}")
+        print(f"    {item['name']}  |  来源：{item.get('source') or '未记录'}")
+    print("=" * 78)
+    print("提示：-v <别名或编号> 选音色；带试听的页面见 build_voice_page.py。")
 
 
 def _raise_interrupt(signum, frame):
@@ -469,7 +533,7 @@ def main():
     parser.add_argument("text", nargs="?", help="待合成文本（不传则尝试从标准输入 stdin 读取）")
     parser.add_argument("-o", "--output", help="输出音频路径 (.wav)；未指定时写入临时文件并自动播放")
     parser.add_argument("-v", "--voice", default=os.environ.get("ZERO_TTS_DEFAULT_VOICE", "sunday"),
-                        choices=list(PRESET_VOICES.keys()), help="预设音色名称 (默认 sunday)")
+                        help="音色别名或编号 (默认 sunday；用 --list-voices 查看)")
     parser.add_argument("--ref", help="自定义远端参考音频绝对路径 (覆盖预设)")
     parser.add_argument("--prompt", help="参考音频对齐文本 (覆盖预设)")
     parser.add_argument("--prompt-lang", default="zh", help="参考音频语言 (默认 zh)")
@@ -489,6 +553,8 @@ def main():
     parser.add_argument("--status", action="store_true", help="只查看服务当前是否有任务在跑、队列情况，然后退出")
     parser.add_argument("--no-play", action="store_true", help="不自动播放音频")
     parser.add_argument("--list-voices", action="store_true", help="列出全部预设音色清单")
+    parser.add_argument("--voices-page", action="store_true",
+                        help="打开远端服务托管的音色试听页（服务没运行会自动拉起），可试听与筛选")
     parser.add_argument("--api-url", help="显式指定服务端点 URL (覆盖环境变量 ZERO_TTS_API_URL)")
     parser.add_argument("--timeout", type=int, default=90, help="HTTP 请求超时秒数 (默认 90)")
 
@@ -497,6 +563,20 @@ def main():
     if args.list_voices:
         print_voices()
         sys.exit(0)
+
+    if args.voices_page:
+        eps = get_endpoints(args.api_url)
+        ensure_service(eps, args.no_autostart)
+        for ep in eps:
+            if is_endpoint_reachable(ep, timeout=1.2):
+                url = base_url(ep).rstrip("/") + "/voices/"
+                print(url)
+                if not os.environ.get("ZERO_TTS_NO_BROWSER"):
+                    import webbrowser
+                    webbrowser.open(url)
+                sys.exit(0)
+        print("错误：服务连不上，无法打开试听页。", file=sys.stderr)
+        sys.exit(1)
 
     if args.status:
         eps = get_endpoints(args.api_url)
@@ -522,7 +602,11 @@ def main():
         sys.exit(1)
 
     # 解析音色与参考信息
-    voice_cfg = PRESET_VOICES.get(args.voice, PRESET_VOICES["default"])
+    voice_key = resolve_voice(args.voice)
+    if voice_key is None:
+        print(f"错误：找不到音色 {args.voice!r}，用 --list-voices 查看可选项。", file=sys.stderr)
+        sys.exit(2)
+    voice_cfg = VOICES[voice_key]
     ref_audio = args.ref or voice_cfg["ref"]
     prompt_text = args.prompt or voice_cfg["prompt"]
 

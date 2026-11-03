@@ -1,9 +1,9 @@
 ---
 name: weicoz-zero-tts
-version: 1.4.0
+version: 1.5.0
 description: >
   远端 GPU (GPT-SoVITS) 语音合成：将中文或中英混合文本合成为自然流畅的语音音频（WAV），
-  内置 16 套原神/星铁等知识讲解与角色音色预设（钟离/那维莱特/艾尔海森/提纳里/瓦尔特/
+  内置 16 套原神/星铁等知识讲解与角色音色预设，可经 voices.json 扩展并生成带编号标签的试听页（钟离/那维莱特/艾尔海森/提纳里/瓦尔特/
   真理医生/阮•梅/星期日/景元等）、远端参考音频与 Prompt 驱动、长文本切分与局域网/
   内网穿透多端点自适应回退。适用于"文本转语音""配音""朗读""生成解说音频""听听这段话""TTS"等场景。
 ---
@@ -65,6 +65,17 @@ export ZERO_TTS_REMOTE_BASE="D:\\TTS_GPT_SoVITS"
 | `default` | 通用标准播音 (云扬) | 平衡中立 / 通用合成 | **中性标准男声、功能测试** |
 
 详细音色特质与参考文本见 `references/voices.md`。
+
+---
+
+### 2.1 音色编号、试听页与扩展音色
+
+- 每个音色有**编号**（内置 01–16，用户音色接在后面）和别名。`-v` 两种写法都行：`-v sunday` 或 `-v 8`。`--list-voices` 输出编号、别名、性别、标签、来源。
+- **试听页由远端服务托管**：`python3 scripts/zero_tts.py --voices-page` 打开 `http://<服务>/voices/`（服务没运行会自动拉起）。页面给每个音色一条同一句话的样板声，带编号、标签（冷静、清晰、清透……）、来源、高频占比（2–8kHz，反映明亮程度，低不等于听不清）、搜索与按性别/来源/标签筛选，页内按钮可复制 `-v 别名`。
+- **新增或改过音色后重新发布**：`python3 scripts/build_voice_page.py --publish`（只补缺少的样板声，`--force` 全部重做，`--html-only` 只重排页面，`--open` 打开本机副本）。`--publish` 用 scp 传到远端 `ZERO_TTS_REMOTE_VOICES_DIR`（默认 `D:/TTS_Services/voices/site`，须与服务端 `QWEN_TTS_VOICES_SITE` 一致）。装了 numpy 时清晰度数值与历史数字同口径；没有则用 ffmpeg 估算，每项约偏高 0.2–0.7。只有 Qwen 主力服务托管页面，GPT-SoVITS 备用引擎没有这个路由。
+- **扩展音色**写在 `$ZERO_TTS_HOME/voices.json`，格式 `{"别名": {"name", "ref"(远端参考音频绝对路径), "prompt"(参考音频逐字文本), "tags", "gender", "source"}}`。只在文件末尾追加，已有编号才不会变。参考音频须 3–10 秒，`prompt` 必须与音频内容逐字一致（见 4.1）。
+- **标签依据来源方的描述和风格整理，不是逐条人工试听的结论**；觉得不准直接改 `voices.json` 里的 `tags` 再重跑 `--html-only`。
+- 第三方平台声音库（ElevenLabs、MiniMax）的音色只作个人使用，来源写在 `source` 字段；它们的参考音频和样板声不得提交进仓库。
 
 ---
 
