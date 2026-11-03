@@ -19,7 +19,8 @@
       数组节拍写多个锚点按顺序配对：`rows: [419, 556], // cue4@直推 cue5@间推`。
       锚点从 vo/cues-words/segNN.json（align-words.py 生成）取该词首字的开始时间：
       节拍早于它超过 --early 帧（默认 2）判红，画面抢在声音前面；晚于它超过 --late 帧（默认 6）判黄。
-      已有 vo/cues-words 却仍写「估算」的节拍给黄色提示，改成锚点写法。
+      已有 vo/cues-words 却仍写句级 cueN（没有 cueN@词）的节拍给黄色迁移提示（句窗口检查照做），
+      汇总行单独计「待迁移 N」，不计入红黄，不影响退出码；同一条不重复报。
 退出码：有红色返回 1；镜头表或节拍一条都没解析出来返回 2（格式不符时不会假装通过）。
       注释里没有 cueN 的节拍不检查，会列出数量。数组节拍：cue 个数与数字个数相同时逐个配对，
       否则每个数字都与所列 cue 的整体窗口（最早起点到最晚终点）比。
@@ -76,14 +77,14 @@ def shot_file(shots_dir: Path, sid: str):
     return cand if cand.exists() else None
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("project")
     ap.add_argument("--tol", type=int, default=15)
     ap.add_argument("--shots-dir", default="src/shots")
     ap.add_argument("--early", type=int, default=2, help="字级锚点：节拍早于该词超过多少帧判红")
     ap.add_argument("--late", type=int, default=6, help="字级锚点：节拍晚于该词超过多少帧判黄")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     root = Path(a.project).resolve()
 
     if not (root / "src/timing.ts").exists():
@@ -102,6 +103,7 @@ def main():
         print("错误：src/timing.ts 里没有解析出镜头（镜头对象写成单层 {id, seg, segStart, frames}，对象内不嵌套花括号）。")
         return 2
     red, yellow, ok, skipped, word_ok = [], [], 0, 0, 0
+    migrate = []
     for sid, seg, seg_start in shots:
         f = shot_file(root / a.shots_dir, sid)
         cues_p = root / "vo/cues" / f"{seg}.json"
@@ -148,13 +150,15 @@ def main():
                     else:
                         word_ok += 1
                 continue
-            if words is not None and "估算" in comment:
-                yellow.append(f"{sid}.{name}: 已有 vo/cues-words，改成字级锚点 cueN@词（align-words.py --find 查帧号）")
             try:
                 ns = parse_cues(comment)
             except ValueError as e:
                 red.append(f"{sid}.{name}: {e}")
                 continue
+            if words is not None and ns:
+                hint = f"{sid}.{name}: 已有 vo/cues-words，改成字级锚点 cueN@词（align-words.py --find 查帧号）"
+                if hint not in migrate:
+                    migrate.append(hint)
             if not ns:
                 skipped += 1
                 continue
@@ -184,11 +188,13 @@ def main():
     if ok + word_ok + len(red) + len(yellow) == 0:
         print("错误：没有解析到任何带 cueN 的节拍。检查 BEATS 常量和注释格式（见脚本开头的约定）。")
         return 2
-    print(f"字级锚点（早 >{a.early} 帧红、晚 >{a.late} 帧黄）通过 {word_ok}；句窗口（±{a.tol} 帧）通过 {ok}；红 {len(red)}，黄 {len(yellow)}，未写 cueN 跳过 {skipped}")
+    print(f"字级锚点（早 >{a.early} 帧红、晚 >{a.late} 帧黄）通过 {word_ok}；句窗口（±{a.tol} 帧）通过 {ok}；红 {len(red)}，黄 {len(yellow)}，待迁移 {len(migrate)}，未写 cueN 跳过 {skipped}")
     for r in red:
         print("红", r)
     for y in yellow:
         print("黄", y)
+    for m in migrate:
+        print("黄(迁移)", m)
     return 1 if red else 0
 
 

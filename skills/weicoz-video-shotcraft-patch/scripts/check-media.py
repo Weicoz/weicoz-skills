@@ -5,6 +5,7 @@
 错误：public/media 下的文件不在 sources.json；许可不合（NC/ND/unknown，SA 未加 --allow-sa）；
       视频不是 H.264 或帧率不等于 --fps；需署名条目但 media/CREDITS.md 缺失或未包含该条目；
       src/ 的 .ts/.tsx 里有 http(s) 图片或视频地址（盗链）；src/ 引用的 media/ 文件不在 sources.json。
+      picked_by 以 agent: 开头的条目，理由必须含「联系表第」并在去掉这几个字后还有不少于 8 个字的画面描述；user 开头不检查。
 警告：条目对应文件缺失（跑 media-source.py fetch）；照片或视频宽度小于 1920。
 没有 public/media 也没有 sources.json 时打印「本工程没有真实素材」并退出 0。
 退出码：0 通过；1 有错误；2 工程结构不对。
@@ -71,6 +72,11 @@ def main(argv=None):
     for e in items:
         f = e.get("file", "?")
         lic = e.get("license", "unknown")
+        pb = str(e.get("picked_by") or "")
+        if pb.startswith("agent:"):
+            reason = pb[len("agent:"):]
+            if "联系表第" not in reason or len(reason.replace("联系表第", "").strip()) < 8:
+                errors.append(f"{f} 代理挑选必须写联系表第几张和看到的画面内容（见 references/media.md）")
         if not ms.license_ok(lic, a.allow_sa):
             errors.append(f"{f} 许可 {lic} 不合策略" + ("（SA 需 --allow-sa）" if lic.startswith("cc-by-sa") else ""))
         if lic.startswith("cc-by") or lic == "unsplash":

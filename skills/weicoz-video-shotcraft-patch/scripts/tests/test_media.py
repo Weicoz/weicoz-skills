@@ -85,6 +85,43 @@ class Parse(unittest.TestCase):
         self.assertEqual(big[3]["files"][0]["url"], "https://upload.example/4")  # 3000 宽用原图
     
 
+REC = FIX / "recorded"
+KNOWN_LIC = {"pexels", "pixabay", "unsplash", "cc0", "pd"}
+
+
+def rec(n):
+    return json.loads((REC / n).read_text(encoding="utf-8"))
+
+
+class ParseRecorded(unittest.TestCase):
+    """基于真实接口录制样例（fixtures/recorded）的解析测试。"""
+
+    def check(self, cands):
+        self.assertTrue(cands)
+        for c in cands:
+            self.assertTrue(c["thumb"], c["key"])
+            self.assertTrue(c["files"] and all(f["url"] for f in c["files"]), c["key"])
+            self.assertTrue(c["w"] and c["h"], c["key"])
+            self.assertTrue(c["license"], c["key"])
+            self.assertTrue(c["license"] in KNOWN_LIC or c["license"].startswith("cc-by"), c["license"])
+
+    def test_pexels(self):
+        self.check(ms.parse_pexels(rec("pexels_photo.json"), "photo"))
+        self.check(ms.parse_pexels(rec("pexels_video.json"), "video"))
+
+    def test_pixabay(self):
+        self.check(ms.parse_pixabay(rec("pixabay_photo.json"), "photo"))
+        self.check(ms.parse_pixabay(rec("pixabay_video.json"), "video"))
+
+    def test_unsplash(self):
+        self.check(ms.parse_unsplash(rec("unsplash_photo.json")))
+
+    def test_wikimedia(self):
+        for kind in ("photo", "video"):
+            cs = [c for c in ms.parse_wikimedia(rec(f"wikimedia_{kind}.json"), kind) if c["license"] != "unknown"]
+            self.check(cs)
+
+
 class License(unittest.TestCase):
     def test_normalize(self):
         n = ms.normalize_license
@@ -204,6 +241,22 @@ class CheckMedia(unittest.TestCase):
         code, out = self.chk()
         self.assertEqual(code, 0, out)
         self.assertIn("宽度 320 < 1920", out)  # 视频 320 宽
+
+    def test_agent_pick_reason(self):
+        self.good_project()
+        items = ms.load_sources(self.root)
+        def with_pick(v):
+            items[0]["picked_by"] = v
+            ms.save_sources(self.root, items)
+            return self.chk()
+        for bad in ("agent:", "agent:看着不错", "agent:联系表第 3 张", "agent:联系表第3张 好看"):
+            code, out = with_pick(bad)
+            self.assertEqual(code, 1, bad)
+            self.assertIn("代理挑选必须写联系表第几张", out)
+        code, out = with_pick("agent:联系表第 3 张，一只放在木桌上的透明玻璃水瓶")
+        self.assertNotIn("代理挑选", out)
+        code, out = with_pick("user")
+        self.assertNotIn("代理挑选", out)
 
     def test_untracked_file(self):
         self.good_project()
