@@ -2,6 +2,7 @@
 """字级时间 + 识别回读：给每句旁白算出每个字的开始和结束时间，并把旁白识别回文字与配音稿逐字比对。
 
 用法：align-words.py <工程目录> [--segs seg01,seg03] [--accept]
+      align-words.py <工程目录> --find seg03 推成 [--fps 30]   # 查词的帧号，写镜头 BEATS 用
 读：vo/cues/segNN.json（每句起止与文字）、public/audio/vo/segNN.mp3（calibrate-voice.py 生成的段音频）。
 写：vo/cues-words/segNN.json：[{cue, text, src, chars: [{c, start, end}]}]，时间相对该段音频，与 vo/cues 同一基准。
 做法：按句界从段音频切出每句（前后各留 0.05 秒），交给 weicoz-zero-tts skill 的远端服务（zero_tts.py --align-json）：
@@ -13,6 +14,7 @@
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -32,13 +34,52 @@ def find_tts():
     raise SystemExit("错误：找不到 zero_tts.py，设置 ZERO_TTS_SCRIPT 指向 weicoz-zero-tts 的脚本。")
 
 
+def find_word(root, seg, word, fps):
+    """在 vo/cues-words/<seg>.json 里找词，打印每次出现的句号、秒数、段内帧号，以及落在哪个镜头、镜头内帧号。"""
+    p = root / "vo/cues-words" / f"{seg}.json"
+    if not p.exists():
+        print(f"错误：{p.relative_to(root)} 不存在，先跑 align-words.py。")
+        return 2
+    shots = []
+    tp = root / "src/timing.ts"
+    if tp.exists():
+        for obj in re.findall(r"\{[^{}]*\}", tp.read_text(encoding="utf-8")):
+            i = re.search(r"\bid['\"]?\s*:\s*['\"](\w+)['\"]", obj)
+            g = re.search(r"\bseg['\"]?\s*:\s*['\"](seg\d+)['\"]", obj)
+            t = re.search(r"\bsegStart['\"]?\s*:\s*([\d.]+)", obj)
+            n = re.search(r"\bframes['\"]?\s*:\s*(\d+)", obj)
+            if i and g and t and n and g.group(1) == seg:
+                shots.append((i.group(1), float(t.group(1)), int(n.group(1))))
+    hits = 0
+    for row in json.loads(p.read_text(encoding="utf-8")):
+        text = "".join(c["c"] for c in row["chars"])
+        pos, k = text.find(word), 0
+        while pos >= 0:
+            k += 1
+            hits += 1
+            t = row["chars"][pos]["start"]
+            where = [f"{sid} 第 {round((t - st) * fps)} 帧" for sid, st, n in shots if 0 <= round((t - st) * fps) < n]
+            tag = f"cue{row['cue']}@{word}" + (f"#{k}" if k > 1 else "")
+            print(f"{tag}\t{t:.3f}s\t段内第 {round(t * fps)} 帧\t{'；'.join(where) or '（timing.ts 里没有覆盖它的镜头）'}\t{row['text'][:24]}")
+            pos = text.find(word, pos + 1)
+    if not hits:
+        print(f"{seg} 里没有找到「{word}」（按配音稿查：数字写中文，如「三积分」）。")
+        return 1
+    print("把注释写成上面第一列（如 cue3@推成），帧号填镜头内帧号；check-sync.py 会按字级时间核对。")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("project")
+    ap.add_argument("--find", nargs=2, metavar=("SEG", "词"), help="查词在段内与镜头内的帧号，不做对齐")
+    ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--segs", help="只处理这些段，逗号分隔，如 seg01,seg03")
     ap.add_argument("--accept", action="store_true", help="回读差异已逐条听过、确认无误时加，退出码为 0")
     a = ap.parse_args()
     root = Path(a.project).resolve()
+    if a.find:
+        return find_word(root, a.find[0], a.find[1], a.fps)
     want = {s.strip() for s in (a.segs or "").split(",") if s.strip()}
     cue_files = [f for f in sorted((root / "vo/cues").glob("seg*.json")) if not want or f.stem in want]
     if not cue_files:

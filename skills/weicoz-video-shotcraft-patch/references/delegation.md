@@ -6,17 +6,18 @@
 
 `brief-shots.md` 必含：
 
-1. 必读：`design-spec.md`、`src/tokens.ts`、一个已通过验收的范例镜头、`src/timing.ts`（帧数）、所在段的 `vo/script` 与 `vo/cues`。
+1. 必读：`design-spec.md`、`src/tokens.ts`、一个已通过验收的范例镜头、`src/timing.ts`（帧数）、所在段的 `vo/script`、`vo/cues` 与 `vo/cues-words`（字级时间，`align-words.py` 生成）。
 2. 蒙皮：镜头卡只继承运动、节奏、已调参数；配色、字体、材质全部用 spec 的 tokens。卡上「已知坑」的命门参数保持原值。
-3. 同步：关键数字与标签落在对应旁白句附近。节拍集中写在文件顶部的 `BEATS` 常量，每条注释带 `cueN`，N 从 0 起，与 `vo/cues/segNN.json` 的数组下标一致（第一句是 cue0）。数组写法可以列多个 cue（`cue4/5/6` 或 `cue4–6`）。句内节点没有词级时间时，再加「估算」：
+3. 同步：画面在说到那个词的那一刻出现。节拍集中写在文件顶部的 `BEATS` 常量，每条注释写字级锚点 `cueN@词`：N 从 0 起，与 `vo/cues/segNN.json` 的数组下标一致（第一句是 cue0），词按配音稿写（数字是中文，如「三积分」）；同一句里出现多次加 `#k`。帧号用 `python3 scripts/align-words.py <工程> --find segNN 词` 查，填它给出的镜头内帧号：
    ```ts
    const BEATS = {
-     badge: 121,            // cue1 水喝了，钱回来了，还多出两毛
-     rows: [419, 556, 708], // cue4–6 直推 / 间推 / 配送
-     lead: 430,             // cue3 句内，估算
+     flip: 210,          // cue3@推成「推成一单」：色波起点
+     eq2: 245,           // cue3@三积分「= 3 积分」
+     rows: [419, 556],   // cue4@直推 cue5@间推（数组按顺序配对多个锚点）
+     inhale: 200,        // flip 前 10 帧的预备动作，不写 cueN，不检查
    };
    ```
-   `scripts/check-sync.py` 按这个格式比对节拍与句窗口，格式要照写。句内节点按 [voice.md](voice.md) 的规则，宁晚勿早。
+   `scripts/check-sync.py` 按锚点核对：早于该词超过 2 帧判红（画面抢在声音前面），晚于超过 6 帧判黄。还没有 `vo/cues-words` 时才退回句级写法（`cue1`、`cue4–6`），句内节点加「估算」，按 [voice.md](voice.md) 宁晚勿早。
 4. 安全区：所有文字、数字、标签、算式的最低点 ≤ spec 写的内容最低点（默认 900）。
 5. 节奏：每个镜头一个主动效；关键数字落定后静止 ≥1 秒；镜头末尾 ≥1 秒无运动。
 6. 确定性：伪随机用固定种子，时间只读帧号。

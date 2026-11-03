@@ -92,7 +92,7 @@ edge-tts 的中文声线只给句级时间。镜头里一句话之内的节点�
 3. 剪映字幕识别：只到句级，导出字幕文件要会员，只作兜底。
 
 - 文件格式：每句一条 `{cue, text, src, chars: [{c, start, end}]}`，`cue` 是 `vo/cues` 的句序号，`src` 记录时间来自 paraformer 还是 forced-aligner。实测一段 20 秒旁白：两个模型的字开始时间中位相差 30 毫秒，句级均分估算与之中位相差 192 毫秒、最大 946 毫秒。
-- `check-sync.py` 仍只比对句级 cue。句内节拍从 `vo/cues-words/` 取该字的 `start` × 帧率写进 `BEATS`，注释写明对应的字（不再写「估算」）。
+- 镜头节拍写字级锚点 `cueN@词`，帧号用 `align-words.py <工程> --find segNN 词` 查（直接给出镜头内帧号，不用自己乘帧率）。`check-sync.py` 按锚点核对：早于该词超过 2 帧红，晚于超过 6 帧黄；已有字级时间却仍写「估算」的节拍会给黄色提示。一次实测：S3 原来按句窗口全部「通过」的节拍，按字核对后有 5 个偏差 4–23 帧，其中一个早 20 帧。
 - 没有词级时间时，规则是宁晚勿早：节点放在该词所在位置之后，不早于句首；拿不准的放在句子中点之后。镜头文件顶部的节拍常量用注释写明对应哪一句、是句界还是估算。
 
 ## 换配音后重排
@@ -104,7 +104,8 @@ python3 scripts/calibrate-voice.py <工程> ...                       # 生成�
 python3 scripts/remap-timeline.py <工程> --old-cues <旧 cues 目录> --old-timing <旧 timing.ts>          # 先看报告
 python3 scripts/remap-timeline.py <工程> --old-cues <旧 cues 目录> --old-timing <旧 timing.ts> --apply  # 确认后写入
 python3 scripts/make-captions.py <工程>                              # 重新生成字幕与 srt
-python3 scripts/check-sync.py <工程>                                 # 节拍与新句界是否对得上
+python3 scripts/align-words.py <工程>                                # 重算字级时间并回读（新旁白的字时间都变了）
+python3 scripts/check-sync.py <工程>                                 # 节拍与新字级锚点、句界是否对得上
 ```
 
 `remap-timeline.py` 以句子为锚点做分段线性映射：旧旁白每句的起点对应新旁白每句的起点，镜头内所有节拍帧和音效帧都按这条映射挪，镜头总帧数按新旁白重算。前提是每段句子数不变（句子按 。！？ 切分，换引擎不改句子数）。映射不改动画本身的时长常量，换配音后仍要看报告和静帧。

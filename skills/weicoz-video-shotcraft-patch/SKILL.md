@@ -9,7 +9,7 @@ description: video-shotcraft 的补偿包。做完整宣传片或讲解片时与
 补 video-shotcraft 的缺口，不复制它的流程。主流程以 `video-shotcraft` 为准；本 skill 只追加下面几步。脚本路径相对本 skill 目录，`<工程>` 是 Remotion 工程根目录。
 
 ## 0. 解说片：旁白是时钟
-video-shotcraft 面向产品宣传片，时间线跟 BGM 节拍走。有旁白的解说片改用旁白当时钟，顺序固定：定稿 → 合成整片旁白 → 取句级与词级时间 → 按时间写镜头节拍 → 逐帧渲染后合入旁白。稿子或声线改了，从合成重来，时间按新旁白重排。video-shotcraft 核心理念 1–2（真实页面截图、从产品设计系统取 tokens）在有产品页面时照做；讲概念、讲模式的片子没有产品页面，视觉 tokens 在 `design-spec.md` 自定，并写明来源。细则见 [references/voice.md](references/voice.md)。
+video-shotcraft 面向产品宣传片，时间线跟 BGM 节拍走。有旁白的解说片改用旁白当时钟，顺序固定：定稿 → 合成整片旁白（`calibrate-voice.py`，得到句界）→ 字级时间与识别回读（`align-words.py`，回读差异处理完才往下走）→ 按字级锚点写镜头节拍（`cueN@词`，帧号用 `align-words.py --find` 查）→ `check-sync.py` 核对 → 逐帧渲染后合入旁白。稿子或声线改了，从合成重来，`align-words.py` 必须重跑，时间按新旁白重排。video-shotcraft 核心理念 1–2（真实页面截图、从产品设计系统取 tokens）在有产品页面时照做；讲概念、讲模式的片子没有产品页面，视觉 tokens 在 `design-spec.md` 自定，并写明来源。细则见 [references/voice.md](references/voice.md)。
 
 ## 1. 简报前：补四个问题
 读 [references/brief-addendum.md](references/brief-addendum.md)，把四项并入产品简报的 1–3 个提问：字幕是否烧录、字幕安全区、色系是否允许中途切换、配音语速目标。完成判据：四项在 `design-spec.md` 里各有明确值。
@@ -35,7 +35,8 @@ python3 scripts/voice-consistency.py <工程> --voice <音色> [--fix]  # 逐句
 
 ```bash
 python3 scripts/check-shots.py <工程>   # 类型检查是否真能跑、字号、非确定 API、字幕属性、色板
-python3 scripts/check-sync.py <工程>    # 节拍帧与对应旁白句的偏差
+python3 scripts/check-sync.py <工程>    # 节拍帧与字级锚点（cueN@词）或句窗口的偏差
+python3 scripts/align-words.py <工程> --find segNN 词   # 查词在镜头内的帧号
 ```
 
 ## 4. 修复轮次：只渲改动镜头
