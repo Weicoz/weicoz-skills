@@ -164,42 +164,20 @@ BUILTIN_META = {
     "default": {"source": _LOCAL, "gender": "男", "tags": ["中性", "通用", "平衡"]},
 }
 
-# 用户数据目录：外部音色清单 voices.json、试听页和样板声都放这里，不进仓库
-VOICES_HOME = Path(os.environ.get("ZERO_TTS_HOME") or (Path.home() / ".local/share/weicoz-zero-tts"))
+# 内置 16 个音色的编号固定为 01–16。其余音色（用户追加的）存放在远端服务的音色库里，编号从 17 起；
+# 客户端不保存也不安装任何音色文件，需要时向服务端要清单（--list-voices 或 /voices/ 试听页）。
+BUILTIN = {}
+for _n, (_key, _item) in enumerate(PRESET_VOICES.items(), 1):
+    BUILTIN[_key] = {**_item, **BUILTIN_META.get(_key, {}), "number": _n}
 
 
-def load_voices():
-    """合并内置预设与用户音色文件（ZERO_TTS_VOICES_FILE，默认 <ZERO_TTS_HOME>/voices.json）。
-    编号按合并顺序从 1 起：内置在前，用户音色按文件顺序在后；只在文件末尾追加就不会变号。"""
-    voices = {}
-    for key, item in PRESET_VOICES.items():
-        voices[key] = {**item, **BUILTIN_META.get(key, {})}
-    path = Path(os.environ.get("ZERO_TTS_VOICES_FILE") or (VOICES_HOME / "voices.json"))
-    if path.is_file():
-        try:
-            extra = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as e:
-            print(f"警告：读取音色文件失败 {path}：{e}", file=sys.stderr)
-            extra = {}
-        for key, item in extra.items():
-            if key in voices or not (item.get("ref") and item.get("prompt")):
-                print(f"警告：跳过音色 {key}（重名或缺少 ref/prompt）", file=sys.stderr)
-                continue
-            voices[key] = {"tag": "", "desc": "", "source": "", "gender": "", "tags": [], **item}
-    for number, item in enumerate(voices.values(), 1):
-        item["number"] = number
-    return voices
-
-
-VOICES = load_voices()
-
-
-def resolve_voice(value):
-    """-v 接受别名或编号（如 sunday、8、08）；找不到返回 None。"""
-    if value in VOICES:
+def resolve_builtin(value):
+    """-v 的值若是内置音色的别名或 1–16 的编号，返回别名；否则返回 None（交给服务端音色库解析）。"""
+    value = str(value).strip()
+    if value in BUILTIN:
         return value
-    if str(value).isdigit():
-        for key, item in VOICES.items():
+    if value.isdigit():
+        for key, item in BUILTIN.items():
             if item["number"] == int(value):
                 return key
     return None
@@ -436,50 +414,6 @@ def fetch_legacy(ep, req_data, args):
             lock_f.close()
 
 
-def apply_speed(path, speed):
-    """用 ffmpeg atempo 做保持音高的变速（atempo 单级范围 0.5–2.0，超出会拆成多级）。
-    Qwen3-TTS 没有语速参数，所以由客户端后处理；GPT-SoVITS 用服务端原生 speed_factor，不走这里。"""
-    if abs(speed - 1.0) < 0.01:
-        return
-    sp = min(max(speed, 0.5), 2.0)
-    if sp != speed:
-        print(f"警告：语速 {speed} 超出 0.5–2.0，已按 {sp} 处理。", file=sys.stderr)
-    tmp = path + ".speed.wav"
-    try:
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-af", f"atempo={sp}", tmp], check=True)
-        os.replace(tmp, path)
-    except (FileNotFoundError, subprocess.CalledProcessError) as e:
-        print(f"警告：变速失败，保留原语速（需要 ffmpeg）：{e}", file=sys.stderr)
-        if os.path.exists(tmp):
-            os.remove(tmp)
-
-
-# 清晰化后处理：低切 90Hz、削 220/400Hz 闷音、提 3.2k/5.5k 咬字频段、轻压缩、响度归一、升到 48k。
-# 实测同一句话，2–8kHz 能量占比由 ~10% 升到 ~35%，听感明显更清楚。
-CLARITY_FILTER = (
-    "highpass=f=90,"
-    "equalizer=f=220:t=q:w=1.0:g=-4,equalizer=f=400:t=q:w=1.2:g=-2,"
-    "equalizer=f=3200:t=q:w=0.9:g=5,equalizer=f=5500:t=q:w=0.9:g=3,"
-    "acompressor=threshold=-20dB:ratio=2.5:attack=8:release=120,"
-    "loudnorm=I=-16:TP=-1.5:LRA=9"
-)
-
-
-def apply_clarity(path):
-    """用 ffmpeg 原地做清晰化 EQ；缺 ffmpeg 时给出提示并保留原音频。"""
-    tmp = path + ".clarity.wav"
-    try:
-        subprocess.run(
-            ["ffmpeg", "-v", "error", "-y", "-i", path, "-af", CLARITY_FILTER, "-ar", "48000", tmp],
-            check=True,
-        )
-        os.replace(tmp, path)
-    except (FileNotFoundError, subprocess.CalledProcessError) as e:
-        print(f"警告：清晰化后处理失败，保留原音频（需要 ffmpeg）：{e}", file=sys.stderr)
-        if os.path.exists(tmp):
-            os.remove(tmp)
-
-
 def play_audio(audio_path):
     """跨平台音频播放"""
     if sys.platform == "darwin":
@@ -499,17 +433,96 @@ def play_audio(audio_path):
             pass
 
 
-def print_voices():
-    """输出所有可用音色（编号、别名、性别、标签、来源）"""
+def pick_endpoint(args):
+    """确保服务在运行（必要时自动拉起），返回第一个可连通端点的根地址；都连不上返回 None。"""
+    eps = get_endpoints(args.api_url)
+    ensure_service(eps, args.no_autostart)
+    for ep in eps:
+        if is_endpoint_reachable(ep, timeout=1.2):
+            return base_url(ep).rstrip("/")
+    return None
+
+
+def server_call(args, method, path, body=None, timeout=60):
+    """调用服务端音色库接口；失败时打印原因并退出。"""
+    base = pick_endpoint(args)
+    if base is None:
+        print("错误：服务连不上。", file=sys.stderr)
+        sys.exit(1)
+    try:
+        return http_json(method, base + path, payload=body, timeout=timeout)
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.loads(e.read().decode("utf-8")).get("error") or e.reason
+        except Exception:
+            msg = e.reason
+        print(f"错误：{msg}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"错误：请求失败：{e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def print_voices(args):
+    """输出全部音色（编号、别名、性别、标签、来源）。优先取服务端音色库；连不上时只列内置 16 个。"""
+    base = pick_endpoint(args)
+    rows, offline = None, False
+    if base:
+        try:
+            rows = http_json_retry("GET", base + "/voices/catalog.json", tries=3, timeout=10)
+        except Exception:
+            rows = None
+    if rows is None:
+        offline = True
+        rows = [{"number": i["number"], "key": k, "name": i["name"], "gender": i.get("gender", ""),
+                 "tags": i.get("tags", []), "source": i.get("source", ""), "note": ""} for k, i in BUILTIN.items()]
     print("=" * 78)
-    print(f"weicoz-zero-tts 音色清单（共 {len(VOICES)} 个）")
+    print(f"weicoz-zero-tts 音色清单（共 {len(rows)} 个{'，服务连不上，仅内置' if offline else ''}）")
     print("=" * 78)
-    for key, item in VOICES.items():
-        tags = " ".join(item.get("tags") or []) or item.get("tag", "")
-        print(f"{item['number']:02d}  {key:<14} {item.get('gender', ''):<2} {tags}")
-        print(f"    {item['name']}  |  来源：{item.get('source') or '未记录'}")
+    for v in rows:
+        print(f"{v['number']:02d}  {v['key']:<14} {v.get('gender', ''):<2} {' '.join(v.get('tags') or [])}"
+              + (f"  ⚠{v['note']}" if v.get("note") else ""))
+        print(f"    {v['name']}  |  来源：{v.get('source') or '未记录'}")
     print("=" * 78)
-    print("提示：-v <别名或编号> 选音色；带试听的页面见 build_voice_page.py。")
+    print("提示：-v <别名或编号> 选音色；--voices-page 打开可试听、可筛选的页面。")
+
+
+def run_admin(args):
+    """音色库管理：新增、改标签、重建样板声。全部在远端服务完成，本机只上传参考音频。"""
+    def tags_of(v):
+        return [t.strip() for t in v.split(",") if t.strip()]
+
+    if args.add_voice:
+        if not (args.ref_file and args.prompt and args.name):
+            print("错误：--add-voice 需要 --ref-file（本机 3–10 秒参考音频）、--prompt（音频逐字文本）、--name。", file=sys.stderr)
+            sys.exit(2)
+        import base64
+        body = {"key": args.add_voice, "name": args.name, "prompt": args.prompt, "gender": args.gender or "",
+                "tags": tags_of(args.tags or ""), "source": args.source or "", "note": args.note or "",
+                "ref_wav_b64": base64.b64encode(Path(args.ref_file).read_bytes()).decode("ascii")}
+        r = server_call(args, "POST", "/voices/admin/add", body)
+        print(f"已新增音色 {r['key']}，编号 {r['number']:02d}，参考音频 {r['ref_seconds']} 秒。运行 --rebuild-voices 生成样板声。")
+    elif args.update_voice:
+        body = {"key": args.update_voice}
+        for f, v in (("name", args.name), ("gender", args.gender), ("source", args.source), ("note", args.note),
+                     ("prompt", args.prompt)):
+            if v is not None:
+                body[f] = v
+        if args.tags is not None:
+            body["tags"] = tags_of(args.tags)
+        if len(body) == 1:
+            print("错误：--update-voice 至少要给一个要改的字段（--name/--gender/--tags/--source/--note/--prompt）。", file=sys.stderr)
+            sys.exit(2)
+        r = server_call(args, "POST", "/voices/admin/update", body)
+        print(f"已更新音色 {r['key']}。" + ("参考文本变了，需 --rebuild-voices 更新样板声。" if r.get("stale") else ""))
+    elif args.rebuild_voices:
+        body = {"force": args.force, "keys": tags_of(args.rebuild_keys or "")}
+        r = server_call(args, "POST", "/voices/admin/rebuild", body)
+        print(f"已开始重建样板声：待做 {r['total']} 个（走合成队列，不影响其他任务）。用 --rebuild-status 看进度。")
+    elif args.rebuild_status:
+        r = server_call(args, "GET", "/voices/admin/rebuild")
+        state = "进行中" if r["running"] else "空闲"
+        print(f"样板声重建：{state}，完成 {r['done']}/{r['total']}，当前 {r['current'] or '-'}，失败 {r['failed'] or '无'}")
 
 
 def _raise_interrupt(signum, frame):
@@ -538,12 +551,12 @@ def main():
     parser.add_argument("--prompt", help="参考音频对齐文本 (覆盖预设)")
     parser.add_argument("--prompt-lang", default="zh", help="参考音频语言 (默认 zh)")
     parser.add_argument("--text-lang", default="zh", help="输入文本语言 (默认 zh)")
-    parser.add_argument("--speed", type=float, default=1.0, help="语速倍率 0.5–2.0（默认 1.0；建议 0.8–1.25）。SoVITS 由服务端原生处理；Qwen 由本机 ffmpeg 变速")
+    parser.add_argument("--speed", type=float, default=1.0, help="语速倍率 0.5–2.0（默认 1.0；建议 0.8–1.25）。由服务端处理（Qwen 在服务端用 ffmpeg 变速，SoVITS 原生）")
     parser.add_argument("--split", default="cut5", choices=["cut0", "cut1", "cut2", "cut3", "cut4", "cut5"],
                         help="文本分句策略 (默认 cut5 按中英文标点拆分)")
     parser.add_argument("--clarity", action="store_true",
                         default=os.environ.get("ZERO_TTS_CLARITY", "") == "1",
-                        help="合成后用 ffmpeg 做清晰化 EQ（可选，默认关闭；也可设环境变量 ZERO_TTS_CLARITY=1）")
+                        help="服务端合成后做清晰化 EQ（可选，默认关闭；也可设环境变量 ZERO_TTS_CLARITY=1；SoVITS 备用引擎不支持）")
     parser.add_argument("--no-autostart", action="store_true",
                         help="服务未运行时不通过 SSH 自动启动（默认在设置了 ZERO_TTS_SSH_HOST 时自动启动）")
     parser.add_argument("--force", action="store_true",
@@ -553,6 +566,17 @@ def main():
     parser.add_argument("--status", action="store_true", help="只查看服务当前是否有任务在跑、队列情况，然后退出")
     parser.add_argument("--no-play", action="store_true", help="不自动播放音频")
     parser.add_argument("--list-voices", action="store_true", help="列出全部预设音色清单")
+    parser.add_argument("--add-voice", metavar="别名", help="新增音色（配合 --ref-file --prompt --name，可选 --gender --tags --source --note）")
+    parser.add_argument("--update-voice", metavar="别名", help="修改音色的名称、标签、来源、备注或参考文本")
+    parser.add_argument("--rebuild-voices", action="store_true", help="让服务端补合成缺少或过期的样板声（--force 全部重做）")
+    parser.add_argument("--rebuild-keys", help="只重建这些别名的样板声，逗号分隔")
+    parser.add_argument("--rebuild-status", action="store_true", help="查看样板声重建进度")
+    parser.add_argument("--ref-file", help="本机参考音频文件，--add-voice 时上传到服务端（3–10 秒）")
+    parser.add_argument("--name", help="音色显示名称")
+    parser.add_argument("--gender", help="性别：男 / 女")
+    parser.add_argument("--tags", help="标签，逗号分隔，如 冷静,清晰,清透")
+    parser.add_argument("--source", help="音色来源说明")
+    parser.add_argument("--note", help="备注或警示（页面上显示）")
     parser.add_argument("--voices-page", action="store_true",
                         help="打开远端服务托管的音色试听页（服务没运行会自动拉起），可试听与筛选")
     parser.add_argument("--api-url", help="显式指定服务端点 URL (覆盖环境变量 ZERO_TTS_API_URL)")
@@ -561,7 +585,11 @@ def main():
     args = parser.parse_args()
 
     if args.list_voices:
-        print_voices()
+        print_voices(args)
+        sys.exit(0)
+
+    if args.add_voice or args.update_voice or args.rebuild_voices or args.rebuild_status:
+        run_admin(args)
         sys.exit(0)
 
     if args.voices_page:
@@ -601,24 +629,30 @@ def main():
         print("错误：待合成文本不能为空。", file=sys.stderr)
         sys.exit(1)
 
-    # 解析音色与参考信息
-    voice_key = resolve_voice(args.voice)
-    if voice_key is None:
-        print(f"错误：找不到音色 {args.voice!r}，用 --list-voices 查看可选项。", file=sys.stderr)
-        sys.exit(2)
-    voice_cfg = VOICES[voice_key]
-    ref_audio = args.ref or voice_cfg["ref"]
-    prompt_text = args.prompt or voice_cfg["prompt"]
+    if not 0.5 <= args.speed <= 2.0:
+        print(f"警告：语速 {args.speed} 超出 0.5–2.0，服务端会按边界值处理。", file=sys.stderr)
+
+    # 解析音色：内置音色由客户端带参考音频；其余只带别名或编号，由服务端音色库解析
+    bkey = resolve_builtin(args.voice)
+    ref_audio, prompt_text = args.ref, args.prompt
+    if not ref_audio and bkey:
+        ref_audio = BUILTIN[bkey]["ref"]
+        prompt_text = prompt_text or BUILTIN[bkey]["prompt"]
 
     payload = {
         "text": text,
         "text_lang": args.text_lang,
-        "ref_audio_path": ref_audio,
-        "prompt_text": prompt_text,
         "prompt_lang": args.prompt_lang,
         "speed_factor": args.speed,
         "text_split_method": args.split,
     }
+    if ref_audio:
+        payload["ref_audio_path"] = ref_audio
+        payload["prompt_text"] = prompt_text or ""
+    else:
+        payload["voice"] = args.voice
+    if args.clarity:
+        payload["clarity"] = True
 
     req_data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     endpoints = get_endpoints(args.api_url)
@@ -626,14 +660,21 @@ def main():
 
     audio_bytes = None
     last_error = None
-    need_client_speed = False
 
-    for ep in endpoints:
-        if not is_endpoint_reachable(ep, timeout=1.2):
-            continue
+    # 链路偶发抖动（EasyTier 等）时 1.2 秒探测会误判；全部探不到就用更长超时再试几轮，再认定连不上
+    alive = [ep for ep in endpoints if is_endpoint_reachable(ep, timeout=1.2)]
+    for _ in range(3):
+        if alive:
+            break
+        time.sleep(2)
+        alive = [ep for ep in endpoints if is_endpoint_reachable(ep, timeout=4)]
+
+    for ep in alive:
         try:
             st = get_status(ep)
-            need_client_speed = st is not None
+            if st is None and not payload.get("ref_audio_path"):
+                last_error = f"备用引擎（GPT-SoVITS）只支持内置音色 01–16，{args.voice!r} 需要主力 Qwen 服务"
+                continue
             audio_bytes = fetch_via_queue(ep, payload, args, st) if st is not None else fetch_legacy(ep, req_data, args)
             if audio_bytes:
                 break
@@ -644,6 +685,18 @@ def main():
         except KeyboardInterrupt:
             print("已中断，任务已从队列移除。", file=sys.stderr)
             sys.exit(130)
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try:
+                body = json.loads(e.read().decode("utf-8"))
+                detail = body.get("message") or body.get("error") or ""
+            except Exception:
+                pass
+            if e.code == 400 and detail:  # 请求本身有问题（如音色不存在），换端点也一样，直接说明原因
+                print(f"错误：服务拒绝了请求：{detail}。用 --list-voices 查看可用音色。", file=sys.stderr)
+                sys.exit(2)
+            last_error = f"HTTP {e.code} {detail}".strip()
+            continue
         except Exception as e:
             last_error = str(e)
             continue
@@ -669,12 +722,6 @@ def main():
     try:
         with open(out_file, "wb") as f:
             f.write(audio_bytes)
-
-        if need_client_speed:
-            apply_speed(out_file, args.speed)
-
-        if args.clarity:
-            apply_clarity(out_file)
 
         if not args.no_play:
             play_audio(out_file)

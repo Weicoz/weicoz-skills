@@ -3,8 +3,9 @@
 import asyncio, collections, io, os, re, threading, time, traceback, urllib.parse, uuid
 import numpy as np, soundfile as sf, torch, uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, Response
 from faster_qwen3_tts import FasterQwen3TTS
+import voices_site
 
 MODEL_DIR = os.environ.get("QWEN_TTS_MODEL", r"D:\TTS_Services\qwen3tts\model")
 PORT = int(os.environ.get("QWEN_TTS_PORT", "9880"))
@@ -13,7 +14,6 @@ TOP_K = int(os.environ.get("QWEN_TTS_TOP_K", "50"))
 MAX_CHUNK = int(os.environ.get("QWEN_TTS_MAX_CHUNK", "70"))
 IDLE_MIN = float(os.environ.get("QWEN_TTS_IDLE_MIN", "10"))  # 空闲多少分钟后自动退出并释放显存；0 表示常驻
 GAP_SEC = float(os.environ.get("QWEN_TTS_GAP", "0.15"))
-VOICES_SITE = os.environ.get("QWEN_TTS_VOICES_SITE", r"D:\TTS_Services\voices\site")  # 音色试听页与样板声目录
 WARM_REF = os.environ.get("QWEN_TTS_WARM_REF", r"D:\TTS_GPT_SoVITS\models\voice_models\sunday\【中立】如果这些还不够，就得劳烦你出手了。.wav")
 WARM_TXT = "如果这些还不够，就得劳烦你出手了。"
 LANG = {"zh": "Chinese", "all_zh": "Chinese", "auto": "Chinese", "en": "English", "all_en": "English",
@@ -94,11 +94,48 @@ def synth(text, lang, ref, ref_text, cancel=None):
 def parse(p):
     text = (p.get("text") or "").strip()
     ref, ref_text = p.get("ref_audio_path"), (p.get("prompt_text") or "").strip()
+    if not ref and p.get("voice"):  # 只给音色别名或编号：参考音频与文本由服务端音色库提供
+        v = voices_site.get_voice(p["voice"])
+        if v is None:
+            return None, f"unknown voice: {p['voice']}"
+        ref, ref_text = v["ref"], v["prompt"]
     if not text or not ref:
-        return None, "text and ref_audio_path required"
+        return None, "text and (ref_audio_path or voice) required"
     if not os.path.exists(ref):
         return None, f"ref_audio_path not found: {ref}"
     return (text, LANG.get((p.get("text_lang") or "zh").lower(), "Chinese"), ref, ref_text), None
+
+
+# 清晰化后处理：低切 90Hz、削 220/400Hz 闷音、提 3.2k/5.5k 咬字频段、轻压缩、响度归一、升到 48k。
+CLARITY_FILTER = (
+    "highpass=f=90,"
+    "equalizer=f=220:t=q:w=1.0:g=-4,equalizer=f=400:t=q:w=1.2:g=-2,"
+    "equalizer=f=3200:t=q:w=0.9:g=5,equalizer=f=5500:t=q:w=0.9:g=3,"
+    "acompressor=threshold=-20dB:ratio=2.5:attack=8:release=120,"
+    "loudnorm=I=-16:TP=-1.5:LRA=9"
+)
+
+
+def postprocess(wav, payload):
+    """服务端变速（ffmpeg atempo，保持音高）与可选清晰化；失败时保留原音频。Qwen 本身没有语速参数。"""
+    try:
+        speed = float(payload.get("speed_factor") or 1.0)
+    except (TypeError, ValueError):
+        speed = 1.0
+    speed = min(2.0, max(0.5, speed))
+    filters = []
+    if abs(speed - 1.0) > 0.01:
+        filters.append(f"atempo={speed:.4f}")
+    if payload.get("clarity"):
+        filters.append(CLARITY_FILTER)
+    if not filters:
+        return wav
+    args = ["-i", "pipe:0", "-af", ",".join(filters)] + (["-ar", "48000"] if payload.get("clarity") else []) + ["-f", "wav", "pipe:1"]
+    r = voices_site.ffmpeg(args, wav)
+    if r.returncode != 0 or not r.stdout:
+        print(f"[fx] 后处理失败，保留原音频：{r.stderr.decode('utf-8', 'ignore')[-200:]}", flush=True)
+        return wav
+    return r.stdout
 
 
 def submit(payload, client, force, heartbeat):
@@ -171,6 +208,7 @@ def worker():
         parsed, _ = parse(j.payload)
         try:
             data, dur, n = synth(*parsed, cancel=j.cancel)
+            data = postprocess(data, j.payload)
             j.result, j.state = data, "done"
             print(f"[tts] {j.client} {j.chars}字 {n}段 音频{dur:.1f}s 排队{j.started-j.created:.1f}s 合成{time.time()-j.started:.1f}s", flush=True)
         except Cancelled:
@@ -183,41 +221,18 @@ def worker():
             cv.notify_all()
 
 
-def busy():
-    with cv:
-        return current is not None or bool(queue)
-
-
-# ---- 音色试听页：GET /voices/ 打开页面，页内样板声走 /voices/demo/<文件> ----
 def _touch():
     """浏览试听页也算使用，避免边听边被空闲退出打断。"""
     global last_active
     last_active = time.time()
 
 
-@app.get("/voices")
-def voices_redirect():
-    return RedirectResponse("/voices/")
+voices_site.register(app, submit, _touch)
 
 
-@app.get("/voices/")
-def voices_index():
-    _touch()
-    f = os.path.join(VOICES_SITE, "index.html")
-    if not os.path.isfile(f):
-        return JSONResponse({"error": "试听页还没发布，在客户端运行 build_voice_page.py --publish"}, status_code=404)
-    return FileResponse(f, media_type="text/html; charset=utf-8", headers={"Cache-Control": "no-cache"})
-
-
-@app.get("/voices/demo/{name}")
-def voices_demo(name: str):
-    _touch()
-    if not re.fullmatch(r"[\w.\-]+\.m4a", name):
-        return JSONResponse({"error": "bad name"}, status_code=400)
-    f = os.path.join(VOICES_SITE, "demo", name)
-    if not os.path.isfile(f):
-        return JSONResponse({"error": "not found"}, status_code=404)
-    return FileResponse(f, media_type="audio/mp4")
+def busy():
+    with cv:
+        return current is not None or bool(queue)
 
 
 @app.get("/health")

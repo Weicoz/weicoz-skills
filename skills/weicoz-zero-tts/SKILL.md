@@ -3,7 +3,7 @@ name: weicoz-zero-tts
 version: 1.5.0
 description: >
   远端 GPU (GPT-SoVITS) 语音合成：将中文或中英混合文本合成为自然流畅的语音音频（WAV），
-  内置 16 套原神/星铁等知识讲解与角色音色预设，可经 voices.json 扩展并生成带编号标签的试听页（钟离/那维莱特/艾尔海森/提纳里/瓦尔特/
+  内置 16 套原神/星铁等知识讲解与角色音色预设，可在远端音色库扩展，并提供带编号、标签的试听页（钟离/那维莱特/艾尔海森/提纳里/瓦尔特/
   真理医生/阮•梅/星期日/景元等）、远端参考音频与 Prompt 驱动、长文本切分与局域网/
   内网穿透多端点自适应回退。适用于"文本转语音""配音""朗读""生成解说音频""听听这段话""TTS"等场景。
 ---
@@ -68,14 +68,19 @@ export ZERO_TTS_REMOTE_BASE="D:\\TTS_GPT_SoVITS"
 
 ---
 
-### 2.1 音色编号、试听页与扩展音色
+### 2.1 音色库与试听页（全部在远端，本机什么都不用装）
 
-- 每个音色有**编号**（内置 01–16，用户音色接在后面）和别名。`-v` 两种写法都行：`-v sunday` 或 `-v 8`。`--list-voices` 输出编号、别名、性别、标签、来源。
-- **试听页由远端服务托管**：`python3 scripts/zero_tts.py --voices-page` 打开 `http://<服务>/voices/`（服务没运行会自动拉起）。页面给每个音色一条同一句话的样板声，带编号、标签（冷静、清晰、清透……）、来源、高频占比（2–8kHz，反映明亮程度，低不等于听不清）、搜索与按性别/来源/标签筛选，页内按钮可复制 `-v 别名`。
-- **新增或改过音色后重新发布**：`python3 scripts/build_voice_page.py --publish`（只补缺少的样板声，`--force` 全部重做，`--html-only` 只重排页面，`--open` 打开本机副本）。`--publish` 用 scp 传到远端 `ZERO_TTS_REMOTE_VOICES_DIR`（默认 `D:/TTS_Services/voices/site`，须与服务端 `QWEN_TTS_VOICES_SITE` 一致）。装了 numpy 时清晰度数值与历史数字同口径；没有则用 ffmpeg 估算，每项约偏高 0.2–0.7。只有 Qwen 主力服务托管页面，GPT-SoVITS 备用引擎没有这个路由。
-- **扩展音色**写在 `$ZERO_TTS_HOME/voices.json`，格式 `{"别名": {"name", "ref"(远端参考音频绝对路径), "prompt"(参考音频逐字文本), "tags", "gender", "source"}}`。只在文件末尾追加，已有编号才不会变。参考音频须 3–10 秒，`prompt` 必须与音频内容逐字一致（见 4.1）。
-- **标签依据来源方的描述和风格整理，不是逐条人工试听的结论**；觉得不准直接改 `voices.json` 里的 `tags` 再重跑 `--html-only`。
-- 第三方平台声音库（ElevenLabs、MiniMax）的音色只作个人使用，来源写在 `source` 字段；它们的参考音频和样板声不得提交进仓库。
+本机只需要本技能自带的 `scripts/zero_tts.py`（只用 Python 3 标准库，不装依赖、不存音色文件、不需要 ffmpeg/numpy）。音色库、样板声、试听页、变速、清晰化都在远端服务里完成。
+
+- **编号与选择**：内置 01–16，用户追加的音色接在后面。`-v` 写别名或编号都行：`-v sunday`、`-v 8`。`--list-voices` 向服务端取清单，输出编号、别名、性别、标签、来源。
+- **试听页**：`zero_tts.py --voices-page` 打开 `http://<服务>/voices/`（服务没运行会自动拉起）。每个音色一条同一句话的样板声，带编号、标签（冷静、清晰、清透……）、来源、高频占比（2–8kHz，反映明亮程度，低不等于听不清）、搜索与按性别/来源/标签筛选，页内按钮可复制 `-v 别名`。
+- **新增音色**：`zero_tts.py --add-voice 别名 --ref-file 参考.wav --prompt "参考音频逐字文本" --name 显示名 --gender 男 --tags 冷静,清晰 --source 来源说明`。参考音频由本机上传到服务端，须 3–10 秒，`--prompt` 必须与音频内容逐字一致（见 4.1）。新音色编号接在末尾，已有编号不变。
+- **改标签、来源、备注**：`--update-voice 别名 --tags 清晰,沉稳 --note "说明"`；改了 `--prompt` 要重建样板声。
+- **生成样板声**：新增或改过后运行 `--rebuild-voices`（只补缺少或过期的，`--force` 全部重做，`--rebuild-keys a,b` 只做指定的），`--rebuild-status` 看进度。它走服务的合成队列，一次只提交一个，不会堵住别人的任务。
+- **标签依据来源方的描述和风格整理，不是逐条人工试听的结论**；觉得不准用 `--update-voice` 改。
+- 第三方平台声音库（ElevenLabs、MiniMax）的音色只作个人使用，来源写在 `source` 字段；它们的参考音频和样板声只放在远端服务，不得提交进仓库。
+- 音色库文件在远端 `D:\TTS_Services\voices\`（`registry.json` 清单，`ref\` 参考音频，`site\demo\` 样板声）；服务端代码是本技能 `server/` 里的 `qwen_server.py` 与 `voices_site.py`。试听页和管理接口没有鉴权，和合成接口一样只应在内网或 EasyTier 里开放。
+- GPT-SoVITS 备用引擎没有音色库，也不支持 `--clarity`，只能用内置 01–16 号。
 
 ---
 
@@ -103,7 +108,7 @@ cat article.txt | python3 scripts/zero_tts.py -v ruan_mei -o output/reading.wav
 python3 scripts/zero_tts.py "快速播报一段要闻..." --speed 1.15
 ```
 - 范围 0.5–2.0，建议 0.8–1.25（超出会警告并钳制）。
-- **Qwen3-TTS 没有原生语速参数**，由客户端用本机 `ffmpeg atempo` 做保持音高的变速（需本机装有 ffmpeg）；GPT-SoVITS 备用引擎由服务端原生处理。
+- **Qwen3-TTS 没有原生语速参数**，由服务端用 `ffmpeg atempo` 做保持音高的变速（本机不需要 ffmpeg）；GPT-SoVITS 备用引擎原生处理。
 - 变速本身精确（时长误差 <1%），但模型每次采样的自然时长有约 ±10% 的波动，所以成片时长不能只靠倍率预测。需要精确时长时，用 `weicoz-video-shotcraft-patch` 的 `calibrate-voice.py` 实测校准。
 
 ### 3.4b 排队与插队（执行前必看）
@@ -130,7 +135,7 @@ python3 scripts/zero_tts.py "讲解稿..." -v sunday --clarity -o out.wav --no-p
 # 或 export ZERO_TTS_CLARITY=1 全局开启
 ```
 `--clarity` 用 ffmpeg 低切 90Hz、削 220/400Hz 闷音、提 3.2k/5.5k 咬字频段、轻压缩并归一到 -16 LUFS，输出 48kHz。
-频谱指标上，2–8kHz（咬字频段）能量占比从约 10% 升到约 35%，但指标不等于听感：**实际试听选定的是不加 EQ 的版本**（Qwen3-TTS 加速版 + `sunday`），EQ 后偏亮。仅在需要时手动加 `--clarity`。需要本机装有 `ffmpeg`。
+频谱指标上，2–8kHz（咬字频段）能量占比从约 10% 升到约 35%，但指标不等于听感：**实际试听选定的是不加 EQ 的版本**（Qwen3-TTS 加速版 + `sunday`），EQ 后偏亮。仅在需要时手动加 `--clarity`。在服务端用 ffmpeg 处理，本机不需要装；SoVITS 备用引擎不支持。
 
 ---
 
