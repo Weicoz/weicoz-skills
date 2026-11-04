@@ -102,6 +102,11 @@ GET /open-apis/task/v2/comments?resource_type=task&resource_id=<guid>
 
 ## 变更记录
 
+### 2.2.0
+
+- 默认集成 `wx-cli` 读取本机微信聊天记录（群聊与私聊），交叉分析会议结论、排期承诺与建单指令。
+- 新增双向比对能力：识别飞书已建任务的字段缺口与微信已定但飞书漏建的任务清单。
+
 ### 2.1.0
 
 - 新增 `scripts/task_snapshot.py`：只读盘点，输出逾期 / 临期 / 关注人缺口 / 已完成。
