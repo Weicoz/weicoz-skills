@@ -1,0 +1,225 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: 拾
+        - generic [ref=e6]: 拾物回收 · 质检工作台
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - text: 质检仓：
+          - strong [ref=e10]: 华东1号自动化质检中心
+        - generic [ref=e11]:
+          - text: 今日待检：
+          - strong [ref=e12]: "10"
+          - text: / 12
+        - generic [ref=e13]: "加急SLA: 5台"
+    - generic "一键切换评审状态" [ref=e14]:
+      - generic [ref=e15]: "状态直达:"
+      - button "常规" [ref=e16] [cursor=pointer]
+      - button "加载态" [ref=e17] [cursor=pointer]
+      - button "空结果" [ref=e18] [cursor=pointer]
+      - button "提交中" [ref=e19] [cursor=pointer]
+      - button "成功撤销" [ref=e20] [cursor=pointer]
+      - button "失败重试" [ref=e21] [cursor=pointer]
+      - button "高危拦截" [ref=e22] [cursor=pointer]
+  - main [ref=e23]:
+    - complementary [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - text: 🔍
+          - textbox "搜索订单号 / SN序列号 / 型号 / 用户..." [ref=e27]
+        - generic [ref=e28]:
+          - button "全部" [ref=e29]
+          - button "待初检" [ref=e30]
+          - button "质检中" [ref=e31]
+          - button "待客确" [ref=e32]
+          - button "已完成" [ref=e33]
+        - generic [ref=e34]:
+          - generic [ref=e35]: "SLA过滤:"
+          - generic [ref=e36]:
+            - button "全部" [ref=e37]
+            - button "加急<2h" [ref=e38]
+            - button "超期预警" [ref=e39]
+      - generic [ref=e40]:
+        - generic [ref=e41] [cursor=pointer]:
+          - generic [ref=e42]: SW-20261023-0891 加急 42m
+          - generic [ref=e43]: iPhone 15 Pro Max 256GB 原色钛金属
+          - generic [ref=e44]:
+            - generic [ref=e45]:
+              - generic [ref=e46]: 自报 ¥5,600
+              - generic [ref=e47]: "-650"
+            - generic [ref=e48]: 质检中
+        - generic [ref=e49] [cursor=pointer]:
+          - generic [ref=e50]: SW-20261023-0892 加急 42m
+          - generic [ref=e51]: MacBook Pro 14 M2 Pro 16G+512G 深空灰
+          - generic [ref=e52]:
+            - generic [ref=e53]:
+              - generic [ref=e54]: 自报 ¥8,200
+              - generic [ref=e55]: "-200"
+            - generic [ref=e56]: 待初检
+        - generic [ref=e57] [cursor=pointer]:
+          - generic [ref=e58]: SW-20261023-0893 已超期
+          - generic [ref=e59]: iPad Pro 11英寸 第4代 128GB Wi-Fi 深空灰
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - generic [ref=e62]: 自报 ¥3,500
+              - generic [ref=e63]: "-3500"
+            - generic [ref=e64]: ⚠️ 风控 待初检
+        - generic [ref=e65] [cursor=pointer]:
+          - generic [ref=e66]: SW-20261023-0894 今日到期
+          - generic [ref=e67]: 华为 Mate 60 Pro 12GB+512GB 雅川青
+          - generic [ref=e68]:
+            - generic [ref=e69]:
+              - generic [ref=e70]: 自报 ¥4,800
+              - generic [ref=e71]: "-400"
+            - generic [ref=e72]: 待客确
+        - generic [ref=e73] [cursor=pointer]:
+          - generic [ref=e74]: SW-20261023-0895 加急 42m
+          - generic [ref=e75]: 小米 14 Ultra 16GB+512GB 钛金属特别版
+          - generic [ref=e76]:
+            - generic [ref=e77]:
+              - generic [ref=e78]: 自报 ¥4,500
+              - generic [ref=e79]: "-650"
+            - generic [ref=e80]: 质检中
+        - generic [ref=e81] [cursor=pointer]:
+          - generic [ref=e82]: SW-20261023-0896 今日到期
+          - generic [ref=e83]: ThinkPad X1 Carbon 2023 i7-1360P 32G+1TB
+          - generic [ref=e84]:
+            - generic [ref=e85]:
+              - generic [ref=e86]: 自报 ¥6,200
+              - generic [ref=e87]: "-100"
+            - generic [ref=e88]: 待初检
+        - generic [ref=e89] [cursor=pointer]:
+          - generic [ref=e90]: SW-20261023-0897 已超期
+          - generic [ref=e91]: iPhone 14 128GB 星光色
+          - generic [ref=e92]:
+            - generic [ref=e93]:
+              - generic [ref=e94]: 自报 ¥2,800
+              - generic [ref=e95]: "-2800"
+            - generic [ref=e96]: ⚠️ 风控 待初检
+        - generic [ref=e97] [cursor=pointer]:
+          - generic [ref=e98]: SW-20261023-0898 加急 42m
+          - generic [ref=e99]: iPad mini 6 64GB Wi-Fi 紫色
+          - generic [ref=e100]:
+            - generic [ref=e102]: 自报 ¥2,100
+            - generic [ref=e103]: 待初检
+        - generic [ref=e104] [cursor=pointer]:
+          - generic [ref=e105]: SW-20261023-0899 今日到期
+          - generic [ref=e106]: 联想 小新 Pro 16 锐龙版 R7-7840HS 32G+1TB
+          - generic [ref=e107]:
+            - generic [ref=e108]:
+              - generic [ref=e109]: 自报 ¥3,400
+              - generic [ref=e110]: "-120"
+            - generic [ref=e111]: 待初检
+        - generic [ref=e112] [cursor=pointer]:
+          - generic [ref=e113]: SW-20261023-0900 常规
+          - generic [ref=e114]: vivo X100 Pro 16GB+512GB 落日橙素皮
+          - generic [ref=e115]:
+            - generic [ref=e117]: 自报 ¥3,900
+            - generic [ref=e118]: 已入库
+        - generic [ref=e119] [cursor=pointer]:
+          - generic [ref=e120]: SW-20261023-0901 加急 42m
+          - generic [ref=e121]: 索尼 Xperia 1 V 12GB+256GB 墨黑
+          - generic [ref=e122]:
+            - generic [ref=e123]:
+              - generic [ref=e124]: 自报 ¥3,200
+              - generic [ref=e125]: "-3200"
+            - generic [ref=e126]: ⚠️ 风控 质检中
+        - generic [ref=e127] [cursor=pointer]:
+          - generic [ref=e128]: SW-20261023-0902 今日到期
+          - generic [ref=e129]: OPPO Find N3 12GB+512GB 千山绿 折叠屏
+          - generic [ref=e130]:
+            - generic [ref=e131]:
+              - generic [ref=e132]: 自报 ¥5,800
+              - generic [ref=e133]: "-1400"
+            - generic [ref=e134]: 待初检
+    - generic [ref=e135]:
+      - generic [ref=e136]:
+        - button "← 返回质检队列 (12台)" [ref=e137]
+        - text: SW-20261023-0891
+      - generic [ref=e138]:
+        - generic [ref=e139]:
+          - generic [ref=e140]:
+            - generic [ref=e141]: iPhone 15 Pro Max 256GB 原色钛金属
+            - generic [ref=e142]:
+              - generic [ref=e143]:
+                - text: "工单号:"
+                - strong [ref=e144]: SW-20261023-0891
+              - generic [ref=e145]: "SN: F2LW89X0M9"
+              - generic [ref=e146]: "寄件用户: 张*明 (尾号 6821)"
+              - generic [ref=e147]: "签收时间: 2026-10-23 09:15"
+              - generic [ref=e148]: "质检时限: 2026-10-23 11:30 (剩余42分钟)"
+          - generic [ref=e149]:
+            - generic [ref=e150]: 用户自报估价 ¥5,600
+            - generic [ref=e151]: ¥4,950
+            - generic [ref=e153]: 质检核减 ¥650
+        - generic [ref=e154]:
+          - generic [ref=e155]:
+            - generic [ref=e156]: 质检核验维度
+            - generic [ref=e157]: 用户下单自报成色
+            - generic [ref=e158]: 质检员实测真实成色
+            - generic [ref=e159]: 核价差额
+          - generic [ref=e160]:
+            - generic [ref=e161]:
+              - generic [ref=e162]:
+                - generic [ref=e163]: "01"
+                - generic [ref=e164]: 外观成色
+              - generic [ref=e165]: 微小使用痕迹，99新，无磕碰
+              - generic [ref=e166]: 边框右下角有明显撞击凹痕，后玻璃盖板微细划痕2处
+              - generic [ref=e167]: ¥-250
+            - generic [ref=e168]:
+              - generic [ref=e169]:
+                - generic [ref=e170]: "02"
+                - generic [ref=e171]: 屏幕与原彩
+              - generic [ref=e172]: 完美无划痕，原装屏幕，原彩正常
+              - generic [ref=e173]: 屏幕微细划痕2处，设置中无原彩显示（疑似更换非原厂总成）
+              - generic [ref=e174]: ¥-300
+            - generic [ref=e175]:
+              - generic [ref=e176]:
+                - generic [ref=e177]: "03"
+                - generic [ref=e178]: 电池健康度
+              - generic [ref=e179]:
+                - text: "健康度:"
+                - strong [ref=e180]: 88%
+                - text: (充放循环 420次)
+              - generic [ref=e181]: 实际诊断健康度 81%（充放电循环 680 次）
+              - generic [ref=e182]: ¥-100
+            - generic [ref=e183]:
+              - generic [ref=e184]:
+                - generic [ref=e185]: "04"
+                - generic [ref=e186]: 硬件传感器
+              - generic [ref=e187]: 各项功能完好，Face ID / 摄像头 / 蜂窝网络正常
+              - generic [ref=e188]: Face ID、微距及超广角主摄、传感器实测全部正常
+              - generic [ref=e189]: ¥0
+            - generic [ref=e190]:
+              - generic [ref=e191]:
+                - generic [ref=e192]: "05"
+                - generic [ref=e193]: 配件与附件
+              - generic [ref=e194]: 原装包装盒 + 原装编织快充数据线
+              - generic [ref=e195]: 原包装盒在内，缺少原装数据线
+              - generic [ref=e196]: ¥0
+      - generic [ref=e197]:
+        - generic [ref=e198]:
+          - generic [ref=e199]:
+            - generic [ref=e200]: 质检说明（将展示给用户并作为改价/退回凭据）：
+            - generic [ref=e201]: 63 字
+          - textbox "请写一句质检说明给用户（例如：经工程师检测屏幕有划痕，已按标准重新核算报价...）" [ref=e202]: 经专业工程师检测，屏幕无原彩显示且机身右下边框有明显磕凹，电池健康度实测为81%，因此最终核验报价调整为4950元，请您确认。
+          - generic [ref=e203]:
+            - generic [ref=e204]: "快捷模版:"
+            - button "全吻合打款" [ref=e205] [cursor=pointer]
+            - button "原彩/屏幕差异" [ref=e206] [cursor=pointer]
+            - button "电池衰减改价" [ref=e207] [cursor=pointer]
+            - button "缺配件核减" [ref=e208] [cursor=pointer]
+            - button "账号锁退回" [ref=e209] [cursor=pointer]
+            - button "进水/异常退回" [ref=e210] [cursor=pointer]
+        - generic [ref=e212]:
+          - button "📦 退回设备" [ref=e213] [cursor=pointer]:
+            - generic [ref=e214]: 📦 退回设备
+          - generic [ref=e215]:
+            - generic "可手动微调最终核定报价" [ref=e216]:
+              - generic [ref=e217]: ¥
+              - spinbutton [ref=e218]: "4950"
+            - button "📝 改价并推送确认" [ref=e219] [cursor=pointer]:
+              - generic [ref=e220]: 📝 改价并推送确认
+          - button "✅ 按原价回收 (¥5,600)" [ref=e221] [cursor=pointer]:
+            - generic [ref=e222]: ✅ 按原价回收 (¥5,600)

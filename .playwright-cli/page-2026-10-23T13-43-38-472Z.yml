@@ -1,0 +1,299 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: 拾
+      - generic [ref=e6]: 拾物回收 · 到货质检工作台 华东1号智能仓 · 质检4台
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: "待质检:"
+        - generic [ref=e10]: "10"
+      - generic [ref=e11]:
+        - generic [ref=e12]: "SLA临期(<2h):"
+        - generic [ref=e13]: "3"
+      - generic [ref=e14]:
+        - generic [ref=e15]: "今日已质检:"
+        - generic [ref=e16]: "1"
+      - generic [ref=e17]:
+        - generic [ref=e18]: "原价达成率:"
+        - generic [ref=e19]: 41.6%
+    - generic [ref=e20]:
+      - generic "状态快速切换（供流程验收）" [ref=e21]:
+        - button "常规" [ref=e22] [cursor=pointer]
+        - button "加载态" [ref=e23] [cursor=pointer]
+        - button "空结果" [ref=e24] [cursor=pointer]
+        - button "提交中" [ref=e25] [cursor=pointer]
+        - button "成功" [ref=e26] [cursor=pointer]
+        - button "失败重试" [ref=e27] [cursor=pointer]
+      - generic [ref=e30]: 质检员 张工 (工号 2049)
+  - main [ref=e31]:
+    - complementary [ref=e32]:
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - img [ref=e35]
+          - textbox "扫描条码 / 搜索订单号、IMEI、型号..." [ref=e38]
+        - generic [ref=e39]:
+          - button "全部待检" [ref=e40] [cursor=pointer]
+          - button "临期加急 (<2h)" [ref=e41] [cursor=pointer]
+          - button "风险预警" [ref=e42] [cursor=pointer]
+          - button "已通过" [ref=e43] [cursor=pointer]
+          - button "已退回" [ref=e44] [cursor=pointer]
+      - generic [ref=e45]:
+        - generic [ref=e46] [cursor=pointer]:
+          - generic [ref=e47]:
+            - generic [ref=e48]: SW-20261023-0101
+            - generic [ref=e49]: "加急: 剩1.8h"
+          - generic [ref=e50]: iPhone 15 Pro 256GB 原色钛金属
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - generic [ref=e53]: 陈*宇
+              - generic [ref=e54]: "|"
+              - generic [ref=e55]: F2LQC081MD6V
+            - generic [ref=e56]: 自报 ¥4800
+        - generic [ref=e57] [cursor=pointer]:
+          - generic [ref=e58]:
+            - generic [ref=e59]: SW-20261023-0102
+            - generic [ref=e60]: "预警: 剩4.8h"
+          - generic [ref=e61]: iPhone 14 Pro Max 128GB 暗紫色
+          - generic [ref=e62]:
+            - generic [ref=e63]:
+              - generic [ref=e64]: 林*涵
+              - generic [ref=e65]: "|"
+              - generic [ref=e66]: C39DJ991M92X
+            - generic [ref=e67]: 自报 ¥3900
+          - generic [ref=e69]: 未解除 Apple ID 激活锁 (Find My 开启)
+        - generic [ref=e70] [cursor=pointer]:
+          - generic [ref=e71]:
+            - generic [ref=e72]: SW-20261023-0103
+            - generic [ref=e73]: 已退回
+          - generic [ref=e74]: 华为 Mate 60 Pro 12GB+512GB 雅川青
+          - generic [ref=e75]:
+            - generic [ref=e76]:
+              - generic [ref=e77]: 张*伟
+              - generic [ref=e78]: "|"
+              - generic [ref=e79]: HW240988A771
+            - generic [ref=e80]: 自报 ¥4200
+        - generic [ref=e81] [cursor=pointer]:
+          - generic [ref=e82]:
+            - generic [ref=e83]: SW-20261023-0104
+            - generic [ref=e84]: "加急: 剩0.9h"
+          - generic [ref=e85]: MacBook Pro 14 (M2 Pro 16G/512G) 深空灰
+          - generic [ref=e86]:
+            - generic [ref=e87]:
+              - generic [ref=e88]: 孙*洋
+              - generic [ref=e89]: "|"
+              - generic [ref=e90]: C02JL08QMD6R
+            - generic [ref=e91]: 自报 ¥7800
+        - generic [ref=e92] [cursor=pointer]:
+          - generic [ref=e93]:
+            - generic [ref=e94]: SW-20261023-0105
+            - generic [ref=e95]: 已退回
+          - generic [ref=e96]: 小米 14 Ultra 16GB+512GB 黑色
+          - generic [ref=e97]:
+            - generic [ref=e98]:
+              - generic [ref=e99]: 周*明
+              - generic [ref=e100]: "|"
+              - generic [ref=e101]: XM8821990412
+            - generic [ref=e102]: 自报 ¥3600
+          - generic [ref=e104]: 疑似来源异常 / 序列号与主板IMEI串码不匹配
+        - generic [ref=e105] [cursor=pointer]:
+          - generic [ref=e106]:
+            - generic [ref=e107]: SW-20261023-0106
+            - generic [ref=e108]: 剩13.7h
+          - generic [ref=e109]: iPad Air 5 (M1 64GB WiFi版) 星光色
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - generic [ref=e112]: 王*雪
+              - generic [ref=e113]: "|"
+              - generic [ref=e114]: DNPJ8921ML0P
+            - generic [ref=e115]: 自报 ¥2400
+        - generic [ref=e116] [cursor=pointer]:
+          - generic [ref=e117]:
+            - generic [ref=e118]: SW-20261023-0107
+            - generic [ref=e119]: 剩17.8h
+          - generic [ref=e120]: ThinkPad X1 Carbon Gen 10 (i7 16G/512G)
+          - generic [ref=e121]:
+            - generic [ref=e122]:
+              - generic [ref=e123]: 赵*强
+              - generic [ref=e124]: "|"
+              - generic [ref=e125]: PF49X1K08
+            - generic [ref=e126]: 自报 ¥4600
+          - generic [ref=e128]: 硬件安全预警：电池存在鼓包形变
+        - generic [ref=e129] [cursor=pointer]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: SW-20261023-0108
+            - generic [ref=e132]: 剩19.8h
+          - generic [ref=e133]: vivo X100 Pro 16GB+512GB 落日橙素皮
+          - generic [ref=e134]:
+            - generic [ref=e135]:
+              - generic [ref=e136]: 李*晨
+              - generic [ref=e137]: "|"
+              - generic [ref=e138]: VV9912048890
+            - generic [ref=e139]: 自报 ¥3100
+        - generic [ref=e140] [cursor=pointer]:
+          - generic [ref=e141]:
+            - generic [ref=e142]: SW-20261023-0109
+            - generic [ref=e143]: "加急: 剩2.8h"
+          - generic [ref=e144]: iPhone 13 128GB 星光色
+          - generic [ref=e145]:
+            - generic [ref=e146]:
+              - generic [ref=e147]: 郑*文
+              - generic [ref=e148]: "|"
+              - generic [ref=e149]: FFDHC098MD21
+            - generic [ref=e150]: 自报 ¥1800
+          - generic [ref=e152]: 硬件非原装风险：第三方国产屏幕 & Face ID失效
+        - generic [ref=e153] [cursor=pointer]:
+          - generic [ref=e154]:
+            - generic [ref=e155]: SW-20261023-0110
+            - generic [ref=e156]: "预警: 剩5.8h"
+          - generic [ref=e157]: 索尼 PS5 光驱版 (日版 825GB 白色)
+          - generic [ref=e158]:
+            - generic [ref=e159]:
+              - generic [ref=e160]: 孙*天
+              - generic [ref=e161]: "|"
+              - generic [ref=e162]: CFI-1200A-882
+            - generic [ref=e163]: 自报 ¥2200
+        - generic [ref=e164] [cursor=pointer]:
+          - generic [ref=e165]:
+            - generic [ref=e166]: SW-20261023-0111
+            - generic [ref=e167]: 已通过
+          - generic [ref=e168]: 大疆 DJI Mini 4 Pro 畅飞套装 (带屏遥控器RC 2)
+          - generic [ref=e169]:
+            - generic [ref=e170]:
+              - generic [ref=e171]: 何*霖
+              - generic [ref=e172]: "|"
+              - generic [ref=e173]: 1581F669B01
+            - generic [ref=e174]: 自报 ¥4100
+        - generic [ref=e175] [cursor=pointer]:
+          - generic [ref=e176]:
+            - generic [ref=e177]: SW-20261023-0112
+            - generic [ref=e178]: 已退回
+          - generic [ref=e179]: 三星 Galaxy S24 Ultra 12GB+256GB 钛灰
+          - generic [ref=e180]:
+            - generic [ref=e181]:
+              - generic [ref=e182]: 冯*婷
+              - generic [ref=e183]: "|"
+              - generic [ref=e184]: R5CW109772H
+            - generic [ref=e185]: 自报 ¥4900
+    - generic [ref=e187]:
+      - generic [ref=e188]:
+        - generic [ref=e189]:
+          - generic [ref=e190]:
+            - generic [ref=e191]: 手机
+            - heading "iPhone 15 Pro 256GB 原色钛金属" [level=1] [ref=e192]
+            - generic [ref=e193]: 待质检
+          - generic [ref=e194]:
+            - generic [ref=e195]:
+              - generic [ref=e196]: "订单编号:"
+              - text: SW-20261023-0101
+            - generic [ref=e197]:
+              - generic [ref=e198]: "机身SN码:"
+              - text: F2LQC081MD6V
+            - generic [ref=e199]:
+              - generic [ref=e200]: "主板IMEI:"
+              - text: "354928110928371"
+            - generic [ref=e201]:
+              - generic [ref=e202]: "送检用户:"
+              - text: 陈*宇 (138****9210)
+            - generic [ref=e203]:
+              - generic [ref=e204]: "签收到货:"
+              - text: 22小时前 (10-22 22:15)
+            - generic [ref=e205]:
+              - generic [ref=e206]: "用户自报价:"
+              - text: ¥4800
+        - generic [ref=e207]:
+          - generic [ref=e208]: 质检SLA剩余时效
+          - generic [ref=e209]: 剩余 1.8 小时
+          - generic [ref=e210]: 标准时效：到货24h内完成
+      - generic [ref=e211]:
+        - generic [ref=e213]: ✓
+        - generic [ref=e214]:
+          - generic [ref=e215]: 安全合规已校验通过
+          - generic [ref=e216]: 已自动检测：GSX未绑定激活锁(Find My已关闭)，无运营商合约锁，无丢失模式与公安黑名单报备。
+      - generic [ref=e217]:
+        - generic [ref=e218]:
+          - generic [ref=e219]:
+            - img [ref=e220]
+            - generic [ref=e223]: 成色比对与实际检测明细
+          - generic [ref=e224]: 发现 3 处成色差异 · 累计定损扣减 -¥300
+        - table [ref=e226]:
+          - rowgroup [ref=e227]:
+            - row "检验维度 用户下单自报成色 工位仪器实测判定 差异核价" [ref=e228]:
+              - columnheader "检验维度" [ref=e229]
+              - columnheader "用户下单自报成色" [ref=e230]
+              - columnheader "工位仪器实测判定" [ref=e231]
+              - columnheader "差异核价" [ref=e232]
+          - rowgroup [ref=e233]:
+            - row "机身外观 99新 (全机无磕碰划痕，无掉漆) 边框右下有1处轻微磕碰磨损，四角无变形 -100 (边框轻微磕痕)" [ref=e234]:
+              - cell "机身外观" [ref=e235]
+              - cell "99新 (全机无磕碰划痕，无掉漆)" [ref=e236]
+              - cell "边框右下有1处轻微磕碰磨损，四角无变形" [ref=e237]
+              - cell "-100 (边框轻微磕痕)" [ref=e238]:
+                - generic [ref=e239]: "-100 (边框轻微磕痕)"
+            - row "屏幕显示 原装完美无划痕 / 显示纯净 原装OLED屏，强光测光下有2处细微硬划痕，无漏液烧屏 -150 (屏幕细微划痕)" [ref=e240]:
+              - cell "屏幕显示" [ref=e241]
+              - cell "原装完美无划痕 / 显示纯净" [ref=e242]
+              - cell "原装OLED屏，强光测光下有2处细微硬划痕，无漏液烧屏" [ref=e243]
+              - cell "-150 (屏幕细微划痕)" [ref=e244]:
+                - generic [ref=e245]: "-150 (屏幕细微划痕)"
+            - row "电池健康 自报 94% 实测 91% (循环312次，原装未拆换，容量健康) 吻合通过" [ref=e246]:
+              - cell "电池健康" [ref=e247]
+              - cell "自报 94%" [ref=e248]
+              - cell "实测 91% (循环312次，原装未拆换，容量健康)" [ref=e249]
+              - cell "吻合通过" [ref=e250]:
+                - generic [ref=e251]: 吻合通过
+            - row "功能硬件 全功能正常 Face ID、激光雷达、双扬声器、5G射频全检通过 吻合通过" [ref=e252]:
+              - cell "功能硬件" [ref=e253]
+              - cell "全功能正常" [ref=e254]
+              - cell "Face ID、激光雷达、双扬声器、5G射频全检通过" [ref=e255]
+              - cell "吻合通过" [ref=e256]:
+                - generic [ref=e257]: 吻合通过
+            - row "随附配件 原装包装盒 + 原装编织数据线 仅含原装包装盒，缺失 C-C 原装快充编织线 -50 (缺失原装数据线)" [ref=e258]:
+              - cell "随附配件" [ref=e259]
+              - cell "原装包装盒 + 原装编织数据线" [ref=e260]
+              - cell "仅含原装包装盒，缺失 C-C 原装快充编织线" [ref=e261]
+              - cell "-50 (缺失原装数据线)" [ref=e262]:
+                - generic [ref=e263]: "-50 (缺失原装数据线)"
+      - generic [ref=e264]:
+        - generic [ref=e265]:
+          - generic [ref=e266]:
+            - generic [ref=e267]:
+              - generic [ref=e268]: 用户自报初评
+              - generic [ref=e269]: ¥4800
+            - generic [ref=e270]: −
+            - generic [ref=e271]:
+              - generic [ref=e272]: 成色差异扣减
+              - generic [ref=e273]: ¥300
+            - generic [ref=e274]: =
+            - generic [ref=e275]:
+              - generic [ref=e276]: 最终质检核定回收价
+              - generic [ref=e277]: ¥4500
+          - generic [ref=e278]:
+            - generic [ref=e279]: "改价回收金额:"
+            - generic [ref=e280]: ¥4500
+        - generic [ref=e281]:
+          - generic [ref=e282]: 确认质检处置动作：
+          - generic [ref=e283]:
+            - button "按原价回收 (¥4800)" [ref=e284] [cursor=pointer]:
+              - img [ref=e285]
+              - generic [ref=e287]: 按原价回收 (¥4800)
+            - button "改价后发给用户确认 (¥4500)" [ref=e288] [cursor=pointer]:
+              - img [ref=e289]
+              - generic [ref=e292]: 改价后发给用户确认 (¥4500)
+            - button "退回设备 (不回收)" [ref=e293] [cursor=pointer]:
+              - img [ref=e294]
+              - generic [ref=e297]: 退回设备 (不回收)
+        - generic [ref=e298]:
+          - generic [ref=e299]:
+            - generic [ref=e300]: 给用户的说明文案（将同步推送至微信通知与短信）：
+            - generic [ref=e301]:
+              - generic [ref=e302]: "常用话术:"
+              - button "原价全额通过" [ref=e303] [cursor=pointer]
+              - button "成色差异改价" [ref=e304] [cursor=pointer]
+              - button "账号锁退回" [ref=e305] [cursor=pointer]
+              - button "组装拼装退回" [ref=e306] [cursor=pointer]
+          - textbox "请输入质检结论，客观说明成色差异、扣减理由或退回原因..." [ref=e307]: 经实测，边框有1处轻微磕碰且屏幕有细划痕，缺少原装线缆，核定改价为¥4,500，请确认是否回收。
+        - generic [ref=e308]:
+          - button "重置文案" [ref=e309] [cursor=pointer]
+          - button "确认改价并发给用户 (¥4500)" [ref=e310] [cursor=pointer]:
+            - img [ref=e311]
+            - generic [ref=e314]: 确认改价并发给用户 (¥4500)

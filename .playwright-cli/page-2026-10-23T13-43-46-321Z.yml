@@ -1,0 +1,103 @@
+- generic [active] [ref=e1]:
+  - navigation "开发与走查工具栏" [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]: "视口切换:"
+      - button "💻 桌面 (1440)" [ref=e5] [cursor=pointer]
+      - button "📱 手机 (390)" [ref=e6] [cursor=pointer]
+    - generic [ref=e7]:
+      - generic [ref=e8]: "预设状态走查:"
+      - button "🟢 正常 (Idle)" [ref=e9] [cursor=pointer]
+      - button "🔌 离线 (Offline)" [ref=e10] [cursor=pointer]
+      - button "⏳ 发送中 (Sending)" [ref=e11] [cursor=pointer]
+      - button "❌ 失败重试 (Error)" [ref=e12] [cursor=pointer]
+      - button "🔒 儿童锁 (Locked)" [ref=e13] [cursor=pointer]
+      - button "⚠️ 定时冲突 (Conflict)" [ref=e14] [cursor=pointer]
+      - button "⚡ 高能耗 (Energy)" [ref=e15] [cursor=pointer]
+      - button "❄️ 16℃ 下限" [ref=e16] [cursor=pointer]
+      - button "🔥 30℃ 上限" [ref=e17] [cursor=pointer]
+  - main [ref=e18]:
+    - region "主卧空调智能控制面板" [ref=e19]:
+      - status:
+        - img
+        - generic: 指令已送达设备
+      - alert: 🔒 儿童锁保护开启中，请先点击右上角解除儿童锁
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - generic [ref=e22]:
+            - generic [ref=e24]: 暖屋 · 主卧
+            - heading "卧室变频挂机空调" [level=1] [ref=e25]
+          - generic [ref=e26]:
+            - button "儿童锁开关" [ref=e27] [cursor=pointer]:
+              - img [ref=e28]
+            - button "空调电源开关" [ref=e31] [cursor=pointer]:
+              - img [ref=e32]
+        - generic [ref=e34]:
+          - generic [ref=e37]: 制冷中 · 中速
+          - generic "室内实测温湿度" [ref=e38]:
+            - generic "室内实际温度" [ref=e39]:
+              - img [ref=e40]
+              - generic [ref=e42]: 室温
+              - strong [ref=e43]: 26.2℃
+            - generic "室内相对湿度" [ref=e44]:
+              - img [ref=e45]
+              - generic [ref=e47]: 湿度
+              - strong [ref=e48]: 54%
+        - slider "空调目标设定温度调节" [ref=e49]:
+          - img [ref=e50]
+          - generic:
+            - generic: 制冷运行
+            - generic:
+              - generic: "24.5"
+              - generic: ℃
+            - generic:
+              - generic: 已达最低极限 16℃
+        - generic [ref=e84]:
+          - button "降低温度 0.5度" [ref=e85] [cursor=pointer]:
+            - img [ref=e86]
+          - generic [ref=e87]:
+            - button "26℃ 舒适" [ref=e88] [cursor=pointer]
+            - button "24.5℃ 清爽" [ref=e89] [cursor=pointer]
+            - button "22℃ 强冷" [ref=e90] [cursor=pointer]
+          - button "升高温度 0.5度" [ref=e91] [cursor=pointer]:
+            - img [ref=e92]
+        - generic [ref=e93]:
+          - generic [ref=e94]:
+            - generic [ref=e95]: 运行模式
+            - generic [ref=e96]: 点击即时切换
+          - tablist "空调工作模式选择" [ref=e97]:
+            - tab "制冷" [selected] [ref=e98] [cursor=pointer]:
+              - img [ref=e99]
+              - generic [ref=e102]: 制冷
+            - tab "制热" [ref=e103] [cursor=pointer]:
+              - img [ref=e104]
+              - generic [ref=e110]: 制热
+            - tab "除湿" [ref=e111] [cursor=pointer]:
+              - img [ref=e112]
+              - generic [ref=e114]: 除湿
+            - tab "送风" [ref=e115] [cursor=pointer]:
+              - img [ref=e116]
+              - generic [ref=e118]: 送风
+        - generic [ref=e119]:
+          - generic [ref=e120]:
+            - generic [ref=e121]: 风速调节
+            - generic [ref=e122]: 5挡可调
+          - radiogroup "风速档位选择" [ref=e123]:
+            - radio "自动" [ref=e124] [cursor=pointer]
+            - radio "1 挡" [ref=e125] [cursor=pointer]
+            - radio "2 挡" [checked] [ref=e126] [cursor=pointer]
+            - radio "3 挡" [ref=e127] [cursor=pointer]
+            - radio "强劲" [ref=e128] [cursor=pointer]
+        - generic [ref=e129]:
+          - switch "智能睡眠曲线 根据夜间生理体温节律动态升温防凉" [checked] [ref=e130] [cursor=pointer]:
+            - generic [ref=e131]:
+              - img [ref=e133]
+              - generic [ref=e135]:
+                - heading "智能睡眠曲线" [level=4] [ref=e136]
+                - paragraph [ref=e137]: 根据夜间生理体温节律动态升温防凉
+          - generic [ref=e140]:
+            - img [ref=e141]
+            - generic [ref=e148]:
+              - generic [ref=e149]: 23:00 入睡 24.5℃
+              - generic [ref=e150]: 02:00 +0.5℃
+              - generic [ref=e151]: 04:00 深睡 26.0℃
+              - generic [ref=e152]: 07:00 唤醒 25℃

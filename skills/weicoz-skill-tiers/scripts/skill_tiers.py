@@ -627,6 +627,156 @@ def cmd_sources(ctx: Ctx) -> None:
     print("处理：先 --dry-run 核对 revision 与 content_changed，确认后去掉 --dry-run 加 --force；改源前备份库目录。")
 
 
+def cmd_stats(ctx: Ctx, top: int = 30, tier_filter: str = "all", as_json: bool = False) -> None:
+    """统计与计算各 skill 的历史使用次数、常用度等级 (1-5) 与调层建议。"""
+    import sqlite3
+
+    # 1. 读取 usage.db
+    counts: dict[str, int] = {}
+    last_ts: dict[str, int] = {}
+    db = SM_HOME / "usage.db"
+    if db.exists():
+        try:
+            con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+            for row in con.execute("SELECT skill_id, count(*), max(ts) FROM usage_events GROUP BY skill_id"):
+                counts[row[0]] = row[1]
+                last_ts[row[0]] = row[2]
+            con.close()
+        except Exception:
+            pass
+
+    # 2. 读取 usage-pending (扫近期待处理/未入库事件)
+    pending_dir = SM_HOME / "usage-pending"
+    if pending_dir.is_dir():
+        for p in pending_dir.glob("*.json"):
+            try:
+                content = p.read_bytes()
+                matches = set(re.findall(rb"skills/([a-zA-Z0-9_-]+)", content))
+                ts = int(p.stat().st_mtime)
+                for m in matches:
+                    sk = m.decode("utf-8", "ignore")
+                    if not sk.endswith(".md"):
+                        counts[sk] = counts.get(sk, 0) + 1
+                        if ts > last_ts.get(sk, 0):
+                            last_ts[sk] = ts
+            except Exception:
+                pass
+
+    # 汇总已知合法 skill 名称，过滤噪音片段
+    installed_set = set()
+    installed_json = ROOT / "installed.json"
+    if installed_json.exists():
+        try:
+            for v in json.loads(installed_json.read_text(encoding="utf-8")).values():
+                installed_set.update(v)
+        except Exception:
+            pass
+    valid_names = installed_set | set(ctx.l1) | set(ctx.l2) | set(ctx.l3)
+    sm_db = SM_HOME / "skills-manager.db"
+    if sm_db.exists():
+        try:
+            con = sqlite3.connect(f"file:{sm_db}?mode=ro", uri=True)
+            for r in con.execute("SELECT name FROM skills"):
+                valid_names.add(r[0])
+            con.close()
+        except Exception:
+            pass
+
+    records = []
+    for sk in valid_names:
+        cnt = counts.get(sk, 0)
+        ts = last_ts.get(sk, 0)
+        if sk in ctx.l1:
+            tier = "L1"
+            hub = ""
+        elif sk in ctx.l2:
+            tier = "L2"
+            hub = ""
+        elif sk in ctx.l3:
+            tier = "L3"
+            hub = ctx.l3[sk][0]
+        else:
+            tier = "未分层"
+            hub = ""
+
+        # 常用等级评定 (1-5 星)
+        if sk in ctx.l1:
+            lvl = 5 if cnt >= 5 or sk in [
+                "web-access", "ego-browser", "playwright-cli", "weicoz-code-review",
+                "tdd", "grilling", "weicoz-ste", "modlens", "weicoz-session-recall",
+                "weicoz-agent-implement-spec", "research", "diagnosing-bugs", "skill-creator"
+            ] else 4
+        elif cnt >= 15:
+            lvl = 5
+        elif cnt >= 5:
+            lvl = 4
+        elif sk in ctx.l2:
+            lvl = 4 if cnt >= 2 else 3
+        elif cnt >= 2:
+            lvl = 3
+        elif cnt == 1:
+            lvl = 2
+        elif sk in ctx.l3:
+            lvl = 1
+        else:
+            lvl = 2
+
+        # 调层优化建议
+        advice = ""
+        if tier == "L3" and cnt >= 5:
+            advice = "⬆️ 建议升 L2（调用频次高）"
+        elif tier == "L1" and cnt == 0 and sk not in [
+            "web-access", "ego-browser", "playwright-cli", "tdd", "grilling",
+            "weicoz-ste", "modlens", "weicoz-skill-tiers", "weicoz-session-recall", "writing-for-agents"
+        ]:
+            advice = "⬇️ 可考虑降 L2（0调用省常驻）"
+        elif tier == "未分层" and cnt >= 3:
+            advice = "⚡ 建议纳入 L2"
+        elif cnt > 0:
+            advice = "✓ 活跃"
+        else:
+            advice = "—"
+
+        records.append({
+            "name": sk,
+            "calls": cnt,
+            "level": lvl,
+            "tier": tier,
+            "hub": hub,
+            "last_used": time.strftime("%Y-%m-%d %H:%M", time.localtime(ts)) if ts else "无记录",
+            "advice": advice,
+        })
+
+    # 排序：调用量倒序，等级倒序，名称正序
+    records.sort(key=lambda x: (-x["calls"], -x["level"], x["name"]))
+
+    if tier_filter != "all":
+        records = [r for r in records if r["tier"].lower() == tier_filter.lower()]
+
+    if as_json:
+        print(json.dumps(records[:top] if top > 0 else records, ensure_ascii=False, indent=2))
+        return
+
+    active_skills = [r for r in records if r["calls"] > 0]
+    total_calls = sum(r["calls"] for r in records)
+    print(f"Skill 使用统计：共记录 {total_calls} 次调用，活跃 Skill {len(active_skills)} 个（库中收录 {len(records)} 个）。")
+
+    l1_calls = sum(r["calls"] for r in records if r["tier"] == "L1")
+    l2_calls = sum(r["calls"] for r in records if r["tier"] == "L2")
+    l3_calls = sum(r["calls"] for r in records if r["tier"] == "L3")
+    un_calls = sum(r["calls"] for r in records if r["tier"] == "未分层")
+    print(f"调用分布：L1 {l1_calls} 次 | L2 {l2_calls} 次 | L3 {l3_calls} 次 | 未分层 {un_calls} 次\n")
+
+    display = records[:top] if top > 0 else records
+    print(f"{'排名':<4} {'Skill 名称':<32} {'当前层级':<12} {'调用':<6} {'常用度':<6} {'最后使用时间':<17} {'调层建议'}")
+    print("-" * 96)
+    for idx, r in enumerate(display, 1):
+        tier_label = f"{r['tier']}" + (f"({r['hub']})" if r['hub'] else "")
+        print(f"{idx:<4} {r['name']:<32} {tier_label:<12} {r['calls']:<6} {r['level']}星    {r['last_used']:<17} {r['advice']}")
+    if top > 0 and len(records) > top:
+        print(f"\n... 还有 {len(records) - top} 个未展示（使用 --top 0 查看全量，或 --tier 过滤）。")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="skill 三层 + 领域 Hub 分层工具")
     ap.add_argument("--manifest", default=str(ROOT / "manifest.json"))
@@ -637,6 +787,10 @@ def main() -> None:
     sub.add_parser("ensure", help="会话启动钩子用：有漂移才 apply，无漂移静默")
     sub.add_parser("deps", help="检查 L1 与未分层 skill 对 L3 的引用缺口")
     sub.add_parser("sources", help="只读盘点 skills-manager 中可挂到上游 git 源的 import/local skill")
+    st = sub.add_parser("stats", aliases=["usage"], help="统计使用 skill 次数、计算常用度 (1-5) 与调层建议")
+    st.add_argument("--top", type=int, default=30, help="展示前 N 项（默认 30，设为 0 展示全量）")
+    st.add_argument("--tier", default="all", choices=["all", "l1", "l2", "l3", "unassigned"], help="按层级过滤")
+    st.add_argument("--json", action="store_true", help="以 JSON 格式输出")
     f = sub.add_parser("find", help="按名称与描述查找 skill（含 L3），报告层级与调用方式")
     f.add_argument("terms", nargs="+")
     r = sub.add_parser("restore", help="按快照恢复发现目录的软链")
@@ -659,6 +813,8 @@ def main() -> None:
         cmd_deps(ctx)
     elif a.cmd == "sources":
         cmd_sources(ctx)
+    elif a.cmd in ("stats", "usage"):
+        cmd_stats(ctx, top=a.top, tier_filter=a.tier, as_json=a.json)
     elif a.cmd == "find":
         cmd_find(ctx, a.terms)
     elif a.cmd == "restore":

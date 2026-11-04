@@ -1,0 +1,142 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]: 暖
+      - generic [ref=e5]: 暖屋智能家居 · 卧室空调控制卡片
+      - generic [ref=e6]: 单组件原型
+    - generic [ref=e7]:
+      - group "视口切换" [ref=e8]:
+        - button "桌面 1440 内嵌" [ref=e9] [cursor=pointer]:
+          - img [ref=e10]
+          - text: 桌面 1440 内嵌
+        - button "手机 390" [ref=e12] [cursor=pointer]:
+          - img [ref=e13]
+          - text: 手机 390
+      - generic [ref=e15]:
+        - generic [ref=e16]: "测试状态:"
+        - combobox "测试状态:" [ref=e17] [cursor=pointer]:
+          - option "默认正常运行 (Idle)" [selected]
+          - option "设备离线 (Offline)"
+          - option "指令发送中 (Pending)"
+          - option "指令失败可重试 (Failed)"
+          - option "儿童锁开启 (Child Lock)"
+          - option "计划冲突确认 (Conflict Modal)"
+          - option "能耗偏高提示 (High Energy Alert)"
+          - option "达16℃下限 (Bound Min)"
+          - option "睡眠曲线详情 (Sleep Curve)"
+          - option "操作成功确认 (Success Toast)"
+  - main [ref=e18]:
+    - generic [ref=e20]:
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - heading "主卧空间 · 设备综合台" [level=2] [ref=e23]
+          - paragraph [ref=e24]: 空间联动模式：舒适睡眠 · 门窗传感器已设防
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - img [ref=e27]
+            - generic [ref=e29]: 今日室电综合耗能：4.12 kWh
+          - generic [ref=e30]:
+            - img [ref=e31]
+            - generic [ref=e34]: 晚间恒温巡航开启中
+      - generic [ref=e35]:
+        - region "卧室空调控制卡片" [ref=e37]:
+          - generic [ref=e38]:
+            - generic [ref=e39]:
+              - generic [ref=e40]:
+                - generic "设备在线" [ref=e41]
+                - generic [ref=e42]: 暖屋 · 主卧
+              - heading "变频柔风空调" [level=1] [ref=e43]
+            - generic [ref=e44]:
+              - generic "室内实时温度" [ref=e45]:
+                - img [ref=e46]
+                - generic [ref=e48]: 室温
+                - generic [ref=e49]: 25.8°C
+              - generic "室内相对湿度" [ref=e50]:
+                - img [ref=e51]
+                - generic [ref=e53]: 湿度
+                - generic [ref=e54]: 58%
+              - button "空调电源开关" [ref=e55] [cursor=pointer]:
+                - img [ref=e56]
+          - region
+          - generic "拖动或点击调节目标温度" [ref=e58]:
+            - img
+            - slider "目标温度旋钮" [ref=e59]:
+              - generic [ref=e60]: 目标温度
+              - generic [ref=e61]:
+                - generic [ref=e62]: "24"
+                - generic [ref=e63]: ".0"
+                - generic [ref=e64]: °C
+              - generic [ref=e65]:
+                - img [ref=e66]
+                - generic [ref=e68]: 舒睡曲线巡航 · 静音
+          - generic [ref=e69]:
+            - button "降温 0.5度" [ref=e70] [cursor=pointer]: −
+            - generic [ref=e71]:
+              - generic [ref=e72]: 16.0°C – 30.0°C
+              - generic [ref=e73]: 比室温低 1.8°C
+            - button "升温 0.5度" [ref=e74] [cursor=pointer]: +
+          - generic [ref=e75]:
+            - generic [ref=e76]:
+              - generic [ref=e77]: 运行模式
+              - generic [ref=e78]: 冷暖变频防直吹
+            - radiogroup "空调运行模式" [ref=e79]:
+              - radio "制冷" [checked] [ref=e80] [cursor=pointer]:
+                - img [ref=e81]
+                - text: 制冷
+              - radio "制热" [ref=e84] [cursor=pointer]:
+                - img [ref=e85]
+                - text: 制热
+              - radio "除湿" [ref=e91] [cursor=pointer]:
+                - img [ref=e92]
+                - text: 除湿
+              - radio "送风" [ref=e94] [cursor=pointer]:
+                - img [ref=e95]
+                - text: 送风
+          - generic [ref=e101]:
+            - generic [ref=e102]:
+              - generic [ref=e103]: 送风风速
+              - generic [ref=e104]: 柔风均衡微风感
+            - radiogroup "空调风速档位" [ref=e105]:
+              - radio "自动" [ref=e106] [cursor=pointer]
+              - radio "1档" [ref=e107] [cursor=pointer]
+              - radio "2档" [checked] [ref=e108] [cursor=pointer]
+              - radio "3档" [ref=e109] [cursor=pointer]
+              - radio "强劲" [ref=e110] [cursor=pointer]
+          - generic [ref=e112]:
+            - generic [ref=e113]:
+              - img [ref=e115]
+              - generic [ref=e117]:
+                - generic [ref=e118]: 睡眠温控曲线
+                - generic [ref=e119]: 23:00–07:00 动态恒温阶梯补偿，实测节能 22%
+            - generic [ref=e120]:
+              - button "查看8h曲线 ▼" [ref=e121] [cursor=pointer]
+              - switch "开关睡眠曲线" [checked] [ref=e122] [cursor=pointer]
+          - generic [ref=e124]:
+            - button "儿童锁" [ref=e125] [cursor=pointer]:
+              - img [ref=e126]
+              - text: 儿童锁
+            - generic [ref=e129]: 今日预计电量 1.82 度 · ECO 巡航
+        - generic [ref=e130]:
+          - generic [ref=e131]:
+            - heading "主卧环境联动状态" [level=3] [ref=e132]
+            - generic [ref=e133]:
+              - generic [ref=e134]: 新风空气净化机
+              - generic [ref=e135]: "良好 (PM2.5: 8)"
+            - generic [ref=e136]:
+              - generic [ref=e137]: 超声波加湿器
+              - generic [ref=e138]: 待机 (湿度适宜 58%)
+            - generic [ref=e139]:
+              - generic [ref=e140]: 智能床头氛围灯
+              - generic [ref=e141]: 2200K 暖光已渐暗
+          - generic [ref=e142]:
+            - heading "卧室定时与场景计划" [level=3] [ref=e143]
+            - generic [ref=e144]:
+              - generic [ref=e145]:
+                - generic [ref=e146]: 23:00 晚间恒温 26.0°C
+                - generic [ref=e147]: 工作日生效 · 智能阶梯恒温
+              - generic [ref=e148]: 运行中
+            - generic [ref=e149]:
+              - generic [ref=e150]:
+                - generic [ref=e151]: 07:15 晨起轻柔换气
+                - generic [ref=e152]: 新风换气与温和升温
+              - generic [ref=e153]: 待触发
