@@ -2,7 +2,7 @@
 
 面向 AI Agent 与终端用户的自研技能集合（支持 DSH、Codex、Claude Code、Antigravity、Kimi Code）。
 
-每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **70 个 Skill**。
+每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **69 个 Skill**。
 
 ---
 
@@ -132,7 +132,6 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | Skill | 版本 | 说明 |
 | --- | --- | --- |
 | [`weicoz-session-hub`](skills/weicoz-session-hub/) | 1.0.0 | 总控会话协调多个代理会话，派任务、收汇报、验收 |
-| [`weicoz-herdr-hub`](skills/weicoz-herdr-hub/) | 0.1.0 | 管理全部 Herdr 窗口：先问清项目目录再派单，按 pane 增量采集，20 分钟汇报 + 手机推送 |
 | [`weicoz-session-recall`](skills/weicoz-session-recall/) | 1.0.0 | 跨 harness 检索历史会话，回答“我以前做过什么” |
 | [`weicoz-remote-dispatch`](skills/weicoz-remote-dispatch/) | 1.0.1 | 把代理会话、测试与构建经 SSH 派到另一台机器执行 |
 | [`weicoz-agent-implement`](skills/weicoz-agent-implement/) | 1.2.0 | 把单张票据委派给编码代理实现，派单方监控与验收 |
@@ -199,7 +198,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | **2 星** ⭐⭐ | **低频备用 / 辅助转换**（偶发专项任务或辅助工具） | `ascii-art`, `baoyu-comic`, `airtable`, `cloudflare`, `resend-cli` |
 | **1 星** ⭐ | **按需专项 / 领域收纳**（L3 领域 Hub 收纳，按需检索调用） | 各垂直领域专业库（SEO 纵深审查、竞品深度挖掘、特定社媒采集等） |
 
-> 👉 **查看完整 251 项 Skill 清单与来源链接**：[INSTALLED_SKILLS.md](./INSTALLED_SKILLS.md)
+> 👉 **查看完整 249 项 Skill 清单与来源链接**：[INSTALLED_SKILLS.md](./INSTALLED_SKILLS.md)
 
 ---
 
