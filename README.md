@@ -160,11 +160,10 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-mac-procmon`](skills/weicoz-mac-procmon/) | 1.0.0 | 查本机 CPU / 内存 / 磁盘异常，做进程归因与告警排查 |
 | [`weicoz-mac-rescue`](skills/weicoz-mac-rescue/) | 1.0.0 | 卡顿与磁盘满的现场急救：swap 吃盘、僵尸启动项、进程泄漏、系统进程误判 |
 | [`weicoz-harness-config-sync`](skills/weicoz-harness-config-sync/) | 1.0.0 | 把 Codex / DSH / Shell 配置同步到指定机器并装齐依赖 |
-| [`weicoz-skill-tiers`](skills/weicoz-skill-tiers/) | 1.5.0 | skill 分层：L1 常驻、L2 短描述桩、L3 领域 Hub 收纳且可手动 /name 调用；只改软链与生成文件，不改原 skill，多 harness 通用，含查找、依赖检查与快照回滚 |
+| [`weicoz-skill-tiers`](skills/weicoz-skill-tiers/) | 1.7.0 | skill 分层：L1 常驻、L2 短描述桩、L3 领域 Hub 收纳且可手动 /name 调用；含 status 健康检查、sources 挂源盘点、stats 使用次数与常用度统计 |
 | [`weicoz-dsh-repos-update-check`](skills/weicoz-dsh-repos-update-check/) | 1.0.0 | 只读检查 DSH 本体与已装插件仓库的更新和实装差异 |
 | [`weicoz-frp-port-dispatch`](skills/weicoz-frp-port-dispatch/) | 1.0.0 | 配置、迁移与排查 FRP 端口转发与开机自启 |
 | [`weicoz-3a-game-manifest`](skills/weicoz-3a-game-manifest/) | 1.0.0 | 从 3a.lol 提取 Steam 入库清单并归档，附画质帧率预测 |
-| [`weicoz-claude-citadel`](skills/weicoz-claude-citadel/) | 1.0.0 | 一键配置与更新 Claude 专属节点与多机场分流订阅（支持 6 大客户端全平台编译与 Gist 同步） |
 
 #### 视频与视觉
 
@@ -185,6 +184,23 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | Skill | 版本 | 说明 |
 | --- | --- | --- |
 | [`weicoz-life-design`](skills/weicoz-life-design/) | 1.0.0 | 用设计思维探索人生方向，生成可试错的人生原型 |
+
+---
+
+## 已安装外部 Skill 清单（来源与常用度）
+
+除本仓库自研的 `weicoz-*` Skill 外，本机跨各 Agent Harness 共管理并安装了 250+ 个外部/上游开源 Skill。
+完整清单包含名称、上游 Git 仓库地址、简明概况及基于真实调用计算的 1–5 星常用度评级，详见 **[INSTALLED_SKILLS.md](./INSTALLED_SKILLS.md)**。
+
+| 常用等级 | 定位与判定标准 | 示例代表 |
+| :---: | :--- | :--- |
+| **5 星** ⭐⭐⭐⭐⭐ | **核心常驻 / 每日必用**（调用极多或全局 L1 核心工具） | `web-access`, `ego-browser`, `playwright-cli`, `caveman`, `tdd`, `code-review` |
+| **4 星** ⭐⭐⭐⭐ | **高频常用 / 关键专项**（频繁调用或 L2 高频工具） | `last30days`, `codebase-design`, `prototype`, `implement`, `weicoz-feishu-task-tracker` |
+| **3 星** ⭐⭐⭐ | **中频实用 / 常用桩**（L2 短描述桩，模型按需自动调用） | `aihot`, `answer-me-with-html`, `beautiful-article`, `gpt-image-2`, `huashu-slides` |
+| **2 星** ⭐⭐ | **低频备用 / 辅助转换**（偶发专项任务或辅助工具） | `ascii-art`, `baoyu-comic`, `airtable`, `cloudflare`, `resend-cli` |
+| **1 星** ⭐ | **按需专项 / 领域收纳**（L3 领域 Hub 收纳，按需检索调用） | 各垂直领域专业库（SEO 纵深审查、竞品深度挖掘、特定社媒采集等） |
+
+> 👉 **查看完整 252 项 Skill 清单与来源链接**：[INSTALLED_SKILLS.md](./INSTALLED_SKILLS.md)
 
 ---
 

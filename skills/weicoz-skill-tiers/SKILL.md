@@ -1,7 +1,7 @@
 ---
 name: weicoz-skill-tiers
-version: 1.6.0
-description: skill 分层管理：L1 常驻、L2 短描述桩、L3 由领域 Hub 收纳并可手动 /name 调用，大幅减少常驻上下文的 skill 描述量。只改各 harness 发现目录的软链与生成文件，不改原 skill，Claude Code/Codex/DSH/Kimi/Grok/Antigravity 通用。用于“skill 太多占上下文”“调整或撤销分层”“新装 skill 后分层”“忘了某个 skill 叫什么／找不到某个 skill”“skill 调用被拒绝”。
+version: 1.7.0
+description: skill 分层管理：L1 常驻、L2 短描述桩、L3 由领域 Hub 收纳并可手动 /name 调用，大幅减少常驻上下文的 skill 描述量。只改各 harness 发现目录的软链与生成文件，不改原 skill，Claude Code/Codex/DSH/Kimi/Grok/Antigravity 通用。用于“skill 太多占上下文”“调整或撤销分层”“新装 skill 后分层”“忘了某个 skill 叫什么／找不到某个 skill”“skill 调用被拒绝”“统计 skill 使用次数与常用度”。
 ---
 
 # weicoz-skill-tiers
@@ -41,6 +41,7 @@ python3 "$T" deps                  # L1 与未分层 skill 对 L3 的引用
 python3 "$T" find <关键词...>      # 按名称与描述查找 skill（含 L3）：层级、所属 Hub、路径
 python3 "$T" restore <快照> [--dry-run]   # 恢复到快照时的软链；backups/baseline.json 即完全撤销
 python3 "$T" sources               # 只读：skills-manager 中可挂到上游 git 源的 import/local skill，附 set-source 命令
+python3 "$T" stats [--top N]       # 统计使用 skill 次数、计算常用度 (1-5) 与调层建议（支持 --tier 与 --json）
 ```
 
 ## 常见任务
