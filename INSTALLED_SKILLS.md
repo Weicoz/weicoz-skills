@@ -5,7 +5,7 @@
 
 每项 Skill 均附有简明功能概况，并基于真实历史调用次数与分层机制（L1 常驻 / L2 常用桩 / L3 领域收纳）标注 **1–5 级常用度**。
 
-- **收录总计**：252 个 Skill（外部开源 187 个，自研 65 个）
+- **收录总计**：251 个 Skill（外部开源 187 个，自研 64 个）
 - **数据来源**：结合 `~/.skills-manager/usage.db` 历史调用、近期待处理会话事件及 `manifest.json` 架构分层计算生成
 
 ---
@@ -24,7 +24,7 @@
 
 ## 目录
 
-- [五星常用：核心常驻与每日必用（22 项）](#五星常用核心常驻与每日必用22项)
+- [五星常用：核心常驻与每日必用（21 项）](#五星常用核心常驻与每日必用21项)
 - [四星常用：高频调用与关键专项（22 项）](#四星常用高频调用与关键专项22项)
 - [三星实用：中频常用与自动化工作流（30 项）](#三星实用中频常用与自动化工作流30项)
 - [二星备用：低频辅助与转换工具（24 项）](#二星备用低频辅助与转换工具24项)
@@ -32,12 +32,11 @@
 
 ---
 
-## 五星常用：核心常驻与每日必用（22 项）
+## 五星常用：核心常驻与每日必用（21 项）
 
 | Skill 名称 | 常用等级 | 来源仓库 / 链接 | 简要概况与说明 | 当前分层 |
 | :--- | :---: | :--- | :--- | :--- |
 | `caveman` | ⭐⭐⭐⭐⭐ (5) | [dietrichgebert/ponytail:caveman](https://github.com/dietrichgebert/ponytail/tree/main/benchmarks/arms/caveman) | 极简压缩表达模式；用户说 caveman/省 token 说话时用 | L2 (独立/常用) |
-| `weicoz-gpt-5-6-prompt-compiler` | ⭐⭐⭐⭐⭐ (5) | [weicoz-skills:weicoz-gpt-5-6-prompt-compiler](https://codeberg.org/jy_project/weicoz-skills/src/branch/main/skills/weicoz-gpt-5-6-prompt-compiler) | 将用户提供的原始需求、草稿或零散指令编译成一段可直接发送给 GPT 的轻量提示词。仅当用户明确要求“生成给 GPT 的提示词”“优化 prompt”“把这段内容变成可直接发给 GPT 的提示词”时使用；不用于普通文案润色、直接回答、写作或实现任务。 | L3 (weicoz-hub-agent-ops) |
 | `code-review` | ⭐⭐⭐⭐⭐ (5) | [mattpocock/skills:code-review](https://github.com/mattpocock/skills/tree/main/skills/engineering/code-review) | Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to "review since X". | L2 (独立/常用) |
 | `weicoz-ste` | ⭐⭐⭐⭐⭐ (5) | [weicoz-skills:weicoz-ste](https://codeberg.org/jy_project/weicoz-skills/src/branch/main/skills/weicoz-ste) | ASD-STE100 受控骨架 + caveman:full 极简内核融合交付规范：结论先行、状态严谨、证据可查、决策选项化 | L1 (独立/常用) |
 | `implement` | ⭐⭐⭐⭐⭐ (5) | [mattpocock/skills:implement](https://github.com/mattpocock/skills/tree/main/skills/engineering/implement) | Implement a piece of work based on a spec or set of tickets. | 未分层 (独立/常用) |

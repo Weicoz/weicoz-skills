@@ -2,7 +2,7 @@
 
 面向 AI Agent 与终端用户的自研技能集合（支持 DSH、Codex、Claude Code、Antigravity、Kimi Code）。
 
-每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **67 个 Skill**。
+每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **70 个 Skill**。
 
 ---
 
@@ -111,7 +111,6 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-wechat-article-writer`](skills/weicoz-wechat-article-writer/) | 1.0.0 | 公众号文章写作：选题、标题、大纲、正文、改写、审稿与头条压缩 |
 | [`weicoz-wechat-official-account-operator`](skills/weicoz-wechat-official-account-operator/) | 1.0.0 | 公众号运营：定位、选题、发布计划、增长转化与数据复盘 |
 | [`weicoz-wechat-save-template-deploy`](skills/weicoz-wechat-save-template-deploy/) | 1.0.0 | wechat-save-template 本地预检、远端部署与会话存档入库验证 |
-| [`weicoz-gpt-5-6-prompt-compiler`](skills/weicoz-gpt-5-6-prompt-compiler/) | 1.0.0 | 把零散需求编译成可直接发给 GPT 的轻量提示词 |
 
 #### 视觉设计与图像提示词
 
@@ -200,7 +199,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | **2 星** ⭐⭐ | **低频备用 / 辅助转换**（偶发专项任务或辅助工具） | `ascii-art`, `baoyu-comic`, `airtable`, `cloudflare`, `resend-cli` |
 | **1 星** ⭐ | **按需专项 / 领域收纳**（L3 领域 Hub 收纳，按需检索调用） | 各垂直领域专业库（SEO 纵深审查、竞品深度挖掘、特定社媒采集等） |
 
-> 👉 **查看完整 252 项 Skill 清单与来源链接**：[INSTALLED_SKILLS.md](./INSTALLED_SKILLS.md)
+> 👉 **查看完整 251 项 Skill 清单与来源链接**：[INSTALLED_SKILLS.md](./INSTALLED_SKILLS.md)
 
 ---
 
