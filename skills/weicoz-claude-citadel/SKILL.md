@@ -6,7 +6,7 @@ description: 一键配置与更新 Claude 专属节点与多机场分流订阅�
 
 # Claude Citadel 一键配置与订阅管理
 
-为用户或好友一键配置全平台 6 大主流客户端（Surge、Loon、Shadowrocket、Quantumult X、Clash/Mihomo、Stash）的规则与订阅，支持 Claude 专属独立出口（如波特兰住宅 IP / VPS）与多家机场中转池物理分流，并支持分层规则扩展与代理链动态切换。
+为用户或好友一键配置全平台 6 大主流客户端（Surge、Loon、Shadowrocket、Quantumult X、Clash/Mihomo、Stash）的规则与订阅，支持 Claude 专属独立出口（如波特兰/洛杉矶/日本等原生住宅 IP 或自建 VPS）与多家机场中转池物理分流，并支持分层规则扩展与代理链动态切换。
 
 ## 核心设计与安全规范
 
@@ -44,7 +44,7 @@ python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-citadel/script
 python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-citadel/scripts/citadel_cli.py \
   --from-clipboard \
   --type claude-node \
-  --name "🇺🇸 波特兰专用出口"
+  --name "🇺🇸 专属出口"
 ```
 
 ### 3. 动态切换 Claude 代理链模式
@@ -80,7 +80,7 @@ python3 /Users/weicoz/File/git/claude-citadel/build.py \
 claude_exits:
   use_relay_chain: true
   custom_proxies:
-    - name: "🇺🇸 波特兰专用出口"
+    - name: "🇺🇸 专属出口"
       type: socks5
       server: 198.51.100.1
       port: 1080
