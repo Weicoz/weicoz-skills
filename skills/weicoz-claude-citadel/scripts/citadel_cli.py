@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Claude Sub Hub 配置与同步 CLI 工具。
+"""Claude Citadel 配置与同步 CLI 工具。
 
 支持安全从剪贴板 (pbpaste) 或环境变量读取机场订阅与 Claude 节点，
 生成/更新 profile.yaml 并一键编译发布到 6 大主流代理客户端。
@@ -15,7 +15,7 @@ import sys
 import urllib.parse
 import yaml
 
-DEFAULT_REPO_DIR = Path("/Users/weicoz/File/git/claude-sub-hub")
+DEFAULT_REPO_DIR = Path("/Users/weicoz/File/git/claude-citadel")
 
 
 def get_clipboard_text():
@@ -100,8 +100,8 @@ def save_profile(profile_path, data):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Claude Sub Hub 自动化配置助手")
-    parser.add_argument("--repo-dir", default=str(DEFAULT_REPO_DIR), help="claude-sub-hub 本地仓库目录")
+    parser = argparse.ArgumentParser(description="Claude Citadel 自动化配置助手")
+    parser.add_argument("--repo-dir", default=str(DEFAULT_REPO_DIR), help="claude-citadel 本地仓库目录")
     parser.add_argument("--profile", help="指定 profile.yaml 路径 (默认使用 repo-dir 下的 profile.yaml)")
     parser.add_argument("--from-clipboard", action="store_true", help="从剪贴板读取订阅链接或节点 URL 安全导入")
     parser.add_argument("--type", choices=["claude-node", "claude-sub", "relay-sub", "relay-node"], default="relay-sub",

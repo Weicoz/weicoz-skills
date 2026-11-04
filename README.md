@@ -164,7 +164,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-dsh-repos-update-check`](skills/weicoz-dsh-repos-update-check/) | 1.0.0 | 只读检查 DSH 本体与已装插件仓库的更新和实装差异 |
 | [`weicoz-frp-port-dispatch`](skills/weicoz-frp-port-dispatch/) | 1.0.0 | 配置、迁移与排查 FRP 端口转发与开机自启 |
 | [`weicoz-3a-game-manifest`](skills/weicoz-3a-game-manifest/) | 1.0.0 | 从 3a.lol 提取 Steam 入库清单并归档，附画质帧率预测 |
-| [`weicoz-claude-sub-hub`](skills/weicoz-claude-sub-hub/) | 1.0.0 | 一键配置与更新 Claude 专属节点与多机场分流订阅（支持 6 大客户端全平台编译与 Gist 同步） |
+| [`weicoz-claude-citadel`](skills/weicoz-claude-citadel/) | 1.0.0 | 一键配置与更新 Claude 专属节点与多机场分流订阅（支持 6 大客户端全平台编译与 Gist 同步） |
 
 #### 视频与视觉
 

@@ -1,10 +1,10 @@
 ---
-name: weicoz-claude-sub-hub
+name: weicoz-claude-citadel
 version: 1.0.0
 description: 一键配置与更新 Claude 专属节点与多机场分流订阅（支持 Surge / Loon / Shadowrocket / Quantumult X / Clash / Stash 6 大客户端）。可从剪贴板（pbpaste）或环境变量安全读取订阅链接与住宅 IP 节点，避免敏感凭据外泄；一键更新 GitHub Secret Gist 并触发全格式编译。
 ---
 
-# Claude Sub Hub 一键配置与订阅管理
+# Claude Citadel 一键配置与订阅管理
 
 为用户或好友一键配置全平台 6 大主流客户端（Surge、Loon、Shadowrocket、Quantumult X、Clash/Mihomo、Stash）的规则与订阅，支持 Claude 专属独立出口（如波特兰住宅 IP / VPS）与多家机场中转池物理分流，并支持分层规则扩展与代理链动态切换。
 
@@ -32,7 +32,7 @@ description: 一键配置与更新 Claude 专属节点与多机场分流订阅�
 ### 1. 从剪贴板安全导入中转机场订阅
 用户复制好机场的 Clash / 通用订阅链接后：
 ```bash
-python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-sub-hub/scripts/sub_hub_cli.py \
+python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-citadel/scripts/citadel_cli.py \
   --from-clipboard \
   --type relay-sub \
   --name "猫咪云"
@@ -41,7 +41,7 @@ python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-sub-hub/script
 ### 2. 从剪贴板安全导入 Claude 专用住宅 IP / VPS 节点
 用户复制好专用出口链接（如 `socks5://user:pass@198.51.100.1:1080`）：
 ```bash
-python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-sub-hub/scripts/sub_hub_cli.py \
+python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-citadel/scripts/citadel_cli.py \
   --from-clipboard \
   --type claude-node \
   --name "🇺🇸 波特兰专用出口"
@@ -50,23 +50,23 @@ python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-sub-hub/script
 ### 3. 动态切换 Claude 代理链模式
 - 若住宅 IP 在国内无法直连，开启代理链（经由中转节点转发拨号）：
   ```bash
-  python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-sub-hub/scripts/sub_hub_cli.py --use-relay-chain true
+  python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-citadel/scripts/citadel_cli.py --use-relay-chain true
   ```
 - 若使用原生可直连的住宅 IP 或专线，关闭代理链（直接出海）：
   ```bash
-  python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-sub-hub/scripts/sub_hub_cli.py --use-relay-chain false
+  python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-citadel/scripts/citadel_cli.py --use-relay-chain false
   ```
 
 ### 4. 一键全量编译与离线内核校验
 ```bash
-python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-sub-hub/scripts/sub_hub_cli.py --build
+python3 /Users/weicoz/File/git/weicoz-skills/skills/weicoz-claude-citadel/scripts/citadel_cli.py --build
 ```
 编译后将自动调用本地内置的 Mihomo 内核执行 `-t` 静态语法校验。全部通过后产出到 `output/` 目录。
 
 ### 5. 同步至 GitHub Secret Gist
 如果用户在 Gist 维护配置：
 ```bash
-python3 /Users/weicoz/File/git/claude-sub-hub/build.py \
+python3 /Users/weicoz/File/git/claude-citadel/build.py \
   --gist-id "<GIST_ID>" \
   --publish-gist "<GIST_ID>"
 ```
