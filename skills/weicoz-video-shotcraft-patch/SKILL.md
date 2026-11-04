@@ -1,6 +1,6 @@
 ---
 name: weicoz-video-shotcraft-patch
-version: 1.6.0
+version: 1.6.1
 description: 做解说片、讲解视频或产品宣传片的总入口：用户只点本 skill 即可，本 skill 会自行加载 video-shotcraft（镜头与画面流程）和 weicoz-zero-tts（配音、字级对齐）。补 video-shotcraft 缺的环节：旁白当时钟的解说片顺序、字幕与安全区、色系连续、配音语速校准（主力 weicoz-zero-tts，兜底 edge-tts）、中文数字配音稿与多音字检查、选声线与识别回读、词级时间、素材选材（素材库与 AI 生成）与来源登记、声画同步与确定性检查、只重渲改动镜头、独立审查循环、过程卫生。 Compensation add-on for video-shotcraft full films: captions and safe zone, palette continuity, voice-speed calibration, sync and determinism checks, partial re-render, fresh-reviewer loop.
 ---
 
@@ -20,8 +20,8 @@ description: 做解说片、讲解视频或产品宣传片的总入口：用户�
 ## 0. 解说片：旁白是时钟
 video-shotcraft 面向产品宣传片，时间线跟 BGM 节拍走。有旁白的解说片改用旁白当时钟，顺序固定：定稿 → 合成整片旁白（`calibrate-voice.py`，得到句界）→ 字级时间与识别回读（`align-words.py`，回读差异处理完才往下走）→ 按字级锚点写镜头节拍（`cueN@词`，帧号用 `align-words.py --find` 查）→ `check-sync.py` 核对 → 逐帧渲染后合入旁白。稿子或声线改了，从合成重来，`align-words.py` 必须重跑，时间按新旁白重排。video-shotcraft 核心理念 1–2（真实页面截图、从产品设计系统取 tokens）在有产品页面时照做；讲概念、讲模式的片子没有产品页面，视觉 tokens 在 `design-spec.md` 自定，并写明来源。细则见 [references/voice.md](references/voice.md)。
 
-## 1. 简报前：补四个问题
-读 [references/brief-addendum.md](references/brief-addendum.md)，把四项并入产品简报的 1–3 个提问：字幕是否烧录、字幕安全区、色系是否允许中途切换、配音语速目标。完成判据：四项在 `design-spec.md` 里各有明确值。
+## 1. 简报前：补五个问题
+读 [references/brief-addendum.md](references/brief-addendum.md)，把五项并入产品简报的 1–3 个提问：字幕是否烧录、字幕安全区、色系是否允许中途切换、配音语速目标、交付几个版本。交付版本默认只出一版（烧录字幕 + BGM）；用户没要求多版本时不额外渲无 BGM 版、无字幕版等交付件，要多版本时先问清。完成判据：五项在 `design-spec.md` 里各有明确值。
 
 ## 2. 有旁白时：配音校准
 读 [references/voice.md](references/voice.md)。换配音后的时间线重排也在那里（`remap-timeline.py`、`make-captions.py`）。
