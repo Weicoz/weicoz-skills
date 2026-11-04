@@ -94,12 +94,25 @@ relays:
       url: "https://sub.airport1.com/api/v1/client/subscribe?token=xxx"
   custom_proxies: []
 
-# 独立组网节点 (可选，如 EasyTier / Tailscale，分配至「🕸️ 组网访问」，不污染常规中转池)
-mesh_proxies:
-  - name: "EasyTier SOCKS5"
-    type: socks5
-    server: 127.0.0.1
-    port: 15555
+# DIY 自定义策略组与专属通道 (支持任意自创策略组、专属独立节点与置顶规则)
+diy_groups: []
+  # - name: "🏢 公司专网"
+  #   type: select
+  #   proxies: []
+  #   rules:
+  #     - "IP-CIDR,10.155.155.0/24,no-resolve"
+  #     - "DOMAIN-SUFFIX,company.internal"
+  # - name: "🕸️ 私有组网"
+  #   type: select
+  #   proxies:
+  #     - name: "EasyTier SOCKS5"
+  #       type: socks5
+  #       server: 127.0.0.1
+  #       port: 15555
+  #   rules:
+  #     - "IP-CIDR,10.144.0.0/16,no-resolve"
+  #     - "IP-CIDR,10.126.0.0/16,no-resolve"
+  #     - "PROCESS-NAME,easytier-core"
 
 # 分层自定义规则 (最高优先级置顶)
 custom_rules:
@@ -116,10 +129,4 @@ custom_rules:
     remote_rulesets: []
     rules:
       - "DOMAIN-SUFFIX,my-claude-mirror.com"
-  mesh:
-    remote_rulesets: []
-    rules:
-      - "IP-CIDR,10.144.0.0/16,no-resolve"
-      - "IP-CIDR,10.126.0.0/16,no-resolve"
-      - "PROCESS-NAME,easytier-core"
 ```
