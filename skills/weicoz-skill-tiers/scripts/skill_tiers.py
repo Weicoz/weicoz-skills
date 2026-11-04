@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import re
@@ -324,15 +325,18 @@ def cmd_apply(ctx: Ctx, dry: bool) -> None:
 
 
 def cmd_ensure(ctx: Ctx) -> None:
-    """会话启动钩子用：无漂移时静默退出；有漂移时 apply，并输出一行结果。不得阻断会话。"""
+    """会话启动钩子用：无漂移、无引用缺口时静默退出；有漂移时 apply；各输出一行结果。不得阻断会话。"""
     acts, _ = plan_actions(ctx)
-    if not acts:
-        return
-    import contextlib
-    import io
-    with contextlib.redirect_stdout(io.StringIO()):
-        cmd_apply(ctx, dry=False)
-    print(f"weicoz-skill-tiers：检测到 {len(acts)} 项分层漂移（常见于 skill 管理器同步后），已自动恢复。")
+    if acts:
+        import contextlib
+        import io
+        with contextlib.redirect_stdout(io.StringIO()):
+            cmd_apply(ctx, dry=False)
+        print(f"weicoz-skill-tiers：检测到 {len(acts)} 项分层漂移（常见于 skill 管理器同步后），已自动恢复。")
+    gaps = deps_gaps(ctx)
+    if gaps:
+        pairs = "；".join(f"{c} -> {', '.join(h)}" for c, h in gaps.items())
+        print(f"weicoz-skill-tiers：{len(gaps)} 个 skill 引用了 L3（{pairs}），运行 deps 查看处理方式。")
 
 
 def cmd_restore(ctx: Ctx, snap: Path, dry: bool) -> None:
@@ -445,18 +449,23 @@ def cmd_find(ctx: Ctx, terms: list[str]) -> None:
     print(f"\n共 {len(rows)} 个。L1/L2/未分层可直接调用；L3 用 /<name>（Codex 用 $<name>）手动调用，或经所属 Hub 选用。")
 
 
-def skill_refs(text: str, name: str) -> bool:
-    """按 skill 引用语境判断：`name`、/name、$name，或与“skill”相邻；排除普通单词式的误报。"""
+@functools.lru_cache(maxsize=None)
+def _ref_pattern(name: str) -> "re.Pattern[str]":
+    # 预编译并缓存：L3 名称数 × 5 个模式远超 re 模块自带缓存（512），不缓存时 deps 需约 20 秒。
     n = re.escape(name)
     b = r"(?![\w-])"
-    pats = [
+    return re.compile("|".join([
         rf"`[/$]?{n}`",
         rf"[\"“]{n}[\"”]",
         rf"(?<![\w-])[/$]{n}{b}",
         rf"(?<![\w-]){n}{b}\s*(?:skill|Skill|技能)",
         rf"(?:skill|Skill|技能)\s*[:：]?\s*[`'\"“]?{n}{b}",
-    ]
-    return any(re.search(p, text) for p in pats)
+    ]))
+
+
+def skill_refs(text: str, name: str) -> bool:
+    """按 skill 引用语境判断：`name`、/name、$name，或与“skill”相邻；排除普通单词式的误报。"""
+    return name in text and _ref_pattern(name).search(text) is not None
 
 
 def deps_gaps(ctx: Ctx) -> dict[str, list[str]]:
@@ -494,6 +503,130 @@ def cmd_deps(ctx: Ctx) -> None:
           "\n已在全局规则写入回退规则时（见 status），这些调用也能经回退读取原文；仅手动调用的引用（如让用户输入 /name）无需处理。")
 
 
+SM_HOME = Path(os.environ.get("SKILLS_MANAGER_HOME", str(HOME / ".skills-manager")))
+_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv"}
+_GH_URL = re.compile(r"(?<![\w.-])github\.com/([A-Za-z0-9][\w.-]*)/([\w.-]+?)(?:\.git)?(?=[/\s)\"'`#?]|$)")
+
+
+def _origin_url(repo: Path) -> str | None:
+    cfg = repo / ".git" / "config"
+    if not cfg.exists():
+        return None
+    m = re.search(r'\[remote "origin"\][^\[]*?url\s*=\s*(\S+)', cfg.read_text(encoding="utf-8", errors="ignore"))
+    return m.group(1) if m else None
+
+
+def _fm_name(skill_md: Path) -> str | None:
+    m = re.match(r"---\s*\n(.*?)\n---", skill_md.read_text(encoding="utf-8", errors="ignore"), re.S)
+    n = m and re.search(r"^name:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", m.group(1), re.M)
+    return n.group(1) if n else None
+
+
+def _dir_digest(d: Path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    for root, dirs, files in os.walk(d):
+        dirs[:] = sorted(x for x in dirs if x not in _SKIP_DIRS)
+        for f in sorted(files):
+            if f == ".DS_Store":
+                continue
+            p = Path(root) / f
+            h.update(str(p.relative_to(d)).encode())
+            try:
+                h.update(p.read_bytes())
+            except OSError:
+                pass
+    return h.hexdigest()
+
+
+def _cache_index() -> dict[str, list[tuple[str, str, Path | None]]]:
+    """管理器已克隆的上游仓库中，按 skill 名称（目录名与 frontmatter name）索引 (url, subpath, 已检出目录或 None)。"""
+    idx: dict[str, list[tuple[str, str, Path | None]]] = {}
+    seen = set()
+    cache = SM_HOME / "cache" / "repos"
+    for repo in sorted(cache.iterdir()) if cache.is_dir() else []:
+        url = _origin_url(repo)
+        if not url:
+            continue
+        for root, dirs, files in os.walk(repo):
+            depth = len(Path(root).relative_to(repo).parts)
+            dirs[:] = [x for x in dirs if x not in _SKIP_DIRS and depth < 5]
+            if "SKILL.md" not in files:
+                continue
+            d = Path(root)
+            sub = str(d.relative_to(repo)) if d != repo else ""
+            if (url, sub) in seen:
+                continue
+            seen.add((url, sub))
+            for key in {d.name, _fm_name(d / "SKILL.md")} - {None}:
+                idx.setdefault(key, []).append((url, sub, d))
+        # 管理器常用稀疏克隆，只检出已安装的子目录；同仓其他 skill 从提交树补齐（不联网，未检出的无法比对内容）。
+        import subprocess
+        r = subprocess.run(
+            ["git", "-C", str(repo), "ls-tree", "-r", "--name-only", "HEAD"],
+            capture_output=True, text=True, env={**os.environ, "GIT_NO_LAZY_FETCH": "1"},
+        )
+        for line in r.stdout.splitlines() if r.returncode == 0 else []:
+            if not line.endswith("SKILL.md") or line.count("/") > 5:
+                continue
+            sub = line[: -len("/SKILL.md")] if "/" in line else ""
+            if (url, sub) in seen or any(p in _SKIP_DIRS for p in sub.split("/")):
+                continue
+            seen.add((url, sub))
+            idx.setdefault(Path(sub).name if sub else repo.name, []).append((url, sub, None))
+    return idx
+
+
+def _url_hints(d: Path) -> list[str]:
+    found: list[str] = []
+    for f in [d / "SKILL.md", *sorted(d.glob("README*")), d / "package.json", *sorted(d.glob("agents/*.yaml"))]:
+        if not f.is_file():
+            continue
+        for owner, repo in _GH_URL.findall(f.read_text(encoding="utf-8", errors="ignore")):
+            u = f"https://github.com/{owner}/{repo}"
+            if u not in found:
+                found.append(u)
+    return found[:3]
+
+
+def cmd_sources(ctx: Ctx) -> None:
+    """只读：找出管理器中以 import/local 方式安装、但能挂到上游 git 源的 skill。"""
+    import sqlite3
+    db = SM_HOME / "skills-manager.db"
+    if not db.exists():
+        die(f"未找到 skills-manager 数据库：{db}\n如管理器装在别处，请设置环境变量 SKILLS_MANAGER_HOME。")
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    rows = con.execute(
+        "select name, central_path, source_type from skills where source_type in ('import','local') order by name"
+    ).fetchall()
+    con.close()
+    idx = _cache_index()
+    matched, hinted, none = [], [], 0
+    for name, central, stype in rows:
+        d = Path(central)
+        cands = idx.get(name, [])
+        if cands:
+            local = _dir_digest(d) if d.is_dir() else ""
+            for url, sub, src in cands:
+                st = "上游未检出，未比对" if src is None else ("内容一致" if _dir_digest(src) == local else "内容不同")
+                matched.append((name, stype, url, sub, st))
+        elif d.is_dir() and (hints := _url_hints(d)):
+            hinted.append((name, stype, hints))
+        else:
+            none += 1
+    cli = "skills-manager-cli skills set-source"
+    print(f"import/local 类 skill 共 {len(rows)} 个。管理器对它们不检查更新，显示的 up_to_date 不代表与上游一致。")
+    print(f"\n[A] 本机上游缓存中有同名 skill（{len(matched)} 项；“内容不同”多为落后上游或本地改过；同名也可能是别家同名 skill，以 --dry-run 结果为准）：")
+    for name, stype, url, sub, st in matched:
+        print(f"  {name}（{stype}，{st}）\n    {cli} {name} --git-url {url} --subpath \"{sub}\" --dry-run")
+    print(f"\n[B] 文件中提到 GitHub 仓库，需人工确认是否为上游（{len(hinted)} 项）：")
+    for name, stype, hints in hinted:
+        print(f"  {name}（{stype}）：{'  '.join(hints)}")
+    print(f"\n[C] 无线索：{none} 项。")
+    print("\n[B] 中确认的仓库挂源后，管理器会缓存该仓库；重跑 sources，同仓其他 skill 会出现在 [A]。")
+    print("处理：先 --dry-run 核对 revision 与 content_changed，确认后去掉 --dry-run 加 --force；改源前备份库目录。")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="skill 三层 + 领域 Hub 分层工具")
     ap.add_argument("--manifest", default=str(ROOT / "manifest.json"))
@@ -503,6 +636,7 @@ def main() -> None:
     sub.add_parser("apply", help="写快照后按 manifest 改链并生成桩与 Hub")
     sub.add_parser("ensure", help="会话启动钩子用：有漂移才 apply，无漂移静默")
     sub.add_parser("deps", help="检查 L1 与未分层 skill 对 L3 的引用缺口")
+    sub.add_parser("sources", help="只读盘点 skills-manager 中可挂到上游 git 源的 import/local skill")
     f = sub.add_parser("find", help="按名称与描述查找 skill（含 L3），报告层级与调用方式")
     f.add_argument("terms", nargs="+")
     r = sub.add_parser("restore", help="按快照恢复发现目录的软链")
@@ -523,6 +657,8 @@ def main() -> None:
             print(f"weicoz-skill-tiers ensure 失败：{e}", file=sys.stderr)
     elif a.cmd == "deps":
         cmd_deps(ctx)
+    elif a.cmd == "sources":
+        cmd_sources(ctx)
     elif a.cmd == "find":
         cmd_find(ctx, a.terms)
     elif a.cmd == "restore":

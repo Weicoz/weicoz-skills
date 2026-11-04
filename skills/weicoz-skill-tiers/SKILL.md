@@ -1,6 +1,6 @@
 ---
 name: weicoz-skill-tiers
-version: 1.5.0
+version: 1.6.0
 description: skill 分层管理：L1 常驻、L2 短描述桩、L3 由领域 Hub 收纳并可手动 /name 调用，大幅减少常驻上下文的 skill 描述量。只改各 harness 发现目录的软链与生成文件，不改原 skill，Claude Code/Codex/DSH/Kimi/Grok/Antigravity 通用。用于“skill 太多占上下文”“调整或撤销分层”“新装 skill 后分层”“忘了某个 skill 叫什么／找不到某个 skill”“skill 调用被拒绝”。
 ---
 
@@ -32,14 +32,15 @@ L3 禁止模型自动调用。其他 skill 让模型调用某个 L3 skill 时，
 ## 操作
 
 ```bash
-T="<skill_dir>/scripts/skill_tiers.py"
-python3 "$T" ensure                # 会话启动钩子用：无漂移静默退出（约 0.5 秒），有漂移自动 apply 并输出一行
+T="$(readlink -f ~/.agents/skills/weicoz-skill-tiers)/scripts/skill_tiers.py"
+python3 "$T" ensure                # 会话启动钩子用：无漂移、无引用缺口时静默退出（约 0.5 秒）；有漂移自动 apply，有缺口报一行
 python3 "$T" status                # 健康检查：各目录体量、漂移、依赖缺口、全局回退规则、未分层清单
 python3 "$T" plan                  # 预演 apply，不改动
 python3 "$T" apply                 # 写快照 → 建 library → 生成桩与 Hub → 改链
 python3 "$T" deps                  # L1 与未分层 skill 对 L3 的引用
 python3 "$T" find <关键词...>      # 按名称与描述查找 skill（含 L3）：层级、所属 Hub、路径
 python3 "$T" restore <快照> [--dry-run]   # 恢复到快照时的软链；backups/baseline.json 即完全撤销
+python3 "$T" sources               # 只读：skills-manager 中可挂到上游 git 源的 import/local skill，附 set-source 命令
 ```
 
 ## 常见任务
@@ -94,5 +95,9 @@ manifest 字段：`discovery_dirs`（省略时用内置默认列表）、`global
 | 安装并部署新 skill | 新 skill 以原链接出现，进入未分层清单 | 写入 manifest 后 `apply` |
 | `skills check`/`update` | 更新库中原文，桩运行时读取最新原文 | 无；只有短描述需在 manifest 中按需更新 |
 
-- 新 skill 必须经管理器安装（`skills install`），让它记录来源以便更新；不要直接复制进库目录。
+- 新 skill 必须经管理器安装，让它记录 git 来源以便更新；不要直接复制进库目录。已验证的完整链路：
+  1. `skills-manager-cli skills install https://github.com/<owner>/<repo>/tree/<branch>/<subpath> --git`。`owner/repo/skill` 简写会被拼成 `<repo>/<skill>.git` 而 404。
+  2. 参照同类 skill 的 `skills status <name>`：对其 `presets` 逐个 `presets add-skill <预设> <name>`，对其 `deployed_to` 逐个 `skills deploy --agent <agent> <name>`。
+  3. 写入 manifest，再 `plan`、`apply`、`deps`。
+- import/local 类 skill 不受管理器更新检查，界面的 `up_to_date` 是默认值。用 `sources` 找出能挂源的，再 `skills set-source <name> --git-url <url> --subpath <路径> --dry-run` 核对，确认后加 `--force` 原地改源（保留预设与部署）。
 - 管理器显示的“已部署”只表示目标路径存在，不区分原链接与桩。
