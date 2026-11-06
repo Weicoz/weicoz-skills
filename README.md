@@ -2,7 +2,7 @@
 
 面向 AI Agent 与终端用户的自研技能集合（支持 DSH、Codex、Claude Code、Antigravity、Kimi Code）。
 
-每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **67 个 Skill**。
+每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **72 个 Skill**。
 
 ---
 
@@ -77,6 +77,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-pm-requirements-from-docs`](skills/weicoz-pm-requirements-from-docs/) | 1.0.0 | 把客户需求材料整理成 PM 可读的需求文档：业务模型、流程、身份、奖励、报价 |
 | [`weicoz-custom-feature-checklist`](skills/weicoz-custom-feature-checklist/) | 1.0.0 | 把沟通记录整理成可交付功能清单初稿，只留定制部分并区分待确认项 |
 | [`weicoz-briefing-script`](skills/weicoz-briefing-script/) | 1.0.0 | 把已定玩法资料整理成给产品/开发的内部讲解稿：例子讲规则、分工与难点、未定点 |
+| [`weicoz-client-model-explainer`](skills/weicoz-client-model-explainer/) | 1.0.0 | 用费曼技巧与 ASCII 图向零背景读者完整解释客户模式，保留功能、奖励、限制及冲突 |
 | [`weicoz-demand-mindmap-organizer`](skills/weicoz-demand-mindmap-organizer/) | 1.0.0 | 把沟通记录整理成客户可读需求导图，直接产出可打开的 .xmind 文件 |
 | [`weicoz-requirement-spec-writer`](skills/weicoz-requirement-spec-writer/) | 1.0.0 | 追问澄清需求边界，生成并持续维护 SPEC.md / PRD |
 | [`weicoz-project-quote-estimator`](skills/weicoz-project-quote-estimator/) | 1.0.0 | 生成可签约核对的逐项报价与第三方成本文档（含服务器、上架费） |
