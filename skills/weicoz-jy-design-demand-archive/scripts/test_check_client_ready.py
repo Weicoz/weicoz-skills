@@ -64,6 +64,15 @@ class MarkdownTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_confirm_item_without_invented_value(self) -> None:
+        result = self.check(
+            "# 功能清单\n展示奖励明细，计算口径见方案确认项第1条。\n\n"
+            "## 方案确认项\n- 第1条：奖励基数需和客户确认\n"
+            "  - 已知：用户授权按现有资料继续；资料没有金额依据。\n"
+            "  - 影响：本稿不测算该项金额。\n"
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_section_ends_at_next_heading(self) -> None:
         result = self.check(
             "# 方案\n见方案确认项第1条\n## 方案确认项\n- 第1条：比例\n## 结算\n结算周期待定\n"
