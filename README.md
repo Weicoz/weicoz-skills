@@ -6,12 +6,14 @@
 
 ---
 
+主仓库：[CNB](https://cnb.cool/jy-project/weicoz-skills)。保留 [GitHub](https://github.com/Weicoz/weicoz-skills) 与 [Codeberg](https://codeberg.org/jy_project/weicoz-skills) 远端。
+
 ## 快速开始
 
 **1. 克隆仓库**
 
 ```bash
-git clone https://codeberg.org/jy_project/weicoz-skills.git
+git clone https://cnb.cool/jy-project/weicoz-skills.git
 cd weicoz-skills
 ```
 
