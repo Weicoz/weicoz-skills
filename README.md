@@ -2,7 +2,7 @@
 
 面向 AI Agent 与终端用户的自研技能集合（支持 DSH、Codex、Claude Code、Antigravity、Kimi Code）。
 
-每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **70 个 Skill**。
+每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **71 个 Skill**。
 
 ---
 
@@ -60,6 +60,12 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 ## Skill 清单
 
 版本号取自各 `SKILL.md` frontmatter 的 `version` 字段。
+
+#### 游戏与串流诊断
+
+| Skill | 版本 | 说明 |
+| --- | --- | --- |
+| [`weicoz-gaming-optimization`](skills/weicoz-gaming-optimization/) | 1.0.0 | NVIDIA驱动、DLSS模型与逐游戏建议；可恢复A/B及串流验收；公开来源与本地现场附件分离 |
 
 #### 飞书与办公自动化
 
