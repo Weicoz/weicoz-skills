@@ -146,6 +146,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-agent-implement`](skills/weicoz-agent-implement/) | 1.2.0 | 把单张票据委派给编码代理实现，派单方监控与验收 |
 | [`weicoz-agent-implement-spec`](skills/weicoz-agent-implement-spec/) | 1.3.0 | 按依赖图编排整份规格，每票一个实现会话并统一合并验收 |
 | [`weicoz-multi-worktree-dev-v3`](skills/weicoz-multi-worktree-dev-v3/) | 1.0.0 | 多 worktree 隔离开发与精确集成，按风险分级验证（当前版本） |
+| [`weicoz-worktrunk`](skills/weicoz-worktrunk/) | 1.0.0 | 优先用 worktrunk（wt）替代 git worktree，按 .worktreeinclude 写时复制复用构建缓存，兼容各 harness |
 | [`weicoz-log-driven-ai-development`](skills/weicoz-log-driven-ai-development/) | 1.0.0 | 用日志把关键流程与结果变得可查，便于 AI 排查与验证 |
 | [`weicoz-ai-dev-os`](skills/weicoz-ai-dev-os/) | 1.0.0 | 安装或同步项目级 AI 开发治理、宪法、SDD 与架构护栏 |
 | [`weicoz-codex-context-window-override`](skills/weicoz-codex-context-window-override/) | 1.0.0 | 用 model_catalog_json 修改 Codex 上下文窗口，含备份与回滚 |
