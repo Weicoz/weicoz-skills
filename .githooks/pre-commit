@@ -32,6 +32,14 @@ if [[ -n "$(git diff --cached --name-only -- skills/weicoz-custom-feature-checkl
   done
 fi
 
+# 收款计划、字段语义和微信预检回归只在相关变更时执行。
+if [[ -n "$(git diff --cached --name-only -- skills/weicoz-feishu-receipt-base/ .githooks/pre-commit)" ]]; then
+  if ! python3 -m unittest discover -s skills/weicoz-feishu-receipt-base/scripts -p 'test_*.py'; then
+    printf '\n提交被拦截：收款业务回归未通过。\n' >&2
+    exit 1
+  fi
+fi
+
 if [[ -x scripts/sync-skills.sh ]] && ! scripts/sync-skills.sh --quiet >/dev/null 2>&1; then
   printf '\n提示：harness 软链有漂移，运行 ./scripts/sync-skills.sh --apply 修复（不阻止本次提交）。\n' >&2
 fi
