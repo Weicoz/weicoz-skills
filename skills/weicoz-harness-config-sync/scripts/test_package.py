@@ -11,6 +11,18 @@ package = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(package)
 
 
+def install(output, target, replace=()):
+    command = ['node', str(Path(__file__).with_name('install.mjs')), str(output)]
+    for rel in replace:
+        command += ['--replace', rel]
+    env = {**os.environ, 'HOME': str(target)}
+    preview = subprocess.run(command, env=env, capture_output=True)
+    if preview.returncode:
+        return preview
+    token = json.loads(preview.stdout)['plan_token']
+    return subprocess.run(command + ['--apply', '--plan', token], env=env, capture_output=True)
+
+
 class PackageSafety(unittest.TestCase):
     def test_windows_home_rewrite_does_not_rewrite_its_own_output(self):
         source = Path('/Users/developer')
@@ -27,9 +39,8 @@ class PackageSafety(unittest.TestCase):
             (source / '.zshrc').write_text('export API_KEY="source-key-do-not-copy"\nexport ZSH_THEME="ys"\n')
             (target / '.zshrc').write_text('export OPENAI_API_KEY="target-key-retain"\nexport PATH="$HOME/original/bin:$PATH"\n')
             output = root / 'output'
-            package.build(source, str(target), 'linux', output, shell=True, config=False)
-            result = subprocess.run(['node', str(Path(__file__).with_name('install.mjs')), str(output)],
-                                    env={**os.environ, 'HOME': str(target)}, capture_output=True)
+            package.build(source, str(target), os.sys.platform, output, shell=True, config=False)
+            result = install(output, target, ['.zshrc'])
             self.assertEqual(result.returncode, 0, result.stderr.decode())
             actual = (target / '.zshrc').read_text()
             self.assertNotIn('source-key-do-not-copy', actual)
@@ -66,8 +77,10 @@ class PackageSafety(unittest.TestCase):
             config = package.tomllib.loads((output / 'payload/.codex/config.toml').read_text())
             self.assertFalse(config['mcp_servers']['native-app']['enabled'])
             self.assertEqual(config['mcp_servers']['native-app']['env']['KEEP'], 'yes')
-            result = subprocess.run(['node', str(Path(__file__).with_name('install.mjs')), str(output)],
-                                    env={**os.environ, 'HOME': str(target)}, capture_output=True)
+            if os.sys.platform != 'linux':
+                output = root / 'native-output'
+                package.build(source, str(target), os.sys.platform, output, include_auth=True)
+            result = install(output, target)
             self.assertEqual(result.returncode, 0, result.stderr.decode())
             self.assertEqual((target / '.codex/sessions/existing.json').read_text(), 'existing work')
             self.assertEqual((target / '.codex/skills/demo').resolve(), (target / '.agents/skills/demo').resolve())

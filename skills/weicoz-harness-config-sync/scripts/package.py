@@ -9,6 +9,74 @@ import re
 import shutil
 import tarfile
 import tomllib
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
+
+def unique_mapping(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('配置存在重复字段，已停止打包')
+        result[key] = value
+    return result
+
+
+if yaml is not None:
+    class UniqueLoader(yaml.SafeLoader):
+        pass
+
+    def yaml_mapping(loader, node):
+        loader.flatten_mapping(node)
+        return unique_mapping(loader.construct_pairs(node))
+
+    UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, yaml_mapping)
+
+def secret_name(name):
+    if not isinstance(name, str):
+        return False
+    normalized = re.sub(r'[^a-z0-9]', '', name.lower())
+    return normalized.endswith(('apikey', 'accesstoken', 'authtoken', 'refreshtoken',
+                                'clientsecret', 'password', 'passwd', 'secret', 'authorization', 'privatekey')) or normalized == 'token'
+
+
+def embedded_credentials(data, suffix):
+    """只返回是否发现凭据，不把值带入异常或报告。"""
+    try:
+        text = data.decode('utf-8')
+    except UnicodeDecodeError:
+        return False
+    suffix = suffix.lower()
+    if suffix not in {'.json', '.toml', '.yaml', '.yml'}:
+        return False
+    def literal(value):
+        if value is None or value == '':
+            return False
+        return not isinstance(value, str) or not re.fullmatch(
+            r'(?:Bearer\s+)?(?:\$\{[A-Za-z_]\w*\}|\$[A-Za-z_]\w*|env:[A-Za-z_]\w*)', value)
+    seen = set()
+    def walk(value):
+        if isinstance(value, (dict, list)):
+            if id(value) in seen:
+                return False
+            seen.add(id(value))
+        if isinstance(value, dict):
+            return any((secret_name(k) and literal(v)) or walk(v) for k, v in value.items())
+        if isinstance(value, list):
+            return any(walk(v) for v in value)
+        return isinstance(value, str) and bool(re.search(r'https?://[^/\s:@]+:[^/\s@]+@', value))
+    if suffix == '.json':
+        return walk(json.loads(text, object_pairs_hook=unique_mapping))
+    if suffix == '.toml':
+        return walk(tomllib.loads(text))
+    if yaml is None:
+        raise ValueError('YAML 配置扫描需要 PyYAML；先安装本 Skill 的 scripts/requirements.txt')
+    try:
+        return walk(yaml.load(text, Loader=UniqueLoader))
+    except yaml.YAMLError:
+        raise ValueError('YAML 配置格式无效，已停止打包') from None
 
 CONFIG_FILES = (
     '.codex/config.toml', '.codex/auth.json', '.codex/hooks.json',
@@ -17,6 +85,7 @@ CONFIG_FILES = (
     '.hindsight/coding-agent.json', '.config/harness-notify/config.json',
     '.gemini/config/config.json', '.gemini/config/hooks.json',
     '.gemini/config/mcp_config.json', '.gemini/antigravity-cli/settings.json',
+    '.kimi-code/config.toml', '.kimi-code/mcp.json',
 )
 CONFIG_DIRS = (
     '.codex/hooks', '.codex/rules', '.codex/prompts', '.codex/agents',
@@ -24,7 +93,13 @@ CONFIG_DIRS = (
     '.dsh/.agent-presets', '.dsh/bin',
     '.hindsight/coding-agents', '.skills-manager/hooks', '.quicktui/bin',
     '.gemini/config/hooks', '.gemini/config/plugins',
+    '.kimi-code/hooks', '.kimi-code/agents',
 )
+AUTH_FILES = {'.codex/auth.json', '.dsh/.credentials.yaml'}
+PRIVATE_PREFIXES = ('.kimi-code/oauth', '.kimi-code/credentials', '.kimi-code/logs',
+                    '.gemini/brain', '.gemini/conversations', '.gemini/log', '.gemini/cache',
+                    '.gemini/antigravity-browser-profile', '.gemini/google_accounts.json',
+                    '.gemini/oauth_creds.json', '.gemini/antigravity-cli/antigravity-oauth-token')
 EXCLUDED_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', 'venv',
                  'sessions', 'memories', 'memories_v2', 'generated_images',
                  'attachments', 'backups', 'migration-backups', 'automations'}
@@ -40,8 +115,21 @@ def safe_relative(name):
     p = PurePosixPath(name)
     if p.is_absolute() or '..' in p.parts or '\\' in name or ':' in name:
         raise ValueError('目标路径必须位于用户目录内')
-    if any(part in EXCLUDED_DIRS | {'.ssh'} for part in p.parts):
+    parts = [part.casefold() for part in p.parts]
+    if any(part in EXCLUDED_DIRS | {'.ssh'} for part in parts):
         raise ValueError('路径包含个人数据或密钥目录')
+    lower = str(p).casefold()
+    if any(lower == item or lower.startswith(item + '/') for item in PRIVATE_PREFIXES) or parts[-1:] == ['history.jsonl']:
+        raise ValueError('路径包含个人运行数据或设备登录状态')
+    if not p.parts or parts[0] == '.claude' or str(p) == '.':
+        raise ValueError('路径不属于本次迁移范围')
+    standard_roots = {'.codex', '.dsh', '.gemini', '.kimi-code', '.agents', '.local', '.config',
+                      '.zshrc', '.zshenv', '.zprofile', '.p10k.zsh'}
+    if parts[0] in standard_roots and p.parts[0] != parts[0]:
+        raise ValueError('配置根入口必须使用标准大小写')
+    if any(part.endswith(('.', ' ')) or re.search(r'[\x00-\x1f]', part) or
+           re.fullmatch(r'(?i)(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?', part) for part in p.parts):
+        raise ValueError('路径含非跨平台文件名')
     return p
 
 
@@ -109,7 +197,19 @@ def portable_codex(text, platform, source=None, target=None):
 
 
 def build(source, target, platform, output, shell=False, config=True, extras=(), include_auth=False,
-          exclude_dsh_official_deepseek=False, skip_skills=False):
+          exclude_dsh_official_deepseek=False, skip_skills=False, source_id='default',
+          device_id='default', overlays=(), keep=(), versions=None, revision=None):
+    if not re.fullmatch(r'[A-Za-z0-9_.-]+', source_id) or not re.fullmatch(r'[A-Za-z0-9_.-]+', device_id):
+        raise ValueError('配置源与设备 ID 只能包含字母、数字、点、横线和下划线')
+    if revision is not None and not re.fullmatch(r'[A-Za-z0-9_.-]{1,80}', revision):
+        raise ValueError('配置版本只能包含字母、数字、点、横线和下划线，最长 80 字符')
+    versions = versions or {}
+    if not isinstance(versions, dict) or any(k not in {'codex', 'dsh', 'agy', 'kimi'} or
+            not isinstance(v, str) or not re.fullmatch(r'\d+\.\d+\.\d+[\w.+-]*', v) for k, v in versions.items()):
+        raise ValueError('CLI 版本必须是 codex/dsh/agy/kimi 的版本号映射')
+    keep = [str(safe_relative(p)) for p in keep]
+    def kept(rel):
+        return any(rel == p or rel.startswith(p + '/') for p in keep)
     source_raw = source.absolute()
     source = source.resolve()
     # 目标机器的用户目录可能经由软链访问（如 macOS /var → /private/var）；两种写法都要认。
@@ -122,6 +222,22 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
     stage.mkdir(mode=0o700)
     replacements = {}
     local_plugins = {}
+    destinations = {}
+    def check_case(rel):
+        for i in range(1, len(PurePosixPath(rel).parts) + 1):
+            prefix = '/'.join(PurePosixPath(rel).parts[:i])
+            previous = destinations.setdefault(prefix.casefold(), prefix)
+            if previous != prefix:
+                raise ValueError('目标路径存在大小写别名冲突')
+    overlay_files = {}
+    for overlay in overlays:
+        folder = Path(overlay).resolve(strict=True)
+        if not folder.is_dir():
+            raise ValueError('覆盖层必须是目录')
+        for item in folder.rglob('*'):
+            if item.is_file():
+                rel = str(safe_relative(item.relative_to(folder).as_posix()))
+                overlay_files[rel] = item
     if config:
         for profile in ('web', 'web-safe', 'headless', 'dsh-tui', 'desktop'):
             pkg = source / '.dsh/profiles' / profile / 'package.json'
@@ -141,6 +257,13 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
         if not src.exists() or excluded(src.name):
             return
         rel = str(safe_relative(rel))
+        check_case(rel)
+        if kept(rel):
+            return
+        if rel.casefold() in AUTH_FILES and not include_auth:
+            return
+        if rel in overlay_files and src != overlay_files[rel]:
+            return
         real = src.resolve()
         if real in active:
             raise ValueError('配置软链形成循环')
@@ -152,6 +275,9 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
             header_pattern = rb'(?m)^-----' + rb'BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{32,}'
             if re.search(header_pattern, data):
                 raise ValueError(f'拒绝私钥正文: {rel}')
+            has_credentials = embedded_credentials(data, Path(rel).suffix)
+            if not include_auth and has_credentials:
+                raise ValueError(f'配置含内嵌凭据，已停止打包：{rel}；使用目标覆盖层、--keep 或已授权的 --include-auth')
             dst = stage / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(rewrite(data, source_variants, target, replacements))
@@ -161,14 +287,14 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
     unavailable = []
     if config:
         for rel in CONFIG_FILES + CONFIG_DIRS:
-            if rel in {'.codex/auth.json', '.dsh/.credentials.yaml'} and not include_auth:
+            if rel in AUTH_FILES and not include_auth:
                 continue
             copy(source / rel, rel)
         for rel, src in local_plugins.items():
             copy(src, rel)
         # 每个 Harness 入口指向同一技能源；插件缓存软链在包内物化。
         # 目标机已有独立技能库时跳过技能正文，避免穿过目标端软链改写其技能仓。
-        for root in () if skip_skills else ('.agents/skills', '.codex/skills', '.dsh/skills'):
+        for root in () if skip_skills else ('.agents/skills', '.codex/skills', '.dsh/skills', '.kimi-code/skills'):
             folder = source / root
             if not folder.is_dir():
                 continue
@@ -210,7 +336,7 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
                 rel = f'.dsh/profiles/{profile}/{name}'
                 copy(source / rel, rel)
         # 全局 AGENTS 正文只有一个源；迁移后保留入口关系。
-        for root in ('.agents', '.codex', '.dsh', '.gemini'):
+        for root in ('.agents', '.codex', '.dsh', '.gemini', '.kimi-code'):
             src = source / root / 'AGENTS.md'
             if src.exists():
                 if not (stage / '.agents/AGENTS.md').exists():
@@ -265,12 +391,17 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
     for spec in extras:
         src, rel = spec.split('=', 1)
         copy(Path(src).expanduser(), rel)
+    # shortcut: 覆盖层按整文件合并；同文件字段差异大量增加时再引入格式专用合并器。
+    for rel, item in sorted(overlay_files.items()):
+        copy(item, rel)
     if shell:
         allowed = {'PATH', 'ZSH', 'ZSH_CUSTOM', 'ZSH_THEME', 'EDITOR', 'VISUAL', 'LANG',
                    'MANPATH', 'HISTFILE', 'HISTSIZE', 'SAVEHIST', 'BUN_INSTALL', 'PNPM_HOME', 'HEADROOM_SH_DIR'}
         secret = re.compile(r'(?i)(API_?KEY|ACCESS_TOKEN|AUTH_TOKEN|SECRET|PASSWORD|PASSWD|PRIVATE_KEY|SSH_KEY|AUTHORIZATION|claude-env\.sh)')
         for name in ('.zshenv', '.zprofile', '.zshrc', '.p10k.zsh'):
-            src = source / name
+            if kept(name):
+                continue
+            src = overlay_files.get(name, source / name)
             if not src.exists():
                 continue
             result = []
@@ -286,15 +417,33 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
             copy(source / rel, rel)
         ze = stage / '.zshenv'
         data = ze.read_text() if ze.exists() else ''
-        if '.local/bin' not in data:
+        if not kept('.zshenv') and '.local/bin' not in data:
             ze.write_text(data + '\nexport PATH="$HOME/.local/bin:$PATH"\n')
+    links = {p: v for p, v in links.items() if not kept(p)}
+    if skip_skills:
+        for root in ('.codex/skills', '.dsh/skills', '.kimi-code/skills'):
+            folder = source / root
+            if folder.is_dir():
+                for item in sorted(folder.iterdir()):
+                    if not kept(root + '/' + item.name):
+                        links[root + '/' + item.name] = '.agents/skills/' + item.name
+    for rel in links:
+        check_case(rel)
+        check_case(links[rel])
+        if (stage / rel).is_file():
+            raise ValueError(f'覆盖层与链接入口冲突：{rel}')
     manifest = {}
     for file in sorted(stage.rglob('*')):
         if file.is_file():
             rel = str(file.relative_to(stage))
             safe_relative(rel)
             manifest[rel] = {'sha256': hashlib.sha256(file.read_bytes()).hexdigest(), 'mode': file.stat().st_mode & 0o777}
-    metadata = {'files': manifest, 'links': links, 'platform': platform, 'target_home': target,
+    payload_id = hashlib.sha256(json.dumps({'files': manifest, 'links': links, 'keep': keep,
+                                          'versions': versions or {}}, sort_keys=True).encode()).hexdigest()
+    metadata = {'schema': 2, 'source_id': source_id, 'device_id': device_id, 'revision': revision or payload_id,
+                'payload_id': payload_id,
+                'versions': versions or {}, 'keep': keep,
+                'files': manifest, 'links': links, 'platform': platform, 'target_home': target,
                 'unavailable': unavailable, 'includes_personal_history': False,
                 'includes_login_files': bool(config and include_auth)}
     (output / 'manifest.json').write_text(json.dumps(metadata, ensure_ascii=False, indent=2))
@@ -302,6 +451,8 @@ def build(source, target, platform, output, shell=False, config=True, extras=(),
     with tarfile.open(output / 'payload.tgz', 'w:gz') as archive:
         archive.add(stage, arcname='payload')
     (output / 'payload.tgz').chmod(0o600)
+    for name in ('install.mjs', 'fixup-agy.mjs', 'check_links.py'):
+        shutil.copyfile(Path(__file__).with_name(name), output / name)
     print(json.dumps({'files': len(manifest), 'links': len(links), 'unavailable': unavailable}))
 
 
@@ -311,6 +462,12 @@ def main():
     p.add_argument('--target-home', required=True)
     p.add_argument('--platform', choices=('linux', 'darwin', 'win32'), required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--source-id', required=True, help='唯一配置源 ID；后续同步保持不变')
+    p.add_argument('--revision', required=True, help='公共配置版本；同批设备使用同一版本')
+    p.add_argument('--device-id', required=True, help='目标设备 ID')
+    p.add_argument('--overlay', action='append', default=[], help='按顺序覆盖的配置目录，后者优先')
+    p.add_argument('--keep', action='append', default=[], help='保留目标相对路径及其子路径，不打包源文件')
+    p.add_argument('--versions', type=Path, help='已盘点 CLI 版本 JSON：codex/dsh/agy/kimi')
     p.add_argument('--shell', action='store_true')
     p.add_argument('--shell-only', action='store_true')
     p.add_argument('--include-auth', action='store_true', help='用户已要求同步登录及模型凭据时使用')
@@ -323,7 +480,8 @@ def main():
     try:
         build(a.source_home, a.target_home.replace('\\', '/').rstrip('/'), a.platform,
               a.output, a.shell or a.shell_only, not a.shell_only, a.extra, a.include_auth,
-              a.exclude_dsh_official_deepseek, a.skip_skills)
+              a.exclude_dsh_official_deepseek, a.skip_skills, a.source_id, a.device_id,
+              a.overlay, a.keep, json.loads(a.versions.read_text()) if a.versions else None, a.revision)
     except (ValueError, OSError) as error:
         p.exit(1, f'错误：{error}\n')
 

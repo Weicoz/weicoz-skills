@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 目标端可用性收尾：停用目标缺少命令的 MCP 与 Hook，清理目标不存在的受信目录。
+// 目标端只读检查；修正项通过设备覆盖层重新打包，保持同步基线一致。
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 
 const home = os.homedir();
 const reportPath = process.argv[2] ? path.resolve(process.argv[2]) : null;
-const result = { platform: process.platform, home, mcp_disabled: [], hooks_disabled: [],
+const result = { mode: 'read-only', recommendations_only: true, platform: process.platform, home, mcp_disabled: [], hooks_disabled: [],
   trusted_workspaces_dropped: [], links_broken: [] };
 
 const which = command => {
@@ -41,7 +41,6 @@ if (fs.existsSync(mcpPath)) {
     server.disabled = true;
     result.mcp_disabled.push({ name, missing });
   }
-  fs.writeFileSync(mcpPath, JSON.stringify(config, null, 2) + '\n');
 }
 
 const hooksPath = path.join(home, '.gemini', 'config', 'hooks.json');
@@ -62,20 +61,15 @@ if (fs.existsSync(hooksPath)) {
     entry.enabled = false;
     result.hooks_disabled.push({ group, missing: [...missing] });
   }
-  fs.writeFileSync(hooksPath, JSON.stringify(hooks, null, 2) + '\n');
 }
 
 const settingsPath = path.join(home, '.gemini', 'antigravity-cli', 'settings.json');
 if (fs.existsSync(settingsPath)) {
   const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
   if (Array.isArray(settings.trustedWorkspaces)) {
-    const kept = settings.trustedWorkspaces.filter(dir => {
-      if (fs.existsSync(dir)) return true;
-      result.trusted_workspaces_dropped.push(dir);
-      return false;
-    });
-    settings.trustedWorkspaces = kept;
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+    for (const dir of settings.trustedWorkspaces) {
+      if (!fs.existsSync(dir)) result.trusted_workspaces_dropped.push(dir);
+    }
   }
 }
 

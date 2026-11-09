@@ -1,52 +1,58 @@
 ---
 name: weicoz-harness-config-sync
-version: 1.1.0
-description: 将 Codex、DSH、Antigravity CLI（agy）和 Shell 配置同步到用户指定机器，并安装对应平台的 CLI、插件及运行依赖。适用于换机、员工设备初始化、Linux 或 Windows 测试机配置迁移；保留模型、Hooks、MCP、插件，按用户要求迁移登录，排除个人会话和记忆。
+version: 2.0.0
+description: 按单一配置源同步 Codex、DSH、Antigravity CLI（agy）、Kimi Code 与可选 Shell 配置到指定设备，支持差异预览、冲突保护、设备覆盖层、备份回滚与状态核对。用于换机和多设备配置维护；排除个人历史，账号迁移需明确授权。
 ---
 
 # Harness 配置同步
 
-交付可运行的目标环境：配置与入口关系完整，CLI 和原生依赖符合目标平台，个人历史未导入。当前同步要求决定范围；安装包、配置哈希与真实请求分别验证。
+交付目标设备可运行的配置环境。公共配置版本相同，设备路径、代理和平台组件按设备覆盖；配置安装、CLI 可用性、模型真实请求分别验收。Claude Code 不在当前迁移范围。
 
-## 确定范围
+## 范围与边界
 
-- 从当前上下文、SSH 配置或 Herdr 保存机器中确认目标、用户、系统及实际数据根目录。用户已指定机器时直接核实连接，不再索要已有信息。
-- 模型配置、Hooks、MCP、插件源码、Skills、共用 AGENTS 和 Shell 配置属于可迁移层。登录文件及模型凭据仅在用户要求同步账号或已明确授权同一范围时加入。
-- Antigravity CLI 的实际入口是 `.gemini/config/{config.json,hooks.json,mcp_config.json,hooks,plugins,skills}`、`.gemini/antigravity-cli/settings.json` 和 `.gemini/AGENTS.md`；`.gemini/settings.json` 属于旧版 Gemini CLI，agy 不读它。`.gemini/` 下的 brain、conversations、history.jsonl、log、cache、antigravity-browser-profile 以及 google_accounts.json、oauth_creds.json、`antigravity-cli/antigravity-oauth-token` 属于排除层。
-- 会话、记忆、历史数据库、生成图片、附件、日志、定时任务、缓存、设备配对和 SSH 私钥属于排除层。目标已有工作保留；不把“不要同步历史”解释为“删除目标历史”。
-- 源和目标使用自定义数据根目录时，先核对真实入口。本脚本处理标准用户目录；其他根目录按实际布局适配暂存包及入口，避免生成第二套配置。
+- 从上下文、SSH 配置或 Herdr 保存机器核实目标、用户、系统及真实数据根目录。只操作指定设备；脚本默认处理标准用户目录，自定义根目录先按实际入口适配。
+- 配置层包含模型、Hooks、MCP、插件源码、Skills、共用 AGENTS。Shell 按需同步。个人会话、记忆、日志、数据库、附件、定时任务、设备配对与 SSH 私钥保持隔离；目标已有历史保留。
+- Kimi Code 使用 `.kimi-code/{config.toml,mcp.json,hooks,agents,skills,AGENTS.md}`；`oauth/`、`credentials/` 和个人历史不打包，OAuth 由用户在目标重新登录。旧版 `kimi-cli` 的 `.kimi/` 不作为新 Kimi Code 入口。
+- agy 使用 `.gemini/config/{config.json,hooks.json,mcp_config.json,hooks,plugins,skills}`、`.gemini/antigravity-cli/settings.json` 与 `.gemini/AGENTS.md`；旧 `.gemini/settings.json` 不属于 agy。其 OAuth、brain、conversations 与浏览器资料不打包。
+- 默认排除独立凭据文件，并拦截配置内嵌的已知凭据字段；发现明文凭据就停止，不回显值。使用无凭据设备覆盖文件、`--keep` 或明确授权后的 `--include-auth`。目标配置含凭据且本次未授权账号迁移时停止覆盖。Shell 保留目标原有 PATH、代理与凭据导出；函数和复杂加载器仍需人工检查。
 
-## 生成与安装
+## 配置基线与设备差异
 
-1. 盘点源版本、各 DSH profile、链接插件、MCP 可执行文件及 Hook 命令；盘点目标现有数据、空间、Node、Shell 和联网路径。只操作用户指定机器。
-2. 按源版本安装目标平台 CLI。macOS 二进制、`.venv` 和 `node_modules` 不跨平台复制。长期安装放入已核实的 Herdr pane；普通 SSH 用于本次盘点和文件传输。
-3. 用 [scripts/package.py](scripts/package.py) 生成私有暂存包。该脚本按白名单复制配置和源码、改写用户目录、记录 SHA-256，将各 Harness Skills/AGENTS 入口映射到同源。`--extra SOURCE=HOME_RELATIVE_DEST` 仅补充已盘点的插件代码或配置；运行数据不加入。
+选择一个配置维护源，用稳定的 `--source-id` 标识。公共配置更新后指定新的 `--revision`，同批设备使用同一版本；每台目标使用唯一的 `--device-id`。版本指公共配置，`payload_id` 指设备安装包的内容摘要。
+
+用重复的 `--overlay` 按“公共补充 → 系统 → 设备”顺序覆盖，后者优先。每层按用户目录相对路径组织文件。覆盖是整文件替换；同文件字段差异用目标专用完整配置，避免不透明合并。`--keep <相对路径>` 保留目标文件或目录，不打包对应源内容。源端撤下的受管路径只报告 `retained`，不自动删除。
+
+目标已有独立技能仓时用 `--skip-skills`；各 Harness 技能入口仍指向 `.agents/skills/<name>`，目标缺失的技能须先补齐。`--extra SOURCE=HOME_RELATIVE_DEST` 只补充已盘点的配置或插件源码，仍接受历史、私钥和凭据检查。
+
+## 打包、预览、安装
+
+1. 盘点源与目标 CLI 版本、DSH profiles、插件、MCP、Hook 命令、空间与网络。源端解析 YAML 需要 [scripts/requirements.txt](scripts/requirements.txt) 中的 PyYAML。按源版本安装目标平台 CLI 及原生依赖；macOS 二进制、`.venv`、`node_modules` 不跨平台复制。长期安装用已核实的 Herdr pane。跨平台细节见 [platforms.md](references/platforms.md)。
+2. 将已盘点版本写入私有 JSON（键为 `codex`、`dsh`、`agy`、`kimi`，值为版本号）。不把设备地址、凭据或迁移包写入公开仓库。
+3. 生成私有包：
 
 ```bash
 python3 "$skill_dir/scripts/package.py" \
-  --source-home "$sync_source_home" \
-  --target-home "$sync_target_home" \
-  --platform "$sync_target_platform" \
-  --output "$sync_private_run/package"
+  --source-home "$sync_source_home" --target-home "$sync_target_home" \
+  --platform "$sync_target_platform" --source-id "$sync_source_id" \
+  --revision "$sync_config_revision" --device-id "$sync_device_id" \
+  --versions "$sync_versions_json" --output "$sync_private_run/package"
 ```
 
-平台值为 `linux`、`darwin`、`win32`。用户要求 Shell 时加 `--shell`；仅 Shell 用 `--shell-only`。已授权账号迁移时加 `--include-auth`。目标机已有独立技能库（其 `~/.agents/skills/<name>` 本身是指向他处技能仓的软链）时加 `--skip-skills`：只同步配置，技能入口全部指向 `.agents/skills/<name>`，避免安装穿过目标软链改写其技能仓；缺失技能用 `--extra` 补。Shell 过滤凭据导出和凭据加载器，但仍需检查函数及语法；目标原有代理、PATH 和凭据导出按差异保留。
+平台为 `linux`、`darwin`、`win32`。加 `--shell` 同步 Shell；`--shell-only` 只同步 Shell。包包含 `payload.tgz`、manifest、安装与检查脚本；目标必须已安装 Node。
 
-4. 修改暂存包中的调用路径，完成 [跨平台适配](references/platforms.md)。改变包内容后重新计算 manifest 与压缩包。保留不可用组件定义，明确停用原因；不把停用解释为迁移成功。
-5. 将 `payload.tgz`、`manifest.json`、`install.mjs` 传到目标私有目录，解包到同目录。执行 `node install.mjs <目录>`。安装器先核对所有文件哈希，再逐项备份被覆盖的配置、写入文件和恢复链接。它不清理目标历史或旧备份。
-6. 同步 agy 时在目标执行 `node fixup-agy.mjs [报告路径]`。它按目标实际存在的命令停用缺命令的 MCP 与 Hook，删除目标不存在的 `trustedWorkspaces` 条目，并核对 `.gemini` 下的入口链接；报告 JSON 列出每项停用原因。停用项必须写入交付说明，不当作迁移成功。
-7. 在目标安装 DSH 各 profile 依赖及 MCP 命令。链接插件保留已构建源码及来源，核对其运行依赖。CLI 管理的核心包使用目标 DSH 安装，不复制源宿主的原生依赖。
+4. 将包传到目标私有目录并解压 `payload.tgz`。运行 `node install.mjs <包目录>`：默认只预览，不创建目标配置、状态或备份。预览列出更改、冲突、保留路径、停用项与 `plan_token`，不输出配置正文。
+5. 根据当前授权审查预览。首次覆盖已有配置或目标偏离上次基线时出现冲突；使用覆盖层保留目标差异，或对已明确选择覆盖的单一路径加 `--replace <相对路径>`，重新预览。不要批量接受未知改动；已有同范围授权无需重复询问。
+6. 使用相同参数与最新令牌应用：`node install.mjs <包目录> --apply --plan <plan_token>`。有冲突、包哈希错误、预览后目标变化、配置源/设备 ID 不符或父目录链接未核实时停止。安装先备份全部变更对象，再写入并验证；运行错误触发整批回滚。重复应用同一状态报告 `unchanged`。
 
-## 本机入口漂移检查
+`schema 1` 旧包不再直接安装；重新生成 `schema 2` 包。命令、冲突判据、恢复与报告约定见 [sync-contract.md](references/sync-contract.md)。
 
-改共用 AGENTS 后、迁移前后，以及怀疑某个 Harness 读到旧规则时，运行 `python3 scripts/check_links.py`。它只读核对各 Harness 的 `AGENTS.md` 入口与唯一维护源是否为同一文件（硬链接或软链接），分叉时退出码 1。常见成因是编辑器整文件替换保存，给维护源换了 inode。修复：备份旧入口后以 `ln -f <维护源> <入口>` 重新硬链接，再运行一次确认。维护源与入口清单可用 `HARNESS_AGENTS_SOURCE`、`HARNESS_AGENTS_ENTRIES`（以 `:` 分隔、相对 `HOME`）覆盖。
+## 验收与恢复
 
-## 验证与收尾
-
-- 对安装报告、模型/协议、MCP 名称与启用状态、插件清单、Shell 语法、Skills/AGENTS 链接逐项核对差异。默认源版本与目标版本匹配；偏差写明原因。
-- 用 Codex app-server 的 `hooks/list`、`skills/list` 检查实际注册与解析错误。路径或命令变更会改变 Hook 哈希；只迁移已授权且源端可信的相应 Hook 信任，不给未知新命令批量授权。
-- agy 用 `agy --version`、`agy mcp list`、`agy plugin list` 核对二进制哈希、MCP 启用状态与插件解析。`agy install` 只在目标 PATH 不含 `~/.local/bin` 时执行：它会改写 Shell 启动文件并清理别名。
-- 登录身份用脱敏布尔比较或实际请求验证，令牌与账号标识不回显。DSH 的各 profile `--dump-config` 验证解析；TUI 或 Web 的真实启动另验。
-- 用最小真实请求验证 Codex 和 DSH 的模型链路。测试时隔离通知及自动记忆写入，保持目标保存配置原样；测试结果不代表全部 MCP 和插件功能验收。
-- 验证本次包没有个人会话、记忆、图片或 SSH 私钥；保留目标已有数据。清理本次无用暂存包，保留用户要求的配置恢复点。用户明确取消本次备份时按其范围处理。
-- 交付每台机器的已完成项、已验证项、停用项与未验证项，并给私有报告路径。无需把机器地址、端口、凭据或迁移产物写入公开 Skill 仓库。
+- `node install.mjs --status` 只读核对受管文件与入口，报告配置版本、上次同步时间、漂移及保留项。
+- `node install.mjs --verify` 检查状态、CLI 版本和 Kimi `doctor`。缺 CLI、版本不符或配置检查失败返回非零；未提供版本基准时版本一致性标为未验证。此命令不调用模型，不发送通知。各设备报告保存在私有目录，用 `--collect <报告...>` 汇总，不主动连接其他设备。
+- `node fixup-agy.mjs [私有报告路径]` 只读发现缺命令的 MCP、Hook 与失效受信目录；修正写进设备覆盖层后重新打包，不在安装后静默改动受管文件。停用项单列，不当作功能验收成功。
+- 实际迁移时继续核对 Codex app-server 的 `hooks/list`、`skills/list`；DSH 各 profile 的依赖与配置解析；agy 的 MCP、插件；Kimi 的配置、MCP 与技能入口。Hook 信任只迁移已授权且源端可信的命令。
+- 最小真实请求分别验证四个 Harness 的模型链路，隔离通知和自动记忆写入；只输出脱敏结果。CLI、模型请求和全部插件功能分开报告，不能用其中一项代替其他项。
+- 用 `node install.mjs --rollback <恢复点ID>` 恢复当前最新同步。回滚前再次检查目标改动；有新改动则停止保护现场。进程崩溃后保留事务日志和锁，确认没有运行进程后处理锁，再按报告恢复；不自动抢占锁或清理备份。
+- 改共用 AGENTS 或怀疑入口漂移时运行 `python3 scripts/check_links.py`。此检查只读，源与入口清单可用原有 `HARNESS_AGENTS_SOURCE`、`HARNESS_AGENTS_ENTRIES` 覆盖。发现分叉后备份旧入口、恢复同源链接并重验。
+- 交付每台设备的安装结果、验证范围、停用项、未验证项与私有恢复点。保留已有工作和历史备份；只清理本次无用暂存包。
