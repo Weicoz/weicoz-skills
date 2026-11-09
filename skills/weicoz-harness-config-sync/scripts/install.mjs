@@ -92,6 +92,7 @@ function credentials(bytes, rel) {
   rel = rel.toLowerCase();
   if (!/\.(json|toml|ya?ml)$/.test(rel)) return false;
   const text = bytes.toString('utf8');
+  if (!text.trim()) return false;
   const key = name => {
     const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
     return /(?:apikey|accesstoken|authtoken|refreshtoken|clientsecret|bottoken|bearertoken|devicekey|password|passwd|secret|authorization|privatekey)$/.test(normalized) || normalized === 'token';
@@ -165,10 +166,12 @@ function inspectState(state) {
     drift, unavailable: state?.unavailable ?? [], retained: state?.retained ?? [] };
 }
 function probeCLI(command, args) {
-  check(['codex', 'dsh', 'agy', 'kimi'].includes(command) && args.length === 1 && ['--version', 'doctor'].includes(args[0]), '只接受固定 CLI 检查');
+  const allowed = (args.length === 1 && args[0] === '--version') ||
+    (command === 'kimi' && equal(args, ['doctor', 'config']));
+  check(['codex', 'dsh', 'agy', 'kimi'].includes(command) && allowed, '只接受固定 CLI 检查');
   const options = { encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024 };
   // Windows 的 npm .cmd 入口通过系统命令解释器启动；命令和参数均为固定白名单。
-  return process.platform === 'win32' ? spawnSync('cmd.exe', ['/d', '/s', '/c', `${command} ${args[0]}`], options) : spawnSync(command, args, options);
+  return process.platform === 'win32' ? spawnSync('cmd.exe', ['/d', '/s', '/c', `${command} ${args.join(' ')}`], options) : spawnSync(command, args, options);
 }
 function verify(state) {
   const result = inspectState(state);
@@ -183,7 +186,7 @@ function verify(state) {
   }
   let kimiDoctor = null;
   if (versions.kimi?.ok) {
-    const p = probeCLI('kimi', ['doctor']);
+    const p = probeCLI('kimi', ['doctor', 'config']);
     kimiDoctor = p.status === 0;
   }
   return { ...result, versions, kimi_doctor: kimiDoctor, model_requests: '未验证',

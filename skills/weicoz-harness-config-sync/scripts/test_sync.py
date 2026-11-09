@@ -278,7 +278,7 @@ class DeviceSync(unittest.TestCase):
     def test_windows_cli_shim_and_v_prefixed_versions(self):
         self.apply(self.build(versions={'codex': '9.9.9', 'kimi': '9.9.9'}))
         preload = self.root / 'windows-probes.mjs'
-        preload.write_text("import cp from 'node:child_process'; import {syncBuiltinESMExports} from 'node:module'; Object.defineProperty(process,'platform',{value:'win32'}); cp.spawnSync=(command,args)=>{if(command!=='cmd.exe'||!['codex --version','kimi --version','kimi doctor'].includes(args.at(-1)))throw new Error('unexpected probe');return {status:0,stdout:'tool v9.9.9\\n'};};syncBuiltinESMExports();\n")
+        preload.write_text("import cp from 'node:child_process'; import {syncBuiltinESMExports} from 'node:module'; Object.defineProperty(process,'platform',{value:'win32'}); cp.spawnSync=(command,args)=>{if(command!=='cmd.exe'||!['codex --version','kimi --version','kimi doctor config'].includes(args.at(-1)))throw new Error('unexpected probe');return {status:0,stdout:'tool v9.9.9\\n'};};syncBuiltinESMExports();\n")
         result = self.run_cli(['--verify'], preload=preload)
         self.assertEqual(result['version_parity'], '已验证')
 
@@ -303,6 +303,14 @@ class DeviceSync(unittest.TestCase):
         (output / 'payload/.kimi-code/config.toml').rename(p / 'config')
         (output / 'manifest.json').write_text(json.dumps(manifest))
         self.run_cli([output], ok=False)
+
+    def test_empty_target_json_is_previewable_and_replaceable(self):
+        self.put(self.target, '.kimi-code/mcp.json', '')
+        output = self.build()
+        plan = self.run_cli([output])
+        self.assertIn('.kimi-code/mcp.json', plan['conflicts'])
+        self.apply(output, ['.kimi-code/mcp.json'])
+        self.assertEqual(json.loads((self.target / '.kimi-code/mcp.json').read_text()), {'mcpServers': {}})
         self.assertFalse((self.target / '.ssh').exists())
 
     def test_collect_preserves_pending_and_checked_at(self):

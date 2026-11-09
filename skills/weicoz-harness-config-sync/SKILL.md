@@ -1,6 +1,6 @@
 ---
 name: weicoz-harness-config-sync
-version: 2.0.1
+version: 2.0.2
 description: 按单一配置源同步 Codex、DSH、Antigravity CLI（agy）、Kimi Code 与可选 Shell 配置到指定设备，支持差异预览、冲突保护、设备覆盖层、备份回滚与状态核对。用于换机和多设备配置维护；排除个人历史，账号迁移需明确授权。
 ---
 
@@ -50,7 +50,7 @@ python3 "$skill_dir/scripts/package.py" \
 ## 验收与恢复
 
 - `node install.mjs --status` 只读核对受管文件与入口，报告配置版本、上次同步时间、漂移及保留项。
-- `node install.mjs --verify` 检查状态、CLI 版本和 Kimi `doctor`。缺 CLI、版本不符或配置检查失败返回非零；未提供版本基准时版本一致性标为未验证。此命令不调用模型，不发送通知。各设备报告保存在私有目录，用 `--collect <报告...>` 汇总，不主动连接其他设备。
+- `node install.mjs --verify` 检查状态、CLI 版本和 Kimi `doctor config`。缺 CLI、版本不符或配置检查失败返回非零；未提供版本基准时版本一致性标为未验证。此命令不调用模型，不发送通知。各设备报告保存在私有目录，用 `--collect <报告...>` 汇总，不主动连接其他设备。
 - `node fixup-agy.mjs [私有报告路径]` 只读发现缺命令的 MCP、Hook 与失效受信目录；修正写进设备覆盖层后重新打包，不在安装后静默改动受管文件。停用项单列，不当作功能验收成功。
 - 实际迁移时继续核对 Codex app-server 的 `hooks/list`、`skills/list`；DSH 各 profile 的依赖与配置解析；agy 的 MCP、插件；Kimi 的配置、MCP 与技能入口。Hook 信任只迁移已授权且源端可信的命令。
 - 最小真实请求分别验证四个 Harness 的模型链路，隔离通知和自动记忆写入；只输出脱敏结果。CLI、模型请求和全部插件功能分开报告，不能用其中一项代替其他项。

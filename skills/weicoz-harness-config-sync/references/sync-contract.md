@@ -41,6 +41,6 @@ node install.mjs --collect 设备状态报告.json ...
 
 ## 验证边界
 
-`--status` 核对文件摘要、权限和入口关系。`--verify` 增加固定 CLI 的 `--version` 和 Kimi `doctor`，捕获输出但不回显配置正文；没有版本基准则版本一致性未验证。`--collect` 只汇总调用方提供的报告，报告时间代表采集时间，不代表设备此刻在线。
+`--status` 核对文件摘要、权限和入口关系。`--verify` 增加固定 CLI 的 `--version` 和 Kimi `doctor config`，捕获输出但不回显配置正文；没有版本基准则版本一致性未验证。`--collect` 只汇总调用方提供的报告，报告时间代表采集时间，不代表设备此刻在线。
 
 模型网络链路、登录身份、Hook 实际执行、全部 MCP/插件功能与桌面 UI 由迁移 Agent 在已授权目标另验。真实请求分别保留 `chat` 或 `respond` 等源协议，不擅自切换模型或协议。
