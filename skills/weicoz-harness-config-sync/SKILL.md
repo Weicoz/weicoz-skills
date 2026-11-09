@@ -1,6 +1,6 @@
 ---
 name: weicoz-harness-config-sync
-version: 2.0.3
+version: 2.0.4
 description: 按单一配置源同步 Codex、DSH、Antigravity CLI（agy）、Kimi Code 与可选 Shell 配置到指定设备，支持差异预览、冲突保护、设备覆盖层、备份回滚与状态核对。用于换机和多设备配置维护；排除个人历史，账号迁移需明确授权。
 ---
 
@@ -27,7 +27,7 @@ description: 按单一配置源同步 Codex、DSH、Antigravity CLI（agy）、K
 
 ## 打包、预览、安装
 
-1. 盘点源与目标 CLI 版本、DSH profiles、插件、MCP、Hook 命令、空间与网络。源端解析 YAML 需要 [scripts/requirements.txt](scripts/requirements.txt) 中的 PyYAML。按源版本安装目标平台 CLI 及原生依赖；macOS 二进制、`.venv`、`node_modules` 不跨平台复制。长期安装用已核实的 Herdr pane。跨平台细节见 [platforms.md](references/platforms.md)。
+1. 盘点源与目标 CLI 版本、DSH profiles、插件、MCP、Hook 命令、空间与网络。源端解析 YAML 需要 [scripts/requirements.txt](scripts/requirements.txt) 中的 PyYAML。列出目标缺失的插件及其依赖、用途、安装来源和影响，询问用户是否同步；仅安装用户同意的项目，已对具体项目授权时无需重复询问。安装命令可能同时拉取整个 profile 和传递依赖，先展示实际安装范围；若无法限定在已选范围，说明扩大内容并取得同意。用户跳过或尚未选择时，不安装这些依赖；不依赖它们的配置同步可以继续，并在验收中列出缺失项及受影响功能。按授权安装目标平台 CLI 及原生依赖；macOS 二进制、`.venv`、`node_modules` 不跨平台复制。长期安装用已核实的 Herdr pane。跨平台细节见 [platforms.md](references/platforms.md)。
 2. 将已盘点版本写入私有 JSON（键为 `codex`、`dsh`、`agy`、`kimi`，值为版本号）。不把设备地址、凭据或迁移包写入公开仓库。
 3. 生成私有包：
 
