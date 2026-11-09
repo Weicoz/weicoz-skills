@@ -314,6 +314,27 @@ class DeviceSync(unittest.TestCase):
         self.assertEqual(summary['pending'], ['incomplete'])
         self.assertEqual(summary['checked_at'], status['checked_at'])
 
+    def test_notification_pairing_is_not_migrated_even_with_model_auth(self):
+        self.put(self.source, '.config/harness-notify/config.json', '{"channels":{"phone":{"deviceKey":"fixture-pairing"}}}')
+        output = self.build(include_auth=True)
+        files = json.loads((output / 'manifest.json').read_text())['files']
+        self.assertNotIn('.config/harness-notify/config.json', files)
+        for key in ('deviceKey', 'botToken', 'bearerToken'):
+            self.assertTrue(package.embedded_credentials(json.dumps({key: 'fixture-secret'}).encode(), '.json'))
+        with self.assertRaises(ValueError):
+            self.build(include_auth=True, extras=[str(self.source / '.config/harness-notify/config.json') + '=.config/harness-notify/config.json'])
+        overlay = self.root / 'notification-overlay'
+        self.put(overlay, '.config/harness-notify/config.json', '{"deviceKey":"fixture-pairing"}')
+        with self.assertRaises(ValueError):
+            self.build(include_auth=True, overlays=[overlay])
+        manifest_path = output / 'manifest.json'
+        manifest = json.loads(manifest_path.read_text())
+        manifest['files']['.config/harness-notify/config.json'] = manifest['files'].pop('.kimi-code/mcp.json')
+        dest = output / 'payload/.config/harness-notify';dest.mkdir(parents=True)
+        (output / 'payload/.kimi-code/mcp.json').rename(dest / 'config.json')
+        manifest_path.write_text(json.dumps(manifest))
+        self.run_cli([output], ok=False)
+
 
 if __name__ == '__main__':
     unittest.main()

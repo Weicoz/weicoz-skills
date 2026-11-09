@@ -1,6 +1,6 @@
 ---
 name: weicoz-harness-config-sync
-version: 2.0.0
+version: 2.0.1
 description: 按单一配置源同步 Codex、DSH、Antigravity CLI（agy）、Kimi Code 与可选 Shell 配置到指定设备，支持差异预览、冲突保护、设备覆盖层、备份回滚与状态核对。用于换机和多设备配置维护；排除个人历史，账号迁移需明确授权。
 ---
 
@@ -12,6 +12,7 @@ description: 按单一配置源同步 Codex、DSH、Antigravity CLI（agy）、K
 
 - 从上下文、SSH 配置或 Herdr 保存机器核实目标、用户、系统及真实数据根目录。只操作指定设备；脚本默认处理标准用户目录，自定义根目录先按实际入口适配。
 - 配置层包含模型、Hooks、MCP、插件源码、Skills、共用 AGENTS。Shell 按需同步。个人会话、记忆、日志、数据库、附件、定时任务、设备配对与 SSH 私钥保持隔离；目标已有历史保留。
+- 通知渠道沿用目标配置；不默认复制 `harness-notify/config.json` 中的设备配对与收件人设置，账号迁移也不包含它。
 - Kimi Code 使用 `.kimi-code/{config.toml,mcp.json,hooks,agents,skills,AGENTS.md}`；`oauth/`、`credentials/` 和个人历史不打包，OAuth 由用户在目标重新登录。旧版 `kimi-cli` 的 `.kimi/` 不作为新 Kimi Code 入口。
 - agy 使用 `.gemini/config/{config.json,hooks.json,mcp_config.json,hooks,plugins,skills}`、`.gemini/antigravity-cli/settings.json` 与 `.gemini/AGENTS.md`；旧 `.gemini/settings.json` 不属于 agy。其 OAuth、brain、conversations 与浏览器资料不打包。
 - 默认排除独立凭据文件，并拦截配置内嵌的已知凭据字段；发现明文凭据就停止，不回显值。使用无凭据设备覆盖文件、`--keep` 或明确授权后的 `--include-auth`。目标配置含凭据且本次未授权账号迁移时停止覆盖。Shell 保留目标原有 PATH、代理与凭据导出；函数和复杂加载器仍需人工检查。

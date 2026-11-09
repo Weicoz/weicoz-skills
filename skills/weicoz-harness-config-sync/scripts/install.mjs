@@ -11,7 +11,7 @@ const stateRel = '.local/state/harness-config-sync';
 const root = path.join(home, stateRel);
 const statePath = path.join(root, 'state.json');
 const deny = new Set(['.ssh', 'sessions', 'memories', 'memories_v2', 'generated_images', 'attachments', 'automations']);
-const privatePrefixes = ['.kimi-code/oauth', '.kimi-code/credentials', '.kimi-code/logs', '.gemini/brain',
+const privatePrefixes = ['.kimi-code/oauth', '.kimi-code/credentials', '.kimi-code/logs', '.config/harness-notify/config.json', '.gemini/brain',
   '.gemini/conversations', '.gemini/log', '.gemini/cache', '.gemini/antigravity-browser-profile',
   '.gemini/google_accounts.json', '.gemini/oauth_creds.json', '.gemini/antigravity-cli/antigravity-oauth-token'];
 const digest = data => crypto.createHash('sha256').update(data).digest('hex');
@@ -94,7 +94,7 @@ function credentials(bytes, rel) {
   const text = bytes.toString('utf8');
   const key = name => {
     const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return /(?:apikey|accesstoken|authtoken|refreshtoken|clientsecret|password|passwd|secret|authorization|privatekey)$/.test(normalized) || normalized === 'token';
+    return /(?:apikey|accesstoken|authtoken|refreshtoken|clientsecret|bottoken|bearertoken|devicekey|password|passwd|secret|authorization|privatekey)$/.test(normalized) || normalized === 'token';
   };
   if (rel.endsWith('.json')) {
     const walk = v => Array.isArray(v) ? v.some(walk) : v && typeof v === 'object' ?

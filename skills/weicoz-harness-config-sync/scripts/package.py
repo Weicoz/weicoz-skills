@@ -39,7 +39,8 @@ def secret_name(name):
         return False
     normalized = re.sub(r'[^a-z0-9]', '', name.lower())
     return normalized.endswith(('apikey', 'accesstoken', 'authtoken', 'refreshtoken',
-                                'clientsecret', 'password', 'passwd', 'secret', 'authorization', 'privatekey')) or normalized == 'token'
+                                'clientsecret', 'bottoken', 'bearertoken', 'devicekey',
+                                'password', 'passwd', 'secret', 'authorization', 'privatekey')) or normalized == 'token'
 
 
 def embedded_credentials(data, suffix):
@@ -82,7 +83,7 @@ CONFIG_FILES = (
     '.codex/config.toml', '.codex/auth.json', '.codex/hooks.json',
     '.codex/keybindings.json', '.codex/herdr-agent-state.sh',
     '.dsh/cordis.patch.yml', '.dsh/.credentials.yaml',
-    '.hindsight/coding-agent.json', '.config/harness-notify/config.json',
+    '.hindsight/coding-agent.json',
     '.gemini/config/config.json', '.gemini/config/hooks.json',
     '.gemini/config/mcp_config.json', '.gemini/antigravity-cli/settings.json',
     '.kimi-code/config.toml', '.kimi-code/mcp.json',
@@ -97,6 +98,7 @@ CONFIG_DIRS = (
 )
 AUTH_FILES = {'.codex/auth.json', '.dsh/.credentials.yaml'}
 PRIVATE_PREFIXES = ('.kimi-code/oauth', '.kimi-code/credentials', '.kimi-code/logs',
+                    '.config/harness-notify/config.json',
                     '.gemini/brain', '.gemini/conversations', '.gemini/log', '.gemini/cache',
                     '.gemini/antigravity-browser-profile', '.gemini/google_accounts.json',
                     '.gemini/oauth_creds.json', '.gemini/antigravity-cli/antigravity-oauth-token')
