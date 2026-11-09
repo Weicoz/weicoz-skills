@@ -18,11 +18,16 @@ FIELDS = {
 }
 NET_FORMULA = "[已收款项]-[已返点渠道]-[待返渠道款]-[已转款莞云/其他]-[待转莞云/其他]"
 RECEIVABLE_FORMULA = 'IF(ISBLANK([收款总额/项目金额]),"",[收款总额/项目金额]-[已收款项])'
+BUSINESS_BINDING_FORMULA = 'IF(ISBLANK([关联项目]),[业务（手填）]&"",[关联项目].[业务].UNIQUE().ARRAYJOIN("、"))'
 MONEY_FIELDS = ("received", "channel_paid", "channel_due", "other_paid", "other_due")
 
 
 class CheckError(ValueError):
     pass
+
+
+def business_binding_formula(link_field):
+    return f'IF(ISBLANK([{link_field}]),[业务（手填）]&"",[{link_field}].[业务].UNIQUE().ARRAYJOIN("、"))'
 
 
 def money(value):
@@ -65,6 +70,8 @@ def business(value):
 
 def audit_business(snapshot):
     projects = {p["id"]: p for p in snapshot["projects"]}
+    flow_schema = {f["name"]: f for f in snapshot.get("schema", {}).get("flow", [])}
+    business_is_formula = flow_schema.get("业务", {}).get("type") == "formula"
     issues = []
     for flow in snapshot["flows"]:
         links = flow.get("project_ids", [flow["project_id"]] if flow.get("project_id") else [])
@@ -74,6 +81,9 @@ def audit_business(snapshot):
             raise CheckError("项目单值与关联列表不一致")
         code = None
         if not links:
+            if business_is_formula and business(flow.get("business")) != business(flow.get("business_manual")):
+                issues.append({"flow_id": flow.get("id", flow.get("source_id")),
+                               "project_ids": links, "issue": "manual_business_mismatch"})
             continue  # 无项目的历史手填业务不自动覆盖。
         if len(links) != 1:
             code = "multiple_projects"
@@ -126,12 +136,23 @@ def validate_schema(before, current):
     if {k: v for k, v in actual.items() if v} != expected:
         raise CheckError("实收公式漏扣或重复扣除了已付/待付金额")
     flow_fields = {f["name"]: f for f in current["flow"]}
-    if flow_fields.get("业务", {}).get("type") not in ("select", "formula"):
+    flow_business = flow_fields.get("业务", {})
+    if flow_business.get("type") not in ("select", "formula"):
         raise CheckError("流水业务字段缺失或类型需核实")
+    if flow_business.get("type") == "formula":
+        expression = re.sub(r"\s+", "", flow_business.get("expression", ""))
+        backup = flow_fields.get("业务（手填）", {})
+        link_fields = [f["name"] for f in current["flow"] if f["type"] == "link"]
+        if len(link_fields) != 1 or expression != re.sub(r"\s+", "", business_binding_formula(link_fields[0])):
+            raise CheckError("流水业务公式与项目联动规则不符")
+        if backup.get("type") != "select" or backup.get("multiple", False):
+            raise CheckError("流水业务手填备份字段缺失或类型不符")
     for name, kind in {"交易对象": "text", "变动日期": "datetime", "资金变动": "number",
-                       "变动类型": "select", "项目收款表": "link", "备注": "text"}.items():
+                       "变动类型": "select", "备注": "text"}.items():
         if name not in flow_fields or flow_fields[name]["type"] != kind:
             raise CheckError("流水字段缺失或类型不符")
+    if sum(f["type"] == "link" for f in current["flow"]) != 1:
+        raise CheckError("流水项目关联字段不唯一，需人工核对")
     choices = {o["name"] for o in flow_fields["变动类型"].get("options", [])}
     if not {"款项入账", "返点渠道", "转款莞云"}.issubset(choices):
         raise CheckError("流水分类选项缺失；不能靠写记录自动创建选项")

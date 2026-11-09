@@ -9,7 +9,7 @@ import sys
 import tempfile
 import time
 
-from receipt_guard import CheckError, FIELDS, business
+from receipt_guard import CheckError, FIELDS, business, business_binding_formula
 
 
 def invoke(args):
@@ -87,13 +87,28 @@ class Reader:
             raise CheckError("项目业务字段缺失，不能核对业务归属")
         projects = self.records("project", [n for n in ("项目", "客户/渠道公司", "业务", *FIELDS.values()) if n in project_names])
         flow_names = {f["name"] for f in schema["flow"]}
-        needed = ("交易对象", "变动日期", "资金变动", "变动类型", "项目收款表", "业务")
+        flow_fields = {f["name"]: f for f in schema["flow"]}
+        link_fields = [f["name"] for f in schema["flow"] if f["type"] == "link"]
+        if len(link_fields) != 1:
+            raise CheckError("流水项目关联字段不唯一，需人工核对")
+        link_field = link_fields[0]
+        business_field = flow_fields.get("业务", {})
+        business_is_formula = business_field.get("type") == "formula"
+        if business_is_formula:
+            if business_field.get("expression", "").replace(" ", "") != business_binding_formula(link_field).replace(" ", ""):
+                raise CheckError("流水业务公式与项目联动规则不符")
+            backup = flow_fields.get("业务（手填）", {})
+            if backup.get("type") != "select" or backup.get("multiple", False):
+                raise CheckError("流水业务手填备份字段缺失或类型不符")
+        needed = ("交易对象", "变动日期", "资金变动", "变动类型", link_field, "业务")
+        if business_is_formula:
+            needed += ("业务（手填）",)
         if not set(needed).issubset(flow_names):
             raise CheckError("流水字段变化，先核对字段语义")
         flows = self.records("flow", needed)
         normalized_flows = []
         for row in flows:
-            kinds, links = row["变动类型"] or [], row["项目收款表"] or []
+            kinds, links = row["变动类型"] or [], row[link_field] or []
             if isinstance(kinds, str):
                 kinds = [kinds]
             if len(kinds) != 1:
@@ -103,7 +118,9 @@ class Reader:
                                      "amount": row["资金变动"], "type": kinds[0],
                                      "project_id": links[0]["id"] if len(links) == 1 else None,
                                      "project_ids": [link["id"] for link in links],
-                                     "business": list(business(row.get("业务")))})
+                                     "business": list(business(row.get("业务"))),
+                                     "business_manual": list(business(row.get("业务（手填）")))
+                                     if business_is_formula else []})
         return {"schema": schema, "projects": [{"id": p["id"], "name": p.get("项目"),
                 "business": list(business(p.get("业务"))),
                 **{role: p.get(name) for role, name in FIELDS.items()}} for p in projects],

@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from receipt_guard import (CheckError, FIELDS, NET_FORMULA, RECEIVABLE_FORMULA,
+from receipt_guard import (BUSINESS_BINDING_FORMULA, CheckError, FIELDS, NET_FORMULA, RECEIVABLE_FORMULA,
                            audit_business, money, net, validate, validate_money, verify)
 
 
@@ -17,7 +17,7 @@ def fixture():
     fields.append({"id": "project_business", "name": "业务", "type": "select", "multiple": False})
     flow_fields = [{"id": "flow_" + str(i), "name": name, "type": kind}
                    for i, (name, kind) in enumerate({"交易对象": "text", "变动日期": "datetime",
-                   "资金变动": "number", "变动类型": "select", "项目收款表": "link", "备注": "text", "业务": "select"}.items())]
+                   "资金变动": "number", "变动类型": "select", "关联项目": "link", "备注": "text", "业务": "select"}.items())]
     next(f for f in flow_fields if f["name"] == "变动类型")["options"] = [
         {"name": n} for n in ("款项入账", "返点渠道", "转款莞云")]
     schema = {"project": fields, "flow": flow_fields}
@@ -217,6 +217,38 @@ class BusinessChecks(unittest.TestCase):
         after["flows"][0]["business"] = "示例业务乙"
         with self.assertRaisesRegex(CheckError, "流水业务"):
             verify(plan, after)
+
+    def test_formula_binding_audits_linked_and_unlinked_business(self):
+        plan = fixture()
+        flow_schema = plan["schema_current"]["flow"]
+        next(f for f in flow_schema if f["name"] == "业务").update(
+            type="formula", expression=BUSINESS_BINDING_FORMULA)
+        flow_schema.append({"id": "manual_business", "name": "业务（手填）",
+                            "type": "select", "multiple": False})
+        snapshot = {"schema": plan["schema_current"], "projects": plan["projects"],
+                    "flows": copy.deepcopy(plan["flows"])}
+        for flow in snapshot["flows"]:
+            flow["business_manual"] = []
+        snapshot["flows"].append({"id": "unlinked", "project_id": None, "project_ids": [],
+                                   "business": ["历史手填业务"],
+                                   "business_manual": ["历史手填业务"]})
+        self.assertTrue(audit_business(snapshot)["ok"])
+        snapshot["flows"][-1]["business_manual"] = ["其他人员"]
+        self.assertEqual(audit_business(snapshot)["issues"][0]["issue"], "manual_business_mismatch")
+
+    def test_formula_binding_schema_requires_expected_expression_and_backup(self):
+        plan = fixture()
+        flow_schema = plan["schema_current"]["flow"]
+        next(f for f in flow_schema if f["name"] == "业务").update(
+            type="formula", expression=BUSINESS_BINDING_FORMULA)
+        flow_schema.append({"id": "manual_business", "name": "业务（手填）",
+                            "type": "select", "multiple": False})
+        plan["schema_before"] = copy.deepcopy(plan["schema_current"])
+        validate(plan)
+        for schema in (plan["schema_before"], plan["schema_current"]):
+            schema["flow"][-1]["type"] = "text"
+        with self.assertRaisesRegex(CheckError, "手填备份"):
+            validate(plan)
 
     def test_contradictory_link_list_cannot_bypass_business_check(self):
         snapshot = self.snapshot()

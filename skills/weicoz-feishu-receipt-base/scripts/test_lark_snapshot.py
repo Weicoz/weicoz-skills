@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from lark_snapshot import Reader, save_private
-from receipt_guard import CheckError
+from receipt_guard import BUSINESS_BINDING_FORMULA, CheckError
 
 
 class SnapshotChecks(unittest.TestCase):
@@ -72,8 +72,9 @@ class SnapshotChecks(unittest.TestCase):
         class Source(Reader):
             def fields(self, table):
                 names = ["项目", "业务"] if table == "project" else [
-                    "交易对象", "变动日期", "资金变动", "变动类型", "项目收款表", "业务"]
-                return [{"id": str(i), "name": n, "type": "text"} for i, n in enumerate(names)]
+                    "交易对象", "变动日期", "资金变动", "变动类型", "关联项目", "业务"]
+                return [{"id": str(i), "name": n, "type": "link" if n == "关联项目" else "text"}
+                        for i, n in enumerate(names)]
 
             def records(self, table, fields):
                 assert "业务" in fields
@@ -81,13 +82,39 @@ class SnapshotChecks(unittest.TestCase):
                     return [{"id": "p", "项目": "示例项目", "业务": ["示例业务甲"]}]
                 return [{"id": "f", "交易对象": "示例客户", "变动日期": "2026-01-01T10:00:00+00:00",
                          "资金变动": 100, "变动类型": ["款项入账"], "业务": "示例业务甲",
-                         "项目收款表": [{"id": "p"}, {"id": "other"}]}]
+                         "关联项目": [{"id": "p"}, {"id": "other"}]}]
 
         snapshot = Source({}).snapshot()
         self.assertEqual(snapshot["projects"][0]["business"], ["示例业务甲"])
         self.assertEqual(snapshot["flows"][0]["business"], ["示例业务甲"])
         self.assertEqual(snapshot["flows"][0]["project_ids"], ["p", "other"])
         self.assertIsNone(snapshot["flows"][0]["project_id"])
+
+    def test_formula_snapshot_reads_manual_backup(self):
+        class Source(Reader):
+            def fields(self, table):
+                if table == "project":
+                    return [{"id": "p", "name": "项目", "type": "text"},
+                            {"id": "pb", "name": "业务", "type": "select"}]
+                names = ("交易对象", "变动日期", "资金变动", "变动类型", "关联项目", "业务", "业务（手填）")
+                fields = [{"id": str(i), "name": name,
+                           "type": "link" if name == "关联项目" else "text"} for i, name in enumerate(names)]
+                fields[-2].update(type="formula", expression=BUSINESS_BINDING_FORMULA)
+                fields[-1].update(type="select", multiple=False)
+                return fields
+
+            def records(self, table, fields):
+                if table == "project":
+                    return [{"id": "p", "项目": "示例项目", "业务": ["示例业务甲"]}]
+                if "业务（手填）" not in fields:
+                    raise AssertionError("快照漏读手填备份字段")
+                return [{"id": "f", "交易对象": "示例客户", "变动日期": "2026-01-01T10:00:00+00:00",
+                         "资金变动": 100, "关联项目": [], "变动类型": ["款项入账"],
+                         "业务": "示例业务甲", "业务（手填）": "示例业务甲"}]
+
+        snapshot = Source({}).snapshot()
+        self.assertEqual(snapshot["flows"][0]["business"], ["示例业务甲"])
+        self.assertEqual(snapshot["flows"][0]["business_manual"], ["示例业务甲"])
 
 
 if __name__ == "__main__":
