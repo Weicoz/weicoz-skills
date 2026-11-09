@@ -167,7 +167,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | --- | --- | --- |
 | [`weicoz-mac-procmon`](skills/weicoz-mac-procmon/) | 1.0.0 | 查本机 CPU / 内存 / 磁盘异常，做进程归因与告警排查 |
 | [`weicoz-mac-rescue`](skills/weicoz-mac-rescue/) | 1.0.0 | 卡顿与磁盘满的现场急救：swap 吃盘、僵尸启动项、进程泄漏、系统进程误判 |
-| [`weicoz-harness-config-sync`](skills/weicoz-harness-config-sync/) | 2.0.2 | 同步 Codex / DSH / agy / Kimi Code 与可选 Shell 配置，支持预览、冲突保护、设备覆盖与回滚 |
+| [`weicoz-harness-config-sync`](skills/weicoz-harness-config-sync/) | 2.0.3 | 同步 Codex / DSH / agy / Kimi Code 与可选 Shell 配置，支持预览、冲突保护、设备覆盖与回滚 |
 | [`weicoz-skill-tiers`](skills/weicoz-skill-tiers/) | 1.7.0 | skill 分层：L1 常驻、L2 短描述桩、L3 领域 Hub 收纳且可手动 /name 调用；含 status 健康检查、sources 挂源盘点、stats 使用次数与常用度统计 |
 | [`weicoz-dsh-repos-update-check`](skills/weicoz-dsh-repos-update-check/) | 1.0.0 | 只读检查 DSH 本体与已装插件仓库的更新和实装差异 |
 | [`weicoz-frp-port-dispatch`](skills/weicoz-frp-port-dispatch/) | 1.0.0 | 配置、迁移与排查 FRP 端口转发与开机自启 |

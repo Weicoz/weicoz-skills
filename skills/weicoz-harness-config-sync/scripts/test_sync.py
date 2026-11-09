@@ -113,6 +113,8 @@ class DeviceSync(unittest.TestCase):
         self.put(self.source, '.kimi-code/config.toml', 'default_model="two"\n')
         updated = self.build()
         installed = self.apply(updated)
+        # 旧版已提交日志只有完整 applied 数组，没有追加日志。
+        (self.target / '.local/state/harness-config-sync/transactions' / installed['transaction'] / 'applied.jsonl').unlink()
         self.run_cli(['--rollback', installed['transaction']])
         self.assertEqual((self.target / '.local/state/harness-config-sync/state.json').read_bytes(), original_state)
         self.assertIn('one', (self.target / '.kimi-code/config.toml').read_text())
@@ -132,6 +134,73 @@ class DeviceSync(unittest.TestCase):
         self.assertIn('自动回滚', result.stderr)
         for rel, data in before.items():
             self.assertEqual((self.target / rel).read_bytes(), data)
+        self.assertEqual(self.run_cli(['--status'])['drift'], [])
+
+    def test_transient_rename_is_retried_without_rewriting_journal_per_file(self):
+        output = self.build()
+        plan = self.run_cli([output])
+        counts = self.root / 'rename-count.json'
+        preload = self.root / 'transient-lock.mjs'
+        preload.write_text("import fs from 'node:fs'; const original=fs.renameSync; let count=0; fs.renameSync=(a,b)=>{if(b.endsWith('/journal.json')){count++;if(count===1){const e=new Error('temporary lock');e.code='EPERM';throw e;}}return original(a,b);};process.on('exit',()=>fs.writeFileSync(" + json.dumps(str(counts)) + ",JSON.stringify(count)));\n")
+        result = self.run_cli([output, '--apply', '--plan', plan['plan_token']], preload=preload)
+        self.assertEqual(json.loads(counts.read_text()), 3)  # 首次日志重试一次，最后提交一次。
+        self.assertEqual(result['drift'], [])
+
+    def test_permanent_rename_lock_is_bounded_and_rolls_back(self):
+        self.apply(self.build())
+        self.put(self.source, '.codex/config.toml', 'model="two"\n')
+        self.put(self.source, '.kimi-code/mcp.json', '{"new":true}')
+        output = self.build()
+        plan = self.run_cli([output])
+        preload = self.root / 'permanent-lock.mjs'
+        preload.write_text("import fs from 'node:fs'; const original=fs.renameSync;fs.renameSync=(a,b)=>{if(b.endsWith('/.kimi-code/mcp.json')){const e=new Error('fixture-private-message');e.code='EPERM';throw e;}return original(a,b);};\n")
+        result = self.run_cli([output, '--apply', '--plan', plan['plan_token']], ok=False, preload=preload)
+        self.assertIn('EPERM', result.stderr)
+        self.assertNotIn('fixture-private-message', result.stderr)
+        self.assertIn('model="one"', (self.target / '.codex/config.toml').read_text())
+        self.assertEqual(self.run_cli(['--status'])['drift'], [])
+
+    def test_crash_recovers_from_append_log_and_rejects_unknown_records(self):
+        self.apply(self.build())
+        self.put(self.source, '.codex/config.toml', 'model="two"\n')
+        self.put(self.source, '.kimi-code/mcp.json', '{"new":true}')
+        output = self.build()
+        plan = self.run_cli([output])
+        preload = self.root / 'crash.mjs'
+        preload.write_text("import fs from 'node:fs';const original=fs.renameSync;fs.renameSync=(a,b)=>{if(b.endsWith('/.kimi-code/mcp.json'))process.exit(73);return original(a,b);};\n")
+        self.run_cli([output, '--apply', '--plan', plan['plan_token']], ok=False, preload=preload)
+        status = self.run_cli(['--status'])
+        transaction = status['pending'][0]
+        root = self.target / '.local/state/harness-config-sync'
+        folder = root / 'transactions' / transaction
+        self.assertEqual(json.loads((folder / 'journal.json').read_text())['applied'], [])
+        progress = folder / 'applied.jsonl'
+        recorded = progress.read_bytes()
+        self.assertGreaterEqual(len(recorded.splitlines()), 2)
+        (root / 'lock').unlink()  # 注入崩溃的子进程已退出，测试可确认此锁不再被占用。
+        progress.write_bytes(recorded + b'"unrelated-path"\n')
+        self.run_cli(['--rollback', transaction], ok=False)
+        self.assertIn('model="two"', (self.target / '.codex/config.toml').read_text())
+        progress.write_bytes(recorded + b'"incomplete-tail')
+        self.run_cli(['--rollback', transaction])
+        self.assertIn('model="one"', (self.target / '.codex/config.toml').read_text())
+        self.assertEqual(self.run_cli(['--status'])['drift'], [])
+        self.assertEqual(self.run_cli(['--status'])['pending'], [])
+
+    def test_metadata_failure_reports_its_stage_and_path(self):
+        self.apply(self.build())
+        self.put(self.source, '.codex/config.toml', 'model="two"\n')
+        output = self.build()
+        plan = self.run_cli([output])
+        preload = self.root / 'state-failure.mjs'
+        preload.write_text("import fs from 'node:fs';const original=fs.renameSync;let failed=false;fs.renameSync=(a,b)=>{if(!failed&&b.endsWith('/state.json')){failed=true;const e=new Error('fixture-private-message');e.code='EIO';throw e;}return original(a,b);};\n")
+        result = self.run_cli([output, '--apply', '--plan', plan['plan_token']], ok=False, preload=preload)
+        self.assertIn('.local/state/harness-config-sync/state.json', result.stderr)
+        self.assertNotIn('fixture-private-message', result.stderr)
+        journals = (self.target / '.local/state/harness-config-sync/transactions').glob('*/journal.json')
+        failed = [json.loads(p.read_text()) for p in journals if 'failure' in json.loads(p.read_text())]
+        self.assertEqual(failed[0]['failure']['stage'], 'write-state')
+        self.assertEqual(failed[0]['failure']['path'], '.local/state/harness-config-sync/state.json')
         self.assertEqual(self.run_cli(['--status'])['drift'], [])
 
     def test_tampered_package_and_symlink_parent_are_rejected(self):

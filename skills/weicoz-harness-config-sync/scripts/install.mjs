@@ -64,7 +64,13 @@ function atomic(p, bytes, mode = 0o600) {
   const tmp = p + '.sync-' + crypto.randomUUID();
   try {
     fs.writeFileSync(tmp, bytes, { mode, flag: 'wx' });
-    fs.renameSync(tmp, p);
+    for (let attempt = 0; ; attempt++) {
+      try { fs.renameSync(tmp, p); break; }
+      catch (e) {
+        if (attempt >= 5 || !['EPERM', 'EACCES', 'EBUSY'].includes(e.code)) throw e;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50 * (attempt + 1));
+      }
+    }
   } finally { if (exists(tmp)) fs.unlinkSync(tmp); }
 }
 function jsonWrite(p, value) { atomic(p, JSON.stringify(value, null, 2) + '\n'); }
@@ -208,6 +214,7 @@ function prepare(base, replacements) {
   const all = [...Object.keys(manifest.files), ...Object.keys(manifest.links)];
   check(new Set(all).size === all.length, '文件与链接路径重复');
   const sorted = [...all].sort();
+  const lowerPaths = new Set(all.map(p => p.toLowerCase()));
   const aliases = new Map();
   for (const rel of sorted) {
     const parts = rel.split('/');
@@ -215,7 +222,7 @@ function prepare(base, replacements) {
       const prefix = parts.slice(0, i).join('/'), lower = prefix.toLowerCase();
       check(!aliases.has(lower) || aliases.get(lower) === prefix, '目标路径存在大小写别名冲突');
       aliases.set(lower, prefix);
-      if (i < parts.length) check(!all.some(p => p.toLowerCase() === lower), '受管路径相互包含');
+      if (i < parts.length) check(!lowerPaths.has(lower), '受管路径相互包含');
     }
   }
   for (const [rel, info] of Object.entries(manifest.files)) {
@@ -288,6 +295,15 @@ function rollback(transaction, automatic = false) {
   parents(path.join(folder, 'journal.json'));
   const journal = readJSON(path.join(folder, 'journal.json'));
   check(journal.transaction === transaction && ['applying', 'committed', 'failed'].includes(journal.status), '恢复点不可回滚');
+  const progressPath = path.join(folder, 'applied.jsonl');
+  const progress = exists(progressPath);
+  if (progress) {
+    check(progress.isFile() && !progress.isSymbolicLink(), '进度日志不能是链接或目录');
+    // 未完成的末行对应尚未开始的写入；完整记录在修改目标前已刷盘。
+    const records = fs.readFileSync(progressPath, 'utf8').split('\n').slice(0, -1).map(parseJSON);
+    check(records.every(rel => typeof rel === 'string' && Object.hasOwn(journal.entries, rel) && Object.hasOwn(journal.snapshots, rel)), '进度日志包含未知路径');
+    journal.applied = [...new Set([...journal.applied, ...records])];
+  }
   const state = loadState();
   if (journal.status === 'committed') check(state?.transaction === transaction, '仅能回滚当前最新同步');
   else check(equal(state, journal.previous_state) || state?.transaction === transaction, '恢复点已过期；当前基线属于后续同步');
@@ -343,35 +359,54 @@ function apply(base, replacements, token) {
     }
     const journalPath = path.join(folder, 'journal.json');
     jsonWrite(journalPath, journal);
+    let progressFD;
+    const transactionRel = `${stateRel}/transactions/${transaction}`;
+    let active = { stage: 'open-progress', path: `${transactionRel}/applied.jsonl` };
     try {
+      progressFD = fs.openSync(path.join(folder, 'applied.jsonl'), 'ax', 0o600);
       for (const { path: rel, action } of result.changes) {
+        active = { stage: 'check-target', path: rel };
         const dst = safe(home, rel); parents(dst, true);
         const now = fingerprint(dst, entries[rel].target);
         const relinking = action === 'relink' && equal(now, current[entries[rel].target]);
         check(equal(now, current[rel]) || relinking, `写入前发现新改动：${rel}`);
-        journal.applied.push(rel); jsonWrite(journalPath, journal);
+        active = { stage: 'append-progress', path: `${transactionRel}/applied.jsonl` };
+        journal.applied.push(rel);
+        fs.appendFileSync(progressFD, JSON.stringify(rel) + '\n');
+        fs.fsyncSync(progressFD);
+        active = { stage: 'write-target', path: rel };
         const item = entries[rel];
         if (item.kind === 'file') {
           if (exists(dst)?.isDirectory() || exists(dst)?.isSymbolicLink()) remove(dst);
           atomic(dst, bytes.get(rel), item.mode);
         } else { remove(dst); link(dst, item.target); }
       }
-      for (const [rel, item] of Object.entries(entries)) check(equal(fingerprint(safe(home, rel), item.target), item), `安装后校验失败：${rel}`);
+      for (const [rel, item] of Object.entries(entries)) {
+        active = { stage: 'verify-target', path: rel };
+        check(equal(fingerprint(safe(home, rel), item.target), item), `安装后校验失败：${rel}`);
+      }
       const next = { schema: 2, source_id: manifest.source_id, device_id: manifest.device_id,
         revision: manifest.revision, payload_id: manifest.payload_id, transaction, last_sync: new Date().toISOString(), versions: manifest.versions,
         unavailable: manifest.unavailable, retained: result.retained,
         entries: Object.fromEntries(Object.entries(entries).map(([rel, item]) => [rel, { target: item.target, fingerprint: item }])) };
+      active = { stage: 'write-state', path: `${stateRel}/state.json` };
       jsonWrite(statePath, next);
+      active = { stage: 'write-journal', path: `${transactionRel}/journal.json` };
       journal.status = 'committed'; jsonWrite(journalPath, journal);
+      active = { stage: 'inspect-state', path: stateRel };
       const report = { ...inspectState(next), changes: result.changes.length, backup: transaction, model_requests: '未验证' };
+      active = { stage: 'write-report', path: `${transactionRel}/install-report.json` };
       jsonWrite(path.join(folder, 'install-report.json'), report);
       return report;
     } catch (e) {
       journal.status = 'failed';
+      journal.failure = { ...active, code: /^[A-Z_]{2,32}$/.test(e.code ?? '') ? e.code : 'ERROR' };
       try { jsonWrite(journalPath, journal); } catch { /* 日志故障仍须尝试按已落盘日志恢复。 */ }
       try { rollback(transaction, true); }
       catch { throw new Error(`安装失败且自动回滚未完成；使用 --rollback ${transaction} 恢复，保留全部备份`); }
-      throw new Error('安装失败，已自动回滚；目标配置恢复到安装前');
+      throw new Error(`安装失败（${journal.failure.code}，${journal.failure.path ?? '事务初始化'}），已自动回滚；目标配置恢复到安装前`);
+    } finally {
+      if (progressFD !== undefined) fs.closeSync(progressFD);
     }
   });
 }

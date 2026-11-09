@@ -1,6 +1,6 @@
 ---
 name: weicoz-harness-config-sync
-version: 2.0.2
+version: 2.0.3
 description: 按单一配置源同步 Codex、DSH、Antigravity CLI（agy）、Kimi Code 与可选 Shell 配置到指定设备，支持差异预览、冲突保护、设备覆盖层、备份回滚与状态核对。用于换机和多设备配置维护；排除个人历史，账号迁移需明确授权。
 ---
 
