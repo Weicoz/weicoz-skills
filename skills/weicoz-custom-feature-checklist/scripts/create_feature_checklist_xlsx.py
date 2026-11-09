@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -373,6 +374,82 @@ def write_confirm_sheet(output: Path, items: list[list[str]], styles: dict[str, 
             zout.writestr(name, data)
 
 
+def sheet_specs(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Keep the original single-sheet payload; explicit sheets replace old business sheets."""
+    if "sheets" not in payload:
+        return [{"title": str(payload.get("title") or "功能清单").strip(),
+                 "rows": normalize_rows(payload.get("rows") or DEFAULT_ROWS)}]
+    if "rows" in payload or "title" in payload:
+        raise ValueError("sheets 与顶层 title/rows 不能同时使用")
+    specs = []
+    names = set()
+    if not isinstance(payload["sheets"], list) or not payload["sheets"]:
+        raise ValueError("sheets 必须包含至少一个业务工作表")
+    for sheet in payload["sheets"]:
+        if not isinstance(sheet, dict):
+            raise ValueError("sheets 每项必须是对象")
+        name = str(sheet.get("name", "")).strip()
+        if (not name or len(name) > 31 or re.search(r"[\\/*?:\[\]]", name)
+                or name.startswith("'") or name.endswith("'") or name == CONFIRM_SHEET):
+            raise ValueError(f"无效业务工作表名：{name!r}")
+        if name.casefold() in names:
+            raise ValueError(f"重复工作表名：{name}")
+        names.add(name.casefold())
+        if not isinstance(sheet.get("rows"), list) or not sheet["rows"]:
+            raise ValueError(f"{name} 缺少功能行")
+        specs.append({"name": name, "title": str(sheet.get("title") or f"{name}定制功能清单").strip(),
+                      "rows": normalize_rows(sheet["rows"])})
+    return specs
+
+
+def write_business_sheets(output: Path, specs: list[dict[str, Any]]) -> None:
+    with zipfile.ZipFile(output) as archive:
+        config = template_sheet_config(archive, resolve_template_sheet_path(archive))
+        files = {n: archive.read(n) for n in archive.namelist()}
+    workbook = ET.fromstring(files["xl/workbook.xml"])
+    rels = ET.fromstring(files["xl/_rels/workbook.xml.rels"])
+    types = ET.fromstring(files["[Content_Types].xml"])
+    for rel in list(rels):
+        if rel.get("Type") == REL_WORKSHEET:
+            part = normalize_target(rel.attrib["Target"])
+            files.pop(part, None)
+            files.pop(str(Path(part).parent / "_rels" / (Path(part).name + ".rels")), None)
+            rels.remove(rel)
+            for node in list(types):
+                if node.get("PartName") == f"/{part}":
+                    types.remove(node)
+    sheets = workbook.find("main:sheets", NS)
+    sheets.clear()
+    # Old print areas and active-sheet indices no longer name the new sheets.
+    defined = workbook.find("main:definedNames", NS)
+    if defined is not None:
+        workbook.remove(defined)
+    for view in workbook.findall("main:bookViews/main:workbookView", NS):
+        view.set("activeTab", "0")
+        view.set("firstSheet", "0")
+    used = {rel.attrib["Id"] for rel in rels}
+    for index, spec in enumerate(specs, 1):
+        rid = f"rId{index}"
+        while rid in used:
+            rid += "_sheet"
+        used.add(rid)
+        part = f"worksheets/sheet{index}.xml"
+        ET.SubElement(sheets, f"{{{MAIN_NS}}}sheet", {"name": spec["name"], "sheetId": str(index), f"{{{REL_NS}}}id": rid})
+        ET.SubElement(rels, f"{{{PKG_REL_NS}}}Relationship", {"Id": rid, "Type": REL_WORKSHEET, "Target": part})
+        ET.SubElement(types, f"{{{CONTENT_TYPE_NS}}}Override", {"PartName": f"/xl/{part}", "ContentType": CT_WORKSHEET})
+        files[f"xl/{part}"] = build_sheet_xml(spec["title"], spec["rows"], config)
+    # Existing confirmation-sheet code accepts unprefixed workbook/package elements.
+    for namespace, root, path in [(MAIN_NS, workbook, "xl/workbook.xml"),
+                                   (PKG_REL_NS, rels, "xl/_rels/workbook.xml.rels"),
+                                   (CONTENT_TYPE_NS, types, "[Content_Types].xml")]:
+        ET.register_namespace("", namespace)
+        ET.register_namespace("r", REL_NS)
+        files[path] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, data in files.items():
+            archive.writestr(name, data)
+
+
 def create_from_template(template: Path, output: Path, title: str, rows: list[tuple[str, str, str, str]]) -> Path:
     with zipfile.ZipFile(template, "r") as zin:
         sheet_path = resolve_template_sheet_path(zin)
@@ -527,22 +604,36 @@ def create_minimal_xlsx(output: Path, title: str, rows: list[tuple[str, str, str
 
 
 def create_xlsx(payload: dict[str, Any]) -> Path:
-    title = str(payload.get("title") or "功能清单").strip()
     output = Path(payload["output"]).expanduser()
-    rows = normalize_rows(payload.get("rows") or DEFAULT_ROWS)
+    specs = sheet_specs(payload)
     confirm_items = normalize_confirm_items(payload.get("confirm_items") or [])
     template_value = payload.get("template")
 
     output.parent.mkdir(parents=True, exist_ok=True)
-    styles = DEFAULT_STYLES
-    if template_value:
-        template = Path(str(template_value)).expanduser()
-        create_from_template(template, output, title, rows)
-        with zipfile.ZipFile(template, "r") as zin:
-            styles = template_sheet_config(zin, resolve_template_sheet_path(zin))["styles"]
-    else:
-        create_minimal_xlsx(output, title, rows)
-    write_confirm_sheet(output, confirm_items, styles)
+    template = Path(str(template_value)).expanduser() if template_value else None
+    if template and template.resolve() == output.resolve():
+        raise ValueError("输出路径不得覆盖参考模板")
+    from check_feature_checklist_xlsx import check_workbook, naming_problems
+    problems = naming_problems(output, specs, payload.get("audience", "client"))
+    if problems:
+        raise ValueError("；".join(problems))
+    with tempfile.TemporaryDirectory(dir=output.parent) as temp_dir:
+        pending = Path(temp_dir) / output.name
+        styles = DEFAULT_STYLES
+        first = specs[0]
+        if template:
+            create_from_template(template, pending, first["title"], first["rows"])
+            with zipfile.ZipFile(template) as archive:
+                styles = template_sheet_config(archive, resolve_template_sheet_path(archive))["styles"]
+        else:
+            create_minimal_xlsx(pending, first["title"], first["rows"])
+        if "sheets" in payload:
+            write_business_sheets(pending, specs)
+        write_confirm_sheet(pending, confirm_items, styles)
+        problems = check_workbook(pending, payload)
+        if problems:
+            raise ValueError("；".join(problems))
+        pending.replace(output)
     return output
 
 
@@ -550,7 +641,10 @@ def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("Usage: create_feature_checklist_xlsx.py input.json")
     payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    print(create_xlsx(payload))
+    try:
+        print(create_xlsx(payload))
+    except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile, ET.ParseError) as error:
+        raise SystemExit(f"生成功能清单失败：{error}") from error
 
 
 if __name__ == "__main__":

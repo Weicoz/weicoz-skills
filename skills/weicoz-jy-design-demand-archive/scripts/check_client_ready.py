@@ -30,6 +30,21 @@ MARKERS = " \t│├└─|*+->•"
 EXTENSIONS = {".md", ".txt", ".csv", ".xlsx", ".xmind"}
 BLOCKER_RE = re.compile(CLIENT_BLOCKERS)
 CONTEXT = 15
+INTERNAL_LABEL = re.compile(r"客户版|内部版|初稿|草稿")
+
+
+def external_name_problems(path: Path) -> list[str]:
+    """Only recipient-visible names; internal archive filenames remain permitted otherwise."""
+    titles = [path.name]
+    if path.suffix.lower() == ".xlsx":
+        with zipfile.ZipFile(path) as archive:
+            titles.extend(sheet_names(archive).values())
+        titles.extend(text for loc, text, _ in xlsx_units(path) if loc.endswith("!A1"))
+    elif path.suffix.lower() in {".md", ".txt", ".csv"}:
+        titles.extend(path.read_text(encoding="utf-8").splitlines()[:1])
+    elif path.suffix.lower() == ".xmind":
+        titles.extend(text for loc, text, _ in xmind_units(path) if ">" not in loc and "[notes]" not in loc)
+    return [f"对外名称含内部标记：{title}" for title in titles if INTERNAL_LABEL.search(title)]
 
 
 def local(tag: str) -> str:
@@ -225,6 +240,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="+", type=Path, help="files or directories (.md .txt .csv .xlsx .xmind)")
     parser.add_argument("--old-term", action="append", default=[], help="old wording that must have 0 hits")
+    parser.add_argument("--external", action="store_true", help="另查对外文件名、标题和工作表名称，拒绝内部版本标记")
     args = parser.parse_args()
 
     files = collect(args.paths)
@@ -235,9 +251,13 @@ def main() -> int:
     for file in files:
         try:
             units = list(text_units(file))
+            name_problems = external_name_problems(file) if args.external else []
         except (OSError, ValueError, zipfile.BadZipFile, ET.ParseError) as error:
             print(f"{file}: unreadable ({error})", file=sys.stderr)
             return 1
+        for message in name_problems:
+            total += 1
+            print(f"{file}: {message}")
         for loc, text, confirm in units:
             if confirm:
                 continue

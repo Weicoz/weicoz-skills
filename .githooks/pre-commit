@@ -22,6 +22,16 @@ if ! scripts/validate-skills.sh --no-links --tracked-only; then
   exit 1
 fi
 
+# 两个交付 Skill 变更时运行产物回归，不扩大到无关 Skill。
+if [[ -n "$(git diff --cached --name-only -- skills/weicoz-custom-feature-checklist/ skills/weicoz-jy-design-demand-archive/ .githooks/pre-commit)" ]]; then
+  for skill in weicoz-custom-feature-checklist weicoz-jy-design-demand-archive; do
+    if ! python3 -m unittest discover -s "skills/$skill/scripts" -p 'test_*.py'; then
+      printf '\n提交被拦截：客户交付回归未通过。\n' >&2
+      exit 1
+    fi
+  done
+fi
+
 if [[ -x scripts/sync-skills.sh ]] && ! scripts/sync-skills.sh --quiet >/dev/null 2>&1; then
   printf '\n提示：harness 软链有漂移，运行 ./scripts/sync-skills.sh --apply 修复（不阻止本次提交）。\n' >&2
 fi

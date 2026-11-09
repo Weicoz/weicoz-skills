@@ -127,6 +127,33 @@ class PackageTests(unittest.TestCase):
         write_xmind(path, bad)
         self.assertEqual(run(path).returncode, 1)
 
+    def test_external_xlsx_names_and_visible_title(self) -> None:
+        for filename, name, title in [("功能清单-客户版.xlsx", "服务商体系", "服务商体系功能清单"),
+                                      ("功能清单.xlsx", "客户版", "功能清单"),
+                                      ("功能清单.xlsx", "服务商体系", "功能清单（客户版）")]:
+            with self.subTest(filename=filename, name=name, title=title):
+                path = self.dir / filename
+                write_xlsx(path, {name: [title]})
+                result = run("--external", path)
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("内部标记", result.stdout)
+
+    def test_external_markdown_and_xmind_titles(self) -> None:
+        path = self.dir / "功能清单.md"
+        path.write_text("# 功能清单（客户版）\n展示身份\n", encoding="utf-8")
+        self.assertEqual(run("--external", path).returncode, 1)
+        path = self.dir / "导图.xmind"
+        write_xmind(path, topic("项目（客户版）", topic("身份查询")))
+        self.assertEqual(run("--external", path).returncode, 1)
+
+    def test_internal_archive_name_allowed_without_external_flag(self) -> None:
+        path = self.dir / "功能清单-客户版.md"
+        path.write_text("# 功能清单（客户版）\n展示身份\n", encoding="utf-8")
+        self.assertEqual(run(path).returncode, 0)
+        path = self.dir / "功能清单.xlsx"
+        write_xlsx(path, {"服务商体系": ["服务商体系定制功能清单"]})
+        self.assertEqual(run("--external", path).returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
