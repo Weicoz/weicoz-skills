@@ -172,6 +172,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-dsh-repos-update-check`](skills/weicoz-dsh-repos-update-check/) | 1.0.0 | 只读检查 DSH 本体与已装插件仓库的更新和实装差异 |
 | [`weicoz-frp-port-dispatch`](skills/weicoz-frp-port-dispatch/) | 1.0.0 | 配置、迁移与排查 FRP 端口转发与开机自启 |
 | [`weicoz-3a-game-manifest`](skills/weicoz-3a-game-manifest/) | 1.0.0 | 从 3a.lol 提取 Steam 入库清单并归档，附画质帧率预测 |
+| [`weicoz-wsy-ops`](skills/weicoz-wsy-ops/) | 1.0.0 | 经 wsy CLI 排查与升级已部署的 WSY PHP 项目：读文件日志、只读查库，变更走计划并经宿主弹窗批准后执行、可回滚 |
 
 #### 视频与视觉
 
