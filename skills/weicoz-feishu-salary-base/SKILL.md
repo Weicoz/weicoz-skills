@@ -77,6 +77,31 @@ TABLE=$(awk '/^base:/{f=1} f&&/table:/{print $2; exit}' "$CFG")
 - `fields.writable` 列出的才可写；`fields.formula` 里的一律等飞书自己算。
 - 配置缺失或字段对不上时先停下来问用户，不要退回「凭记忆的默认值」。
 
+## 考勤 `.xlsx` 出月度天数与补贴
+
+用户丢来 `考勤统计_YYYYMM.xlsx`（考勤汇总 + 统计明细）时，天数与补贴从这份文件取，不要自己按日历重算。
+
+```bash
+python3 scripts/extract_attendance_xlsx.py '<XLSX_PATH>'
+```
+
+固定映射：
+
+| 工资表字段 | 考勤来源 |
+|---|---|
+| `应上天数` | 应出勤天数 |
+| `实上天数` | 实际出勤天数 |
+| `请假小时` | 应出勤时长 − 实际出勤时长（无时长列时按 (应天 − 实天) × 7.5） |
+| `补贴` | 补贴（含备注里的补发项；为空就留空，不写 0） |
+| 加班天数 | 考勤不提供，默认 0 |
+
+脚本同时核对逐日明细：
+
+- `ok: true`：汇总与明细一致，直接生成草稿。
+- `ok: false` + `mismatched`：明细「实际出勤标记」与汇总天数不符（常见于明细缺打卡时间）。**以汇总为准**，草稿里注明「未逐日核对」，不要用明细反推天数，也不要静默放行。
+
+天数是半个工作日粒度（0.5 天），行程 `实上天数` 时必须保留小数，不要四舍五入成整天。生成后照旧先给草稿，等用户确认。
+
 ## 税务 `.xls` 更新社保和个税
 
 用户发送类似 `YYYYMM_税款计算_工资薪金所得.xls` 的文件，并要求更新工资表时，执行本流程。
@@ -216,7 +241,13 @@ lark-cli base +field-list --as user --base-token <BASE_TOKEN> --table-id <TABLE_
 
 ### 3. 读取历史记录
 
-拉全表或至少近几个月记录：
+先看单月紧凑视图，省掉整表 JSON：
+
+```bash
+python3 scripts/salary_month.py <YYYYMM>
+```
+
+需要逐字段核对全表时再拉原始 JSON：
 
 ```bash
 lark-cli base +record-list --as user --base-token <BASE_TOKEN> --table-id <TABLE_ID> --limit 200 --format json
@@ -308,24 +339,17 @@ lark-cli base +record-batch-create --as user --base-token <BASE_TOKEN> --table-i
 
 ## 写入形状注意事项
 
-飞书字段值形状必须匹配。常见坑：
+飞书字段值形状必须匹配。以 `lark-cli base +record-batch-create --help` 的 happy path 为准：
 
 - 文本列：字符串
 - 数字列：数字
-- 单选/多选列：通常直接传字符串数组
-- 用户/群组/关联列：通常要 `[{\"id\":\"...\"}]`
+- 单选 select：**直接传字符串**，如 `"姓名":"<姓名>"`
+- 多选 select：字符串数组，如 `"标签":["甲","乙"]`
+- 用户/群组/关联列：`[{"id":"..."}]`
 
-如果“姓名”字段是 select，不要传：
+`姓名` 是单选，传字符串即可。写入后回读会显示成数组 `["<姓名>"]`，那是读的形态，不是写的要求。
 
-```json
-{"name":"<姓名>"}
-```
-
-应传：
-
-```json
-["<姓名>"]
-```
+`--dry-run` 只回显请求参数，**不校验 Base、表、字段、选项是否存在**。表 ID 一律从私有配置取，不要手打。
 
 ## 写入后复核
 

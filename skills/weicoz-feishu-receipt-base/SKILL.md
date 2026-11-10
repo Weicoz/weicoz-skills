@@ -20,6 +20,8 @@ description: 用 lark-cli 将银行短信、PDF 流水、转账截图及客户�
 python3 "$SKILL_DIR/scripts/lark_snapshot.py"
 ```
 
+表 ID 只从配置取，不要手打；`--print-tables` 打印配置里的项目表、流水表、分配表 ID。`--dry-run` 只回显参数，不校验基表、字段、选项是否存在。
+
 脚本在内存读取 YAML，仅顺序读取项目表和资金流水表，逐页核对记录 ID 与字段列序；只读限流最多重试两次。产物保存在配置旁的私有 `reports/`，只回显文件路径和条数，不输出配置或财务正文。读取 YAML 复用已安装的 PyYAML；缺依赖时按本机约定补装，不在仓库写凭据。
 
 首次快照作为计划的 `schema_before`；每批写入前重新取快照作为 `schema_current`。字段 ID、名称、类型或公式变化时重新生成计划。ID 相同不代表含义相同；旧“应付全额”列不能直接映射成新“已付”列。
@@ -113,6 +115,15 @@ python3 "$SKILL_DIR/scripts/receipt_guard.py" PRIVATE_PLAN.json --after PRIVATE_
 ## 按需：绩效核算
 
 用户要求按月核开发绩效时，读取 [绩效规则与公式](references/performance.md) 和 [维护者说明](README.md)。适用比例、人员及挂账从私有配置或实际表读取，工资表写入以本次授权为准。
+
+带分配表的快照与护栏：
+
+```bash
+python3 "$SKILL_DIR/scripts/lark_snapshot.py" --performance
+python3 "$SKILL_DIR/scripts/performance_guard.py" <SNAPSHOT> --month YYYY-MM
+```
+
+护栏返回 `ok: false` 时停在原地，不要写工资表。公司级行重复扣减的已知缺陷与处理顺序见 performance.md。
 
 ## 保密与维护
 

@@ -26,7 +26,7 @@ cd <工作目录> && lark-cli base +record-batch-create --base-token "$RECEIPT" 
 - `--json @file` 的文件**必须是当前目录下的相对路径**。传 `@/tmp/x.json` 报
   `--file must be a relative path within the current directory`；`--json -` 读 stdin 也不支持。
   稳的做法：`cd` 到工作目录，把 JSON 写到 `./tmp_x.json`，用 `--json @./tmp_x.json`。
-- 真写之前先加 `--dry-run`：只预览 request body；`ok:true, dry_run:true` 不证明服务端字段、选项或记录存在。仍需最新快照校验。
+- 真写之前先加 `--dry-run`：只预览 request body；`ok:true, dry_run:true` 不证明 **Base、表、字段、选项或记录存在**（表 ID 打错也照样回 ok）。仍需最新快照校验。
 - 单次批量写上限 200 条。
 - **select 单选字段的选项必须先存在**，否则整批失败。加选项走
   `+field-update --field-id <字段名> --json '{"name":"业务","type":"select","multiple":false,"options":[…]}` --yes`：

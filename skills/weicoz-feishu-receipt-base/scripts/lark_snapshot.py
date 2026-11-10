@@ -23,6 +23,16 @@ def invoke(args):
         raise CheckError("飞书 CLI 不可用、超时或响应无效；未输出原始响应") from None
 
 
+ASSIGNMENT_FIELDS = {
+    "project": "项目", "developer": "开发人员", "weight": "权重(%)", "ratio": "绩效比例(%)",
+    "month": "生效月份", "note": "备注", "received": "当月实收",
+    "deduction": "返点及转款扣减", "performance": "绩效金额",
+}
+ASSIGNMENT_TYPES = {"project": "link", "developer": "select", "weight": "number", "ratio": "number",
+                    "month": "text", "note": "text", "received": "formula", "deduction": "formula",
+                    "performance": "formula"}
+
+
 class Reader:
     def __init__(self, config, runner=invoke, sleeper=time.sleep):
         self.config, self.runner, self.sleeper = config, runner, sleeper
@@ -80,7 +90,28 @@ class Reader:
                 raise CheckError("记录分页没有前进，停止读取")
             offset += len(rows)
 
-    def snapshot(self):
+    def assignment(self):
+        schema = self.fields("assignment")
+        names = {f["name"]: f for f in schema}
+        for role, name in ASSIGNMENT_FIELDS.items():
+            field = names.get(name)
+            if field is None or field["type"] != ASSIGNMENT_TYPES[role]:
+                raise CheckError("分配表字段语义变化；先核对项目、人员、比例与公式列")
+        rows = self.records("assignment", list(ASSIGNMENT_FIELDS.values()))
+        result = []
+        for row in rows:
+            developer = row["开发人员"] or []
+            if isinstance(developer, str):
+                developer = [developer]
+            result.append({
+                "id": row["id"], "project_ids": [link["id"] for link in row["项目"] or []],
+                "developer": [str(name) for name in developer], "month": row["生效月份"],
+                "weight": row["权重(%)"], "ratio": row["绩效比例(%)"],
+                "received": row["当月实收"], "deduction": row["返点及转款扣减"],
+                "performance": row["绩效金额"], "note": row["备注"]})
+        return {"assignment_schema": schema, "assignment": result}
+
+    def snapshot(self, with_performance=False):
         schema = {table: self.fields(table) for table in ("project", "flow")}
         project_names = {f["name"] for f in schema["project"]}
         if "业务" not in project_names:
@@ -121,20 +152,25 @@ class Reader:
                                      "business": list(business(row.get("业务"))),
                                      "business_manual": list(business(row.get("业务（手填）")))
                                      if business_is_formula else []})
-        return {"schema": schema, "projects": [{"id": p["id"], "name": p.get("项目"),
+        snapshot = {"schema": schema, "projects": [{"id": p["id"], "name": p.get("项目"),
                 "business": list(business(p.get("业务"))),
                 **{role: p.get(name) for role, name in FIELDS.items()}} for p in projects],
                 "flows": normalized_flows}
+        if with_performance:
+            snapshot.update(self.assignment())
+        return snapshot
 
 
-def load_config(path):
+def load_config(path, require_assignment=False):
     try:
         import yaml
     except ImportError:
         raise CheckError("读取 YAML 私有配置需要 PyYAML；先按本机依赖约定安装") from None
     try:
         config = yaml.safe_load(path.read_text(encoding="utf-8"))["base"]["receipt"]
-        if not all(isinstance(config.get(k), str) and config[k] for k in ("token", "project_table", "flow_table")):
+        required = ("token", "project_table", "flow_table") + (
+            ("assignment_table",) if require_assignment else ())
+        if not all(isinstance(config.get(k), str) and config[k] for k in required):
             raise ValueError()
         return config
     except (OSError, KeyError, TypeError, ValueError, yaml.YAMLError):
@@ -157,11 +193,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path(os.environ.get(
         "WEICOZ_RECEIPT_CONFIG", str(Path.home() / ".config/weicoz-feishu-receipt-base/config.yaml"))))
+    parser.add_argument("--performance", action="store_true", help="同时快照项目开发分配表")
+    parser.add_argument("--print-tables", action="store_true", help="只打印配置里的表 ID，避免手打")
     args = parser.parse_args()
     try:
-        snapshot = Reader(load_config(args.config)).snapshot()
-        print(json.dumps({"ok": True, "output": str(save_private(args.config, snapshot)),
-                          "projects": len(snapshot["projects"]), "flows": len(snapshot["flows"])}, ensure_ascii=False))
+        config = load_config(args.config, require_assignment=args.performance)
+        if args.print_tables:
+            print(json.dumps({"project_table": config["project_table"],
+                              "flow_table": config["flow_table"],
+                              "assignment_table": config.get("assignment_table")}, ensure_ascii=False))
+            return 0
+        snapshot = Reader(config).snapshot(with_performance=args.performance)
+        summary = {"ok": True, "output": str(save_private(args.config, snapshot)),
+                   "projects": len(snapshot["projects"]), "flows": len(snapshot["flows"])}
+        if args.performance:
+            summary["assignments"] = len(snapshot["assignment"])
+        print(json.dumps(summary, ensure_ascii=False))
     except (CheckError, KeyError, TypeError, ValueError, OSError):
         print(json.dumps({"ok": False, "error": "快照读取失败：检查私有配置、CLI 状态、分页或字段结构；不回显原始数据"}, ensure_ascii=False))
         return 1

@@ -117,5 +117,40 @@ class SnapshotChecks(unittest.TestCase):
         self.assertEqual(snapshot["flows"][0]["business_manual"], ["示例业务甲"])
 
 
+    def test_assignment_snapshot_normalizes_links_and_people(self):
+        class Source(Reader):
+            def fields(self, table):
+                self.assert_table = table
+                return [{"id": str(i), "name": name, "type": kind}
+                        for i, (name, kind) in enumerate({
+                            "项目": "link", "开发人员": "select", "权重(%)": "number",
+                            "绩效比例(%)": "number", "生效月份": "text", "备注": "text",
+                            "当月实收": "formula", "返点及转款扣减": "formula",
+                            "绩效金额": "formula"}.items())]
+
+            def records(self, table, fields):
+                return [{"id": "a1", "项目": [{"id": "p-a"}], "开发人员": ["甲"], "权重(%)": 100,
+                         "绩效比例(%)": 1, "生效月份": "2026-10", "备注": None,
+                         "当月实收": "8000", "返点及转款扣减": "0", "绩效金额": "80"}]
+
+        source = Source({})
+        data = source.assignment()
+        self.assertEqual(source.assert_table, "assignment")
+        self.assertEqual(data["assignment"][0]["project_ids"], ["p-a"])
+        self.assertEqual(data["assignment"][0]["developer"], ["甲"])
+        self.assertEqual(data["assignment"][0]["performance"], "80")
+
+    def test_assignment_snapshot_rejects_changed_field_types(self):
+        class Source(Reader):
+            def fields(self, table):
+                return [{"id": "1", "name": "项目", "type": "text"}]
+
+            def records(self, table, fields):
+                raise AssertionError("字段语义不符时不应读记录")
+
+        with self.assertRaisesRegex(CheckError, "字段"):
+            Source({}).assignment()
+
+
 if __name__ == "__main__":
     unittest.main()
