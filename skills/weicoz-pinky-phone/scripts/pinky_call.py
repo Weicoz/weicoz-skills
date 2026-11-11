@@ -13,6 +13,7 @@ import urllib.request
 
 DEFAULT_URL = "http://127.0.0.1:3425/mcp/magpie/hub/codex"
 DEFAULT_ADB = "/Applications/Pinky.app/Contents/Helpers/adb"
+DEFAULT_ET_ADB = "10.144.144.10:5555"
 APPROVAL_RE = re.compile(r"approval_id:\s*(\S+)")
 
 
@@ -131,6 +132,84 @@ def adb_devices(adb):
     ]
 
 
+def adb_run(adb, *args, timeout=15):
+    return subprocess.run(
+        [adb, *args], capture_output=True, text=True, timeout=timeout
+    )
+
+
+def adb_shell(adb, device, *args, timeout=15):
+    return adb_run(adb, "-s", device, "shell", *args, timeout=timeout).stdout.replace(
+        "\r", ""
+    ).strip()
+
+
+def wifi_endpoint(adb, device):
+    addresses = adb_shell(adb, device, "ip", "-4", "addr", "show", "wlan0")
+    match = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+)/", addresses)
+    if not match:
+        return None
+    port = adb_shell(adb, device, "getprop", "service.adb.tcp.port") or "5555"
+    return f"{match.group(1)}:{port if port.isdigit() else '5555'}"
+
+
+def is_local_route(host):
+    result = subprocess.run(
+        ["route", "-n", "get", host], capture_output=True, text=True, timeout=10
+    )
+    match = re.search(r"interface:\s*(\S+)", result.stdout)
+    return bool(match and not match.group(1).startswith(("utun", "lo")))
+
+
+def serial(adb, device):
+    return adb_shell(adb, device, "getprop", "ro.serialno")
+
+
+def connect_adb(adb, endpoint):
+    adb_run(adb, "connect", endpoint)
+    return endpoint in adb_devices(adb)
+
+
+def keep_only(adb, endpoint):
+    for device in adb_devices(adb):
+        if ":" in device and device != endpoint:
+            adb_run(adb, "disconnect", device, timeout=10)
+    if ":" not in endpoint:
+        adb_run(adb, "disconnect", timeout=10)
+
+
+def pick_channel(adb):
+    devices = adb_devices(adb)
+    usb = [device for device in devices if ":" not in device]
+    if usb:
+        keep_only(adb, usb[0])
+        return usb[0], "USB"
+
+    fallback = os.environ.get("PINKY_EASYTIER_ADB", DEFAULT_ET_ADB)
+    base = next((device for device in devices if ":" in device), None)
+    if base is None and connect_adb(adb, fallback):
+        base = fallback
+
+    if base:
+        wifi = wifi_endpoint(adb, base)
+        if wifi:
+            host = wifi.rsplit(":", 1)[0]
+            if is_local_route(host) and connect_adb(adb, wifi):
+                wifi_serial = serial(adb, wifi)
+                if wifi_serial and wifi_serial == serial(adb, base):
+                    keep_only(adb, wifi)
+                    return wifi, "WiFi"
+                adb_run(adb, "disconnect", wifi, timeout=10)
+
+        if base != fallback and connect_adb(adb, fallback):
+            base = fallback
+        if base in adb_devices(adb):
+            keep_only(adb, base)
+            return base, "EasyTier" if base == fallback else "adb"
+
+    raise RuntimeError("没有可用 adb 通道：USB、内网 Wi-Fi 和 EasyTier 都不可达")
+
+
 def doctor(client, adb):
     failed = False
     names = [tool.get("name") for tool in client.tools()]
@@ -192,7 +271,21 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="检查 hub、adb、前台 App 与金融类包名")
     commands.add_parser("list", help="列出 pinky 工具")
+    commands.add_parser(
+        "pick", help="选择并切换最优 adb 通道（USB > 同网 Wi-Fi > EasyTier）"
+    )
     commands.add_parser("selftest", help="离线自检")
+    connect = commands.add_parser("connect", help="选路后创建 Pinky 任务")
+    connect.add_argument("task")
+    connect.add_argument("--read-only", action="store_true")
+    connect.add_argument(
+        "--wait-approval",
+        nargs="?",
+        const=900,
+        type=int,
+        default=0,
+        metavar="SECONDS",
+    )
     call = commands.add_parser("call", help="调用一个 pinky 工具")
     call.add_argument("tool")
     call.add_argument("arguments", nargs="?", default="{}")
@@ -210,6 +303,14 @@ def main():
 
     if args.command == "selftest":
         return selftest()
+    if args.command == "pick":
+        try:
+            endpoint, reason = pick_channel(os.environ.get("PINKY_ADB", DEFAULT_ADB))
+        except Exception as error:
+            print(f"错误：{error}", file=sys.stderr)
+            return 1
+        print(f"{reason}: {endpoint}")
+        return 0
     client = Client(args.url)
     if args.command == "doctor":
         client.initialize()
@@ -221,6 +322,23 @@ def main():
                 first = (tool.get("description") or "").splitlines()[0]
                 print(f"{tool['name']} :: {first[:140]}")
         return 0
+    if args.command == "connect":
+        try:
+            endpoint, reason = pick_channel(os.environ.get("PINKY_ADB", DEFAULT_ADB))
+        except Exception as error:
+            print(f"错误：{error}", file=sys.stderr)
+            return 1
+        print(f"通道: {reason} {endpoint}", file=sys.stderr)
+        arguments = {"task": args.task}
+        if args.read_only:
+            arguments["read_only"] = True
+        return run_call(
+            client,
+            "phone_connect",
+            arguments,
+            args.wait_approval,
+            args.wait_approval,
+        )
     try:
         arguments = json.loads(args.arguments)
     except json.JSONDecodeError as error:

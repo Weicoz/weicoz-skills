@@ -15,6 +15,8 @@ whenToUse: 用户要求用 Pinky 或手机自动化操作 App，或需要读手�
 
 ```bash
 python3 scripts/pinky_call.py doctor
+python3 scripts/pinky_call.py pick
+python3 scripts/pinky_call.py connect "打开农行并准备转账"
 python3 scripts/pinky_call.py call phone_connect '{"task":"打开农行并准备转账"}'
 python3 scripts/pinky_call.py call phone_launch '{"app":"com.android.corpormbank"}'
 python3 scripts/pinky_call.py call phone_observe '{}'
@@ -23,10 +25,19 @@ python3 scripts/pinky_call.py call phone_release '{}'
 
 `call` 默认只打印屏幕文本。加 `--wait-approval` 自动处理 `approval_pending`。
 
+## 通道选择
+
+新建任务优先用 `connect`：它先选路，再调用 `phone_connect`。顺序是
+USB → 同网 Wi-Fi → EasyTier。内网 IP 从手机 `wlan0` 实时读取；只有 Mac 到该地址的
+路由不是 `utun`、且 `ro.serialno` 匹配时才使用。不要写死内网 IP。
+
+每次新建任务调用一次，进程处理完即退出，不常驻。已有任务继续用 `call`，
+不要在中途切换通道，避免 lease 断开。`pick` 只做选路并打印结果，便于诊断。
+
 ## 标准循环
 
 1. 预检：`doctor` 必须退出码 0。它检查 hub、pinky 工具、adb 在线设备、前台 App、金融类包名。
-2. 连接：`phone_connect` 带一句任务名，用户会在 Pinky 里看到。首次连接可能返回
+2. 连接：`connect "<任务名>"` 带一句任务名，用户会在 Pinky 里看到。首次连接可能返回
    `approval_pending`，用 `--wait-approval` 重试。
 3. 打开：`phone_launch` 用包名，不要靠 `phone_apps` 猜。金融类 App 默认被隐藏，
    且启动会要求用户批准。
@@ -79,6 +90,8 @@ python3 scripts/pinky_call.py call phone_release '{}'
 | `blocked_by_policy` | 让用户在 Pinky 里允许，或 `phone_handoff`；不得绕过 |
 | `lease_held` | 释放自己的旧任务，或请用户结束其他会话 |
 | `device_needs_setup` | `phone_handoff`，让用户完成信任电脑/无线调试 |
+| `device_offline` | 先 `pick` 重新选路；仍失败则重启 adb server 后重试 |
+| `No route to host` | 内网 Wi-Fi 路由或 adb server 缓存失效；`pick` 会回退 EasyTier |
 | `invalid_argument` 且提到 ref | ref 必须是整数，不是字符串 |
 | ref `not_found` | 页面已重排，先 `phone_observe` 取新 ref |
 | `approval_pending` | 同参数加 `approval_id` 重试，或用 `--wait-approval` |
@@ -87,3 +100,5 @@ python3 scripts/pinky_call.py call phone_release '{}'
 
 - `MAGPIE_HUB_URL`：默认 `http://127.0.0.1:3425/mcp/magpie/hub/codex`。
 - `PINKY_ADB`：默认 `/Applications/Pinky.app/Contents/Helpers/adb`。
+- `PINKY_EASYTIER_ADB`：EasyTier 回退地址，默认 `10.144.144.10:5555`。
+  这是 EasyTier 虚拟地址，不随物理网段变化；内网地址不配置。
