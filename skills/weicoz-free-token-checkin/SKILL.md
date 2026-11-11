@@ -1,6 +1,6 @@
 ---
 name: weicoz-free-token-checkin
-version: 1.0.0
+version: 1.0.1
 description: >
   每日执行并核验 AI 产品免费额度签到。自动运行 Magpie 已登录账号的签到，
   回读每日额度和余额，并明确区分自动发放、网页签到、客户端签到与仅手动项目。
@@ -19,7 +19,8 @@ description: >
 3. 用 `magpie quota --json` 回读每日额度和余额。
 
 重复执行安全。`already` 表示今天已经领过，仍算成功；`inactive` 或
-`no check-in event now` 只表示当前没有可领事件，不按失败处理。
+`no check-in event now` 只表示当前没有可领事件，不按失败处理。个人 provider
+插件的 `inactive` 还会带“自动发放/无签到接口”的原因，不能改写成已领取。
 
 默认不打开网页、不启动客户端。用户明确要求“网页也签”或“全部领取”时，
 再读 [references/daily-checkins.md](references/daily-checkins.md)，只处理其中标为

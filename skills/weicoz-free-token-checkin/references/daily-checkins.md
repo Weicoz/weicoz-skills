@@ -12,6 +12,11 @@
 | MiniMax Code | 400 积分 | Magpie 的 `minimaxCheckin` 已开，但目前没有已登录账号传入 | 有账号后随 `accounts checkin` |
 | Qoder CN | 100 Credits，10:00 后领 | Magpie 的 `qoderCheckin` 已开，但目前没有已登录账号传入 | 有账号后随 `accounts checkin` |
 
+个人 `magpie-provider-plugins` 的 13 个 provider 也都暴露了
+`auth.checkin`。其中 ModelScope、AMD、Cloudflare 的每日额度由平台自动发放；
+其余为按月、按窗口、代金券或一次性额度。它们统一返回 `inactive` 并附中文
+原因，不伪造 `claimed`，因此不能当成“今天领到了新额度”。
+
 ## 每日自动发放，不需要点击
 
 | 项目 | 每日额度 | 核验方式 |

@@ -165,7 +165,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 
 | Skill | 版本 | 说明 |
 | --- | --- | --- |
-| [`weicoz-free-token-checkin`](skills/weicoz-free-token-checkin/) | 1.0.0 | 每日签到 AI 免费额度：运行 Magpie 签到、回读每日额度与余额，区分自动发放、网页签到、客户端签到；不代登录 |
+| [`weicoz-free-token-checkin`](skills/weicoz-free-token-checkin/) | 1.0.1 | 每日签到 AI 免费额度：运行 Magpie 签到、回读每日额度与余额，区分自动发放、网页签到、客户端签到；不代登录 |
 | [`weicoz-mac-procmon`](skills/weicoz-mac-procmon/) | 1.0.0 | 查本机 CPU / 内存 / 磁盘异常，做进程归因与告警排查 |
 | [`weicoz-mac-rescue`](skills/weicoz-mac-rescue/) | 1.0.0 | 卡顿与磁盘满的现场急救：swap 吃盘、僵尸启动项、进程泄漏、系统进程误判 |
 | [`weicoz-harness-config-sync`](skills/weicoz-harness-config-sync/) | 2.0.3 | 同步 Codex / DSH / agy / Kimi Code 与可选 Shell 配置，支持预览、冲突保护、设备覆盖与回滚 |
