@@ -59,6 +59,30 @@ def cells(root: ET.Element, shared: list[str]) -> dict[str, tuple[str, str]]:
     return result
 
 
+def shown(value: str | None, limit: int = 64) -> str:
+    if value is None:
+        return "（无）"
+    text = value.replace("\r", "\\r").replace("\n", "\\n")
+    if len(text) > limit:
+        text = f"{text[:limit]}…"
+    return '"' + text.replace('"', '\\"') + '"'
+
+
+def cell_difference(
+    ref: str,
+    actual: tuple[str, str] | None,
+    expected: tuple[str, str] | None,
+) -> str:
+    parts = []
+    actual_value, actual_style = actual or (None, None)
+    expected_value, expected_style = expected or (None, None)
+    if actual_value != expected_value:
+        parts.append(f"实际值={shown(actual_value)}，期望值={shown(expected_value)}")
+    if actual_style != expected_style:
+        parts.append(f"实际样式 s={shown(actual_style)}，期望样式 s={shown(expected_style)}")
+    return f"{ref}：{'；'.join(parts)}"
+
+
 def check_workbook(path: Path, payload: dict) -> list[str]:
     specs = sheet_specs(payload)
     audience = payload.get("audience", "client")
@@ -108,7 +132,16 @@ def check_workbook(path: Path, payload: dict) -> list[str]:
                     expected[f"{column}{number}"] = (value, style)
             if actual != expected:
                 differences = sorted(k for k in set(actual) | set(expected) if actual.get(k) != expected.get(k))
-                problems.append(f"{name}：单元格内容、样式或四列范围不符（含表尾追加）：{', '.join(differences[:8])}")
+                details = [
+                    cell_difference(ref, actual.get(ref), expected.get(ref))
+                    for ref in differences[:8]
+                ]
+                if len(differences) > len(details):
+                    details.append(f"另有 {len(differences) - len(details)} 个单元格不符")
+                problems.append(
+                    f"{name}：单元格内容、样式或四列范围不符（含表尾追加）：\n  "
+                    + "\n  ".join(details)
+                )
             row_numbers = [r.get("r") for r in root.findall("main:sheetData/main:row", NS)]
             if row_numbers != [str(i) for i in range(1, len(values) + 1)]:
                 problems.append(f"{name}：功能表结束位置或行序不符")

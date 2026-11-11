@@ -1,6 +1,6 @@
 ---
 name: weicoz-custom-feature-checklist
-version: 1.5.0
+version: 1.6.0
 description: >
   把客户沟通记录、会议纪要、聊天内容整理成可交付的功能清单，含内部版、客户版、Markdown 和 xlsx。
   默认只保留定制部分，区分现成能力与待确认项，并优先按用户端/平台后台拆分。
@@ -106,6 +106,7 @@ allowed-tools: Read, Write, Edit, Bash
 9. 按“导出动作判定表”决定停在 Markdown、继续导出 `.xlsx`，还是继续出截图。
 10. 用户要求 Excel / xlsx 时，内部核对主表后直接按 `references/xlsx-output.md` 和 `scripts/create_feature_checklist_xlsx.py` 生成 `.xlsx`。
 11. 如果要输出截图，截图内容默认只保留表格本体，不带页面留白；宽度默认不超过 `1000px`；高度应与表格实际高度一致；如果用户指定保存目录，截图与导出文件统一落到该目录。
+12. 从现有 XLSX 删除整个板块时，用前后两份文件运行 `scripts/check_scope_diff.py <原文件> <新文件> --remove-block <板块名>`；该板块的 B 列续行必须一起删除，前后相邻板块不得变化。
 
 ### 🔴 CHECKPOINT · 范围确认
 - 如果当前材料没有明确当前版本范围、输出范围或拆分维度，并入提问闭环问清，不要直接假设主表结构。

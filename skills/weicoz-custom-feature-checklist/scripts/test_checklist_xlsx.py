@@ -96,6 +96,20 @@ class ChecklistTests(unittest.TestCase):
                 mutate(path, self.part(path), lambda r: setattr(r.find(f'.//main:c[@r="{cell}"]/main:is/main:t', NS), "text", "擅自改写"))
                 self.assertTrue(check_workbook(path, self.payload))
 
+    def test_cell_difference_reports_actual_and_expected(self):
+        path = self.build()
+
+        def edit(root):
+            cell = root.find('.//main:c[@r="D3"]', NS)
+            cell.set("s", "99")
+            cell.find("main:is/main:t", NS).text = "擅自改写\n第二行"
+
+        mutate(path, self.part(path), edit)
+        report = "\n".join(check_workbook(path, self.payload))
+        self.assertIn('D3：实际值="擅自改写\\n第二行"，期望值="查看当前身份。"', report)
+        self.assertIn('实际样式 s="99"', report)
+        self.assertIn("期望样式 s=", report)
+
     def test_width_and_style_changes_rejected(self):
         path = self.build()
         mutate(path, self.part(path), lambda r: r.find("main:cols/main:col", NS).set("width", "99"))
