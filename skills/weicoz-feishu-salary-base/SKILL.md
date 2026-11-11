@@ -420,84 +420,66 @@ lark-cli base +record-list --as user --base-token <BASE_TOKEN> --table-id <TABLE
 - 公式列自动算，就不要手填结果列
 - 写入前必查重复
 - 写入后必复核
-- 用户要求“发送给我自己”时，优先用 `lark-cli auth status` 里的 `userOpenId`
+- 用户要求“发送给我自己”时，用 `--staging <姓名>` 先发本人；脚本按姓名精确匹配 openId
 
 ## 发送工资结果
 
-当用户要求“把这个月工资结果发给我自己”或“每条记录发一次”时，按下面做。
+当用户要求“把这个月工资结果发给我自己”“发给某人”或“每条记录发一次”时，用脚本发，不要手拼命令。
 
-### 1. 先读最终记录
+### 1. 写通知文件
 
-只从表里读最终结果，不要用旧草稿：
+```json
+{
+  "month": "202610",
+  "title": "社保补缴个人部分｜2026 年",
+  "template": "【{title}】\n个人应承担合计 {amount} 元。\n明细：{span}（{detail}）。",
+  "items": [{"name": "<姓名>", "amount": "531.84", "span": "2026 年 1–9 月", "detail": "58.80 元/月"}]
+}
+```
+
+模板只认 `{title}` `{name}` `{amount}` `{span}` `{detail}` 五个占位符。
+
+### 2. 先预演，再发自己
 
 ```bash
-lark-cli base +record-list --as user --base-token <BASE_TOKEN> --table-id <TABLE_ID> --limit 200 --format json
+python3 scripts/send_notices.py notice.json --dry-run
+python3 scripts/send_notices.py notice.json --staging <姓名>
 ```
 
-筛出目标月份后，取最终字段值。
+`--dry-run` 打印全部正文；`--staging` 只发一个人验样式，确认后再发整批。
 
-### 2. 用固定模板整理
+### 3. 发送前的断言
 
-如果用户给了模板，严格按用户模板排。不要擅自改标题、顺序、标点。
+脚本会拦住以下情况，命中任意一条就整批不发：
 
-示例模板：
+- 名单外人员（不在配置 `name_options`）
+- 当月没有工资行（没有可代扣的记录）
+- 金额不是两位小数；给了 `--source-amounts` 时与源数据不一致
+- 文案含连续空格、制表符、行首行尾空格、未替换占位符、末尾空行
 
-```text
-【<姓名>｜YYYYMM】
-基本薪资 <数字>
-应上天数 <数字>｜实上天数 <数字>｜请假小时 <数字>｜加班天数 <数字>
-绩效奖金 <数字>｜补贴 <数字>
-应缴社保 <数字>｜个税 <数字>
-实发薪资 <数字>
+这些断言来自真事故：标题多一个空格、把当月社保算进补缴，都曾整批撤回重发。
 
-请核对以上工资明细，确认无误请回复「确认」；如有疑问请及时沟通。
-```
-
-格式要求：
-
-- 每人一条完整消息
-- 金额优先保留两位小数
-- 天数/小时保留表内最终值
-- 不要输出 JSON
-- 不要把换行写成字面量 `\\n`
-- 必须发送真实换行文本
-
-### 3. 确认接收对象
-
-如果用户说“发给我自己”：
-
-1. 运行：
+### 4. 发送与批次
 
 ```bash
-lark-cli auth status
+python3 scripts/send_notices.py notice.json
 ```
 
-2. 读取 `userOpenId`
-3. 用 `lark-cli im +messages-send --as user --user-id <OPEN_ID>` 发送
+逐人单发、`--as user`、带幂等键。批次写到 `~/.local/state/weicoz-salary/notices/<时间>-<月份>.json`（600），含 message_id 与正文。
 
-### 4. 逐条发送
-
-如果用户说“每条记录发一次”，就每人单独一条消息，不要合并。
-
-命令形态：
+### 5. 回读与撤回
 
 ```bash
-lark-cli im +messages-send --as user --user-id <OPEN_ID> --text $'【姓名｜YYYYMM】\n基本薪资 ...\n应上天数 ...'
+python3 scripts/send_notices.py --verify <批次.json>
+python3 scripts/send_notices.py --recall <批次.json>          # 只列清单
+python3 scripts/send_notices.py --recall <批次.json> --yes    # 真正撤回
 ```
 
-重点：
+回读用一次批量 mget，核对「未撤回且正文一致」；撤回必须带 `--yes`。
 
-- 在 shell 里优先用 `$'...'` 传真实换行
-- 不要把文本写成包含反斜杠的 `\n`
-- 不要默认用 bot 身份，优先 `--as user`
+### 手动发送（脚本不可用时）
 
-### 5. 发送后确认
-
-至少确认：
-
-- 成功条数
-- 目标 chat/user 是否一致
-- 是否按“每条一发”执行
+每人一条，`--as user`，用 `$'...'` 传真实换行，金额两位小数。发完把 message_id 记下来，否则撤回只能逐条猜。
 
 ## 发送场景示例
 

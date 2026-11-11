@@ -37,7 +37,8 @@ def load_config(path):
         columns = [fields["text"], fields["time"], fields["name"], *fields["writable"], *fields["formula"]]
         if not isinstance(base.get("token"), str) or not isinstance(base.get("table"), str):
             raise ValueError()
-        return {"token": base["token"], "table": base["table"], "time": fields["time"], "columns": columns}
+        return {"token": base["token"], "table": base["table"], "time": fields["time"],
+                "name": fields["name"], "columns": columns}
     except (OSError, KeyError, TypeError, ValueError, yaml.YAMLError):
         raise MonthError("私有配置缺失或不完整；未回显配置") from None
 
