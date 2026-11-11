@@ -2,7 +2,7 @@
 
 面向 AI Agent 与终端用户的自研技能集合（支持 DSH、Codex、Claude Code、Antigravity、Kimi Code）。
 
-每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **75 个 Skill**。
+每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **76 个 Skill**。
 
 ---
 
@@ -166,6 +166,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | Skill | 版本 | 说明 |
 | --- | --- | --- |
 | [`weicoz-free-token-checkin`](skills/weicoz-free-token-checkin/) | 1.0.1 | 每日签到 AI 免费额度：运行 Magpie 签到、回读每日额度与余额，区分自动发放、网页签到、客户端签到；不代登录 |
+| [`weicoz-magpie-sync`](skills/weicoz-magpie-sync/) | 1.0.0 | 同步本地与远端 Magpie 配置，使用同一 WebDAV 账号的独立目录备份，密钥只存本机密钥库 |
 | [`weicoz-mac-procmon`](skills/weicoz-mac-procmon/) | 1.0.0 | 查本机 CPU / 内存 / 磁盘异常，做进程归因与告警排查 |
 | [`weicoz-pinky-phone`](skills/weicoz-pinky-phone/) | 1.0.0 | 用 Pinky 操作真机：MCP 客户端、预检、审批与接管、读屏兜底、转账边界 |
 | [`weicoz-mac-rescue`](skills/weicoz-mac-rescue/) | 1.0.0 | 卡顿与磁盘满的现场急救：swap 吃盘、僵尸启动项、进程泄漏、系统进程误判 |

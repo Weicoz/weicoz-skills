@@ -1,0 +1,4 @@
+interface:
+  display_name: "Magpie 多机同步"
+  short_description: "同步 Magpie 配置并用同一 WebDAV 账号做隔离备份"
+  default_prompt: "Use $weicoz-magpie-sync to sync Magpie config to the remote host and configure an isolated WebDAV backup."
