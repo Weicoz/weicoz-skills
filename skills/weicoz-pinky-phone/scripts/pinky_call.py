@@ -165,7 +165,16 @@ def serial(adb, device):
     return adb_shell(adb, device, "getprop", "ro.serialno")
 
 
+def restart_adb(adb):
+    adb_run(adb, "kill-server", timeout=10)
+    adb_run(adb, "start-server", timeout=15)
+
+
 def connect_adb(adb, endpoint):
+    adb_run(adb, "connect", endpoint)
+    if endpoint in adb_devices(adb):
+        return True
+    restart_adb(adb)
     adb_run(adb, "connect", endpoint)
     return endpoint in adb_devices(adb)
 
@@ -191,12 +200,13 @@ def pick_channel(adb):
         base = fallback
 
     if base:
+        base_serial = serial(adb, base)
         wifi = wifi_endpoint(adb, base)
         if wifi:
             host = wifi.rsplit(":", 1)[0]
             if is_local_route(host) and connect_adb(adb, wifi):
                 wifi_serial = serial(adb, wifi)
-                if wifi_serial and wifi_serial == serial(adb, base):
+                if wifi_serial and (not base_serial or wifi_serial == base_serial):
                     keep_only(adb, wifi)
                     return wifi, "WiFi"
                 adb_run(adb, "disconnect", wifi, timeout=10)
