@@ -89,12 +89,15 @@ def render(month, rows, columns, time_field="时间"):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("month", help="YYYYMM")
+    parser.add_argument("--with-notes", action="store_true", help="同时输出备注列（默认省略，避免长文本打乱视图）")
     parser.add_argument("--config", type=Path, default=Path(os.environ.get(
         "WEICOZ_SALARY_CONFIG", str(Path.home() / ".config/weicoz-feishu-salary-base/config.yaml"))))
     args = parser.parse_args()
     try:
         config = load_config(args.config)
         config["columns"] = list(dict.fromkeys(config["columns"]))
+        if not args.with_notes:
+            config["columns"] = [column for column in config["columns"] if column != "备注"]
         text, selected = render(args.month, records(config), config["columns"], config["time"])
         print(text)
         if not selected:
