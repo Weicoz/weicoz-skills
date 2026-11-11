@@ -61,7 +61,7 @@ fi
 
 echo
 echo "### 额度"
-PROVIDERS="${WEICOZ_FREE_TOKEN_QUOTA_PROVIDERS:-workbuddy modelscope-plugin cloudflare-workers-ai-plugin amd-token-factory-plugin newapi-plugin opencode-go}"
+PROVIDERS="${WEICOZ_FREE_TOKEN_QUOTA_PROVIDERS:-workbuddy modelscope-plugin cloudflare-workers-ai-plugin amd-token-factory-plugin newapi opencode-go}"
 read -r -a PROVIDER_LIST <<< "$PROVIDERS"
 QUOTA_RC=0
 "$MAGPIE_BIN" quota "${PROVIDER_LIST[@]}" --json > "$TMP_DIR/quota.json" 2>"$TMP_DIR/quota.err" || QUOTA_RC=$?
