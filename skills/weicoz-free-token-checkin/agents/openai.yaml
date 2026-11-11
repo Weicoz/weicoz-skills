@@ -1,0 +1,4 @@
+interface:
+  display_name: "免费额度每日签到"
+  short_description: "运行 Magpie 签到并回读每日免费额度"
+  default_prompt: "Use $weicoz-free-token-checkin to run today's free-token check-in and report quotas."
