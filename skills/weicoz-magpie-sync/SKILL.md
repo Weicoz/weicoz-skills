@@ -138,6 +138,9 @@ ssh "$MAGPIE_REMOTE_SSH" \
 如果远端不是 Docker，把 `docker exec ... magpie` 换成远端宿主机的
 `magpie` 命令。不要删除备份；回滚时用它恢复。
 
+非 Docker 部署必须先停掉远端 Magpie 服务或网关，再改 `providers.json`；
+不要让运行中的进程在保存时覆盖文件。改完再启动并执行 `healthcheck`。
+
 ## 4. 切到独立目录
 
 密码和 passphrase 由 Magpie 管理，按“第一行密码、第二行 passphrase”从 stdin
