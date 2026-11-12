@@ -2,7 +2,7 @@
 
 面向 AI Agent 与终端用户的自研技能集合（支持 DSH、Codex、Claude Code、Antigravity、Kimi Code）。
 
-每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **76 个 Skill**。
+每个 Skill 独立成目录，自带 `version`，通过软链接挂到各 harness 的 skills 目录。共 **78 个 Skill**。
 
 ---
 
@@ -174,6 +174,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-skill-tiers`](skills/weicoz-skill-tiers/) | 1.7.0 | skill 分层：L1 常驻、L2 短描述桩、L3 领域 Hub 收纳且可手动 /name 调用；含 status 健康检查、sources 挂源盘点、stats 使用次数与常用度统计 |
 | [`weicoz-dsh-repos-update-check`](skills/weicoz-dsh-repos-update-check/) | 1.0.0 | 只读检查 DSH 本体与已装插件仓库的更新和实装差异 |
 | [`weicoz-frp-port-dispatch`](skills/weicoz-frp-port-dispatch/) | 1.0.0 | 配置、迁移与排查 FRP 端口转发与开机自启 |
+| [`weicoz-claude-citadel-routing`](skills/weicoz-claude-citadel-routing/) | 1.0.0 | 排查 Bettbox 域名打不开、Fake-IP 与错误出口，维护 Claude Citadel 主备规则并验证浏览器结果 |
 | [`weicoz-3a-game-manifest`](skills/weicoz-3a-game-manifest/) | 1.0.0 | 从 3a.lol 提取 Steam 入库清单并归档，附画质帧率预测 |
 | [`weicoz-wsy-ops`](skills/weicoz-wsy-ops/) | 1.0.0 | 经 wsy CLI 排查与升级已部署的 WSY PHP 项目：读文件日志、只读查库，变更走计划并经宿主弹窗批准后执行、可回滚 |
 

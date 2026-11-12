@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Citadel 域名分流"
+  short_description: "排查 Bettbox 打不开、Fake-IP 与直连规则，并发布主备订阅"
+  default_prompt: "Use $weicoz-claude-citadel-routing to fix the domain routing, publish both subscriptions, and verify the browser result."
