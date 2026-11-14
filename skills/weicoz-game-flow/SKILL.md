@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-flow
-version: 1.2.0
+version: 1.3.0
 description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）：开项目、先找乐趣再工程化的两段式路线、阶段门与各阶段该用的 skill。用于开始或接手一个小游戏项目、问“下一步做什么”、判断能否进入下一阶段。
 ---
 
@@ -39,7 +39,7 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 
 1. Cocos 工程用 Creator 3.8.x。新项目规则核放 `assets/scripts/core/`；已有项目沿用其结构（如 monorepo 的 `packages/`），约定见 `weicoz-cocos-dev` 的分层。
 2. 没有 git 仓库就 `git init`；仓库还没有任何提交时，提醒用户先做首次提交，之后的改动才能回退。
-3. 跑 `weicoz-cocos-run` 的预检。需要用户在编辑器里点的步骤（Configure + Skills、Restart）一次性列给用户；用户不在场时先走 CLI 路径。
+3. 跑 `weicoz-cocos-run` 的预检，按提示补 funplay 配置。编辑器可以由你用命令行打开（预检输出里有命令），funplay 项目 skill 可以由你经编辑器脚本安装（见 `weicoz-cocos-run` 第 1 节）。只有编辑器开着时改了 MCP 配置，才需要用户点 Restart；微信开发者工具的服务端口必须由用户开。用户不在场时先走 CLI 路径。
 4. 按 `references/project-agents.md` 模板写项目 `AGENTS.md`，写明 Cocos 工程目录与规则核位置。
 
 完成标准：预检无 ❌；`AGENTS.md` 存在；已记录本项目走 MCP 还是 CLI 路径，以及留给用户的手动步骤。

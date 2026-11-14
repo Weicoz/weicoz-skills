@@ -25,6 +25,8 @@ start() {
 }
 ```
 
+`idle()` 不能省：结算面板、动画通常在操作后延迟出现，没有它脚本只能固定等待，面板晚弹出就会误报失败。项目钩子缺 `idle()` 时，在等面板的步骤加足等待（≥ 动画时长 + 面板延迟），并在汇报里注明。
+
 字段按玩法增减，但保持三类：**读状态**（`state`、`idle`）、**真实输入坐标**（`screenPoint`）、**作弊构造**（`setTime`、`solution`、`act`）。验收“点击有效”必须用真实点击；“超时失败”这类可以用作弊构造。
 
 ## 试玩脚本模板
@@ -33,6 +35,8 @@ start() {
 
 ```js
 async page => {
+  await page.reload()  // 每次从干净页面开始，脚本才能重跑
+  await page.waitForFunction(() => globalThis.__game, null, { timeout: 15000 })
   const state = () => page.evaluate(() => __game.state())
   const waitIdle = () => page.waitForFunction(() => __game.idle(), null, { timeout: 4000 })
   const tap = async (x, y) => {

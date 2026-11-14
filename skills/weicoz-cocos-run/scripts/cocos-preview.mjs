@@ -65,8 +65,21 @@ server.listen(port, lan ? '0.0.0.0' : '127.0.0.1', () => {
   const url = `http://127.0.0.1:${port}/`
   console.log(`预览：${url}`)
   if (lan) {
-    const ips = Object.values(networkInterfaces()).flat().filter((n) => n?.family === 'IPv4' && !n.internal).map((n) => n.address)
-    for (const ip of ips) console.log(`手机（同一 Wi-Fi）：http://${ip}:${port}/`)
+    // 默认路由网卡排第一；VPN/TUN/组网（utun、198.18.x 代理假 IP 等）标出来，免得给错地址
+    let primary = ''
+    try {
+      const out = spawnSync(process.platform === 'darwin' ? 'route' : 'ip', process.platform === 'darwin' ? ['-n', 'get', 'default'] : ['route', 'show', 'default'], { encoding: 'utf8' }).stdout ?? ''
+      primary = out.match(/interface: (\S+)/)?.[1] ?? out.match(/ dev (\S+)/)?.[1] ?? ''
+    } catch { /* 取不到默认路由时只按顺序列出 */ }
+    const nics = Object.entries(networkInterfaces()).flatMap(([name, list]) =>
+      (list ?? []).filter((n) => n.family === 'IPv4' && !n.internal).map((n) => ({ name, ip: n.address })))
+    const virtual = (n) => /^(utun|tun|tap|feth|bridge|vmnet|docker|veth|zt|tailscale)/.test(n.name) || n.ip.startsWith('198.18.')
+    nics.sort((a, b) => (b.name === primary) - (a.name === primary) || virtual(a) - virtual(b))
+    for (const n of nics) {
+      const tag = n.name === primary ? '（默认网卡，优先用这个）' : virtual(n) ? '（虚拟网卡，手机一般连不上）' : ''
+      console.log(`手机（同一 Wi-Fi）：http://${n.ip}:${port}/  ${n.name}${tag}`)
+    }
+    console.log('网络切换后地址会变：重跑本命令取新地址。')
   }
   if (args.includes('--open')) spawn(process.platform === 'darwin' ? 'open' : 'xdg-open', [url], { stdio: 'ignore', detached: true }).unref()
 })

@@ -136,7 +136,7 @@ if (!catalog.size) {
 const mcpUp = mcpPort > 0 && await portOpen(mcpPort)
 if (mcpUp && editorOnThis && !others.length) add('ok', 'MCP 端口', `127.0.0.1:${mcpPort} 可连接`)
 else if (mcpUp) add('warn', 'MCP 端口', `127.0.0.1:${mcpPort} 可连接，但可能属于其他工程`, '调用 get_project_info 核对 project_path')
-else if (!mcpPort) add('warn', 'MCP 端口', '工程未固定端口（funplay 按工程路径分配）', '调用 get_project_info，或看 Funplay > MCP Server 面板里的 URL')
+else if (!mcpPort) add('warn', 'MCP 端口', '工程未固定端口（funplay 按工程路径分配）', 'MCP 经聚合器接入时，在 funplay-cocos-mcp.config.json 写聚合器指向的端口并加 "portMode": "fixed"；直连时看 Funplay > MCP Server 面板里的 URL')
 else add('warn', 'MCP 端口', `127.0.0.1:${mcpPort} 无监听`, '打开当前工程的编辑器，确认 Funplay > MCP Server 已启动；不可用时走 CLI 路径')
 
 // 5. 编辑器浏览器预览端口
