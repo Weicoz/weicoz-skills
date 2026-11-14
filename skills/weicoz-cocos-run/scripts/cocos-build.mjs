@@ -10,6 +10,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { unusedModules } from './cocos-modules.mjs'
 
 const args = process.argv.slice(2)
 const flag = (name, fallback) => {
@@ -79,4 +80,6 @@ if (platform === 'wechatgame') {
   console.log('最大文件：')
   for (const [size, file] of largest.slice(0, 5)) console.log(`  ${mb(size)} MB  ${file}`)
 }
+const { unused } = unusedModules(project)
+if (unused.length) console.warn(`⚠️ 引擎已启用但工程未使用：${unused.join(', ')}（项目设置 → 功能裁剪中关闭可减小包体）`)
 console.log('状态：构建已验证；运行时未验证。')

@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-flow
-version: 1.0.0
+version: 1.1.0
 description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）：开项目、先找乐趣再工程化的两段式路线、阶段门与各阶段该用的 skill。用于开始或接手一个小游戏项目、问“下一步做什么”、判断能否进入下一阶段。
 ---
 
@@ -21,10 +21,10 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 
 ## 阶段 0：开项目
 
-1. Cocos 工程用 Creator 3.8.x；规则核单独放纯 TS 包（目录约定见 `weicoz-cocos-dev`）。
+1. Cocos 工程用 Creator 3.8.x；规则核放 `assets/scripts/core/`，写成纯 TS（约定见 `weicoz-cocos-dev`）。
 2. 没有 git 仓库就 `git init`，并提醒用户做首次提交。
 3. 跑 `weicoz-cocos-run` 的预检，按提示装好 funplay 项目 skill。
-4. 在项目 `AGENTS.md` 写入：目标平台、已确认规则、待定项清单位置、“开工先读 `weicoz-game-flow`”。
+4. 按 `references/project-agents.md` 模板写项目 `AGENTS.md`。
 
 完成标准：预检无 ❌，`AGENTS.md` 存在。
 
@@ -42,6 +42,8 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 - 运行验证达到“核心循环已验证”（浏览器即可）。
 - 对标指标逐项达标，或差距已列出并经用户接受。
 - 用户亲手玩过，并明确说方向对。
+
+用户试玩时少解释，困惑本身就是证据。记下：是否看懂第一个目标、是否找到第一个操作、是否把操作和反馈对上、是否知道为什么失败、是否想再来一局。
 
 用户说“太简单”“不像参考”：回到第 1 步调指标，不进入阶段 2。玩法整体换方向：写一条 ADR，删掉旧玩法代码，从阶段 1 重来。
 

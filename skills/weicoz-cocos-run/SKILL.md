@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-run
-version: 1.0.0
+version: 1.1.0
 description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行构建（web-mobile / wechatgame）、给用户可点开的预览、自动试玩验收与分级证据。用于“跑起来看看”“我怎么测试”“在 Cocos 里预览给我看”“构建微信小游戏”“验收 demo”。
 ---
 
@@ -15,6 +15,7 @@ description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行�
 - ❌ 必须先处理。
 - “funplay 项目 skill 未安装”：让用户在编辑器 Funplay > MCP Server 选当前客户端，点 **Configure + Skills**。它同时写好本工程的 MCP 连接（Claude Code 写入 `~/.claude.json` 的 `projects[<Git 根>].mcpServers`）并装上 `funplay-cocos-mcp-workflow`、`funplay-cocos-ui-composition`。编辑器内的场景、Prefab、资源操作按这两个 skill 执行。
 - “另有工程占用编辑器”：MCP 固定端口会连到那个工程。让用户关掉它，或说明本次只走 CLI 路径。
+- MCP 经聚合器（如 magpie）接入时，客户端只有一个固定地址。各工程的 `funplay-cocos-mcp.config.json` 都固定为该端口（`"portMode": "fixed"`），并且一次只开一个工程。直连客户端时改用 Configure + Skills 生成的按工程地址。
 - “MCP 工具档缺少预览/试玩工具”：`core` 档没有 `run_project_preview`、`capture_game_screenshot`、`simulate_preview_input`、`invoke_component_method`。在工程根的 `funplay-cocos-mcp.config.json` 改为：
 
   ```json
@@ -33,7 +34,8 @@ description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行�
 
 - Creator CLI 成功也返回退出码 **36**；32 = 参数无效，34 = 构建异常。脚本以“本次构建生成的产物文件”为成功判据。
 - 编辑器正开着同一工程时，先让用户关闭或改用编辑器内构建，避免两个进程争用 `library/`。
-- wechatgame：主包 ≤ 4 MB、总包 ≤ 20 MB。超 4 MB 先查引擎模块：`cocos-js/_virtual_cc-*.js` 超过 3 MB 或出现 `spine-*.wasm`，说明没裁剪。在“项目设置 → 功能裁剪”关掉未用模块（3D、Spine、DragonBones、物理、粒子 3D 等），再 `--release` 对比。
+- wechatgame：主包 ≤ 4 MB、总包 ≤ 20 MB，包体以 `--release` 构建为准；debug 构建不压缩，日常预览用。
+- 构建脚本会调用 `cocos-modules.mjs`，列出已启用但工程里找不到使用痕迹的重型模块（Spine、DragonBones、TiledMap、2D 物理、Video、WebView 等）。让用户在“项目设置 → 功能裁剪”关闭后重建。实测一个只用 Graphics 的解谜 demo：debug 5.92 MB → 裁掉 7 个模块 4.21 MB → 再加 `--release` 1.86 MB。
 - 真实 appid 只在测试微信 API（登录、分享、广告、支付）时需要。纯玩法用测试号即可。
 
 完成标准：脚本输出“构建已验证”，并记录产物大小与最大文件。
@@ -45,8 +47,11 @@ description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行�
 | 用户要的 | 做法 |
 | --- | --- |
 | 编辑器里看 | MCP 路径：`set_preview_mode(mode="gameView")` → `run_project_preview` → `capture_game_screenshot` 回传截图。CLI 路径：告诉用户点编辑器顶部 ▶，并说明尚未由你确认画面。 |
-| 浏览器里玩 | 编辑器预览 `http://127.0.0.1:7456/`；或构建 web-mobile 后 `python3 -m http.server 8123 -d build/web-mobile`，给 `http://127.0.0.1:8123/`。用 `open <url>` 帮用户打开。 |
-| 手机 / 微信里玩 | wechatgame 构建后，用微信开发者工具导入 `build/wechatgame`。`wechat-devtools` MCP 需要用户先开“设置 → 安全设置 → 服务端口”。 |
+| 浏览器里玩 | 后台运行 `cocos-preview.mjs --open`：构建 web-mobile、起本地服务并打开浏览器。不需要编辑器。编辑器开着时也可直接给 `http://127.0.0.1:7456/`。 |
+| 手机浏览器里玩 | `cocos-preview.mjs --lan`，把输出的局域网地址给用户。该地址对同一网络可见，用户玩完后停掉进程。 |
+| 微信里玩 | wechatgame 构建后，用微信开发者工具导入 `build/wechatgame`。`wechat-devtools` MCP 需要用户先开“设置 → 安全设置 → 服务端口”。 |
+
+截图确认：`playwright-cli open <url>` → `resize 390 844` → 等 3–4 秒 → `screenshot`；`eval "cc.director.getScene().name"` 返回场景名即说明引擎已启动。
 
 完成标准：你自己截图确认画面出来，并且用户拿到了 URL 或操作入口。
 
@@ -54,7 +59,18 @@ description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行�
 
 浏览器路径用 `playwright-cli`：`open <url>` → `resize 390 844` → `run-code --filename=<试玩脚本>`。读取状态和发起操作都通过游戏暴露的**测试钩子**，不靠反复 eval 探查节点树。钩子约定与试玩脚本模板见 `references/playtest-hook.md`。工程还没有钩子时，先让实现方按约定加上。
 
-每条验收写成：步骤 → 期望 → 证据（状态 JSON 或截图路径）→ 通过 / 失败。
+每条验收写成：步骤 → 期望 → 证据（状态 JSON 或截图路径）→ 通过 / 失败。另查一遍浏览器控制台或编辑器日志，有报错就写进缺陷。
+
+缺陷按影响分级，先修高级别：
+
+| 级别 | 含义 |
+| --- | --- |
+| 阻塞 | 启动不了、玩不了、崩溃、重开坏掉 |
+| 高 | 核心循环能跑，但玩家频繁遇到错误、严重看不懂、数值明显失衡 |
+| 中 | 可见 bug、反馈不清、节奏问题 |
+| 低 | 外观、文案、不影响玩的清理 |
+
+修复后重跑原失败场景，再跑一个相邻场景，并写明哪些没重测。
 
 ## 5. 汇报分级
 
@@ -65,4 +81,4 @@ description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行�
 3. **核心循环已验证**：首次操作、得分或进度变化、胜负与重开都有证据。
 4. **目标平台已验证**：微信开发者工具或真机跑通第 3 级。
 
-阶段要求的级别见 `weicoz-game-flow` 的阶段门。没跑的检查写“未验证”，并写明缺什么。
+阶段要求的级别见 `weicoz-game-flow` 的阶段门。没跑的检查写“未验证”，并写明缺什么。“代码看起来对”“构建通过但没打开”“窄范围日志里没报错”都不算证据。
