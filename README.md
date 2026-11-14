@@ -67,6 +67,18 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | --- | --- | --- |
 | [`weicoz-gaming-optimization`](skills/weicoz-gaming-optimization/) | 1.0.0 | NVIDIA驱动、DLSS模型与逐游戏建议；可恢复A/B及串流验收；公开来源与本地现场附件分离 |
 
+#### 小游戏开发（Cocos Creator 3.8 + 微信小游戏）
+
+编辑器自动化统一走 [funplay-cocos-mcp](https://github.com/FunplayAI/funplay-cocos-mcp)；开工先读 `weicoz-game-flow`。
+
+| Skill | 版本 | 说明 |
+| --- | --- | --- |
+| [`weicoz-game-flow`](skills/weicoz-game-flow/) | 1.0.0 | 总流程：先找乐趣（灰盒）再工程化，灰盒门与竖切门，衔接 Matt 流程 |
+| [`weicoz-game-design`](skills/weicoz-game-design/) | 1.0.0 | 参考视频抽帧拆解、可量化对标指标、可解关卡生成器、数值、交互、IP 安全 |
+| [`weicoz-cocos-dev`](skills/weicoz-cocos-dev/) | 1.0.0 | 规则核与视图分层、主控组件、Cocos 坑点、离线类型检查脚本 |
+| [`weicoz-cocos-run`](skills/weicoz-cocos-run/) | 1.0.0 | 预检、命令行构建（退出码 36）、给用户预览、测试钩子自动试玩、验证分级 |
+| [`weicoz-game-assets`](skills/weicoz-game-assets/) | 1.0.0 | 美术方向与风格锚点、素材契约、网格图切分裁边检查、导入与首包预算 |
+
 #### 飞书与办公自动化
 
 | Skill | 版本 | 说明 |
