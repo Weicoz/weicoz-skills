@@ -73,11 +73,11 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 
 | Skill | 版本 | 说明 |
 | --- | --- | --- |
-| [`weicoz-game-flow`](skills/weicoz-game-flow/) | 1.1.0 | 总流程：先找乐趣（灰盒）再工程化，灰盒门与竖切门，衔接 Matt 流程 |
-| [`weicoz-game-design`](skills/weicoz-game-design/) | 1.1.0 | 参考视频抽帧拆解、可量化对标指标、可解关卡生成器、数值、交互、IP 安全 |
-| [`weicoz-cocos-dev`](skills/weicoz-cocos-dev/) | 1.1.0 | 规则核与视图分层、主控组件、Cocos 坑点、离线类型检查脚本 |
-| [`weicoz-cocos-run`](skills/weicoz-cocos-run/) | 1.1.0 | 预检、命令行构建（退出码 36）、给用户预览、测试钩子自动试玩、验证分级 |
-| [`weicoz-game-assets`](skills/weicoz-game-assets/) | 1.1.0 | 美术方向与风格锚点、素材契约、网格图切分裁边检查、导入与首包预算 |
+| [`weicoz-game-flow`](skills/weicoz-game-flow/) | 1.2.0 | 总流程：先找乐趣（灰盒）再工程化，灰盒门与竖切门，衔接 Matt 流程 |
+| [`weicoz-game-design`](skills/weicoz-game-design/) | 1.2.0 | 参考视频抽帧拆解、可量化对标指标、可解关卡生成器、数值、交互、IP 安全 |
+| [`weicoz-cocos-dev`](skills/weicoz-cocos-dev/) | 1.2.0 | 规则核与视图分层、主控组件、Cocos 坑点、离线类型检查脚本、微信存档/分享/广告/隐私与上线检查 |
+| [`weicoz-cocos-run`](skills/weicoz-cocos-run/) | 1.2.0 | 预检、命令行构建（退出码 36）、给用户预览、测试钩子自动试玩、验证分级 |
+| [`weicoz-game-assets`](skills/weicoz-game-assets/) | 1.2.0 | 美术方向与风格锚点、素材契约、网格图切分裁边检查、导入与首包预算 |
 
 #### 飞书与办公自动化
 

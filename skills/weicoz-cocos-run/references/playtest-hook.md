@@ -2,11 +2,11 @@
 
 ## 为什么要钩子
 
-不用钩子时，试玩脚本得靠 `cc.director.getScene().getChildByName(...)` 层层找节点、手算格子到屏幕坐标，一次试玩要几十次 eval 探查。web-mobile 构建里类名还可能被改写，例如 `getComponent(cc.UITransform)` 拿不到组件、`cc.UITransformComponent` 才行。让游戏自己暴露一个稳定接口，试玩脚本只调这个接口。
+不用钩子时，试玩脚本得靠 `cc.director.getScene().getChildByName(...)` 层层找节点、手算格子到屏幕坐标，一次试玩要几十次 eval 探查。web-mobile 构建里经全局 `cc` 取组件也不可靠，例如 `cc.UITransform` 曾取不到、别名 `cc.UITransformComponent` 才行。让游戏自己暴露一个稳定接口，试玩脚本只调这个接口。
 
 ## 钩子约定
 
-只在调试构建中挂到 `globalThis.__game`。挂载点放在主控组件的 `start()` 里：
+只在调试构建中挂到 `globalThis.__game`。`--release` 构建里钩子被剔除，试玩脚本只对 debug 构建（web-mobile 或 wechatgame）跑；release 包只验证启动与包体。挂载点放在主控组件的 `start()` 里：
 
 ```ts
 import { DEBUG } from 'cc/env'

@@ -1,12 +1,14 @@
 ---
 name: weicoz-game-flow
-version: 1.1.0
+version: 1.2.0
 description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）：开项目、先找乐趣再工程化的两段式路线、阶段门与各阶段该用的 skill。用于开始或接手一个小游戏项目、问“下一步做什么”、判断能否进入下一阶段。
 ---
 
 # 小游戏开发流程
 
 一句话：**先让人玩上，再写规格**。乐趣没被用户亲手确认前，不写 spec 和票据。
+
+本套件其余 skill 可能被宿主设为只能手动调用。调用被拒时，直接读它的 `SKILL.md`：与本文件同级的 `../<skill 名>/SKILL.md`；用了 skill 分层工具时在 `~/.agents/skill-tiers/library/<skill 名>/SKILL.md`。
 
 ## 套件分工
 
@@ -19,14 +21,28 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 | `weicoz-game-assets` | 美术方向、素材生成与导入、素材审查 |
 | 工程内 `funplay-cocos-mcp-workflow` / `funplay-cocos-ui-composition` | 编辑器内的场景、节点、Prefab、资源、UI 操作（由 funplay-cocos-mcp 安装） |
 
+套件外依赖。没有时按降级做法执行，不因缺 skill 停下：
+
+| 用到的 | 用途 | 没有时 |
+| --- | --- | --- |
+| `prototype` | 一次性验证玩法 | 在 `spikes/` 下写一次性脚本或网页，结论写进 `docs/PENDING.md` 后删掉 |
+| `grill-with-docs` / `grilling` | 逐项追问待定项 | 按 `docs/PENDING.md` 逐条问用户，答案写进 `GLOSSARY.md` 与 `docs/adr/` |
+| `to-spec` / `to-tickets` | 规格与票据 | 写 `docs/spec.md`，每票一节：目标、改动范围、验收（对应试玩脚本步骤） |
+| `implement` / `implement-spec` / `tdd` | 按票实现 | 逐票实现；规则核先写失败测试再实现 |
+| `weicoz-code-review` | 改动审查 | 自审 diff：规则核是否有测试、视图层是否重复判胜负、平台调用是否只在 `platform/` |
+| `retro` | 复盘 | 在 `docs/retro.md` 记三项：有用的、卡住的、下次改的 |
+| `playwright-cli` | 浏览器截图与试玩 | 任何能打开页面、执行脚本、截图的浏览器自动化工具 |
+| `modlens` | 看不了图的模型读帧 | 用能看图的模型做参考拆解 |
+| 出图 skill（如 `gpt-image-2`） | 生成素材 | 让用户提供素材，或保留灰盒占位 |
+
 ## 阶段 0：开项目
 
-1. Cocos 工程用 Creator 3.8.x；规则核放 `assets/scripts/core/`，写成纯 TS（约定见 `weicoz-cocos-dev`）。
-2. 没有 git 仓库就 `git init`，并提醒用户做首次提交。
-3. 跑 `weicoz-cocos-run` 的预检，按提示装好 funplay 项目 skill。
-4. 按 `references/project-agents.md` 模板写项目 `AGENTS.md`。
+1. Cocos 工程用 Creator 3.8.x。新项目规则核放 `assets/scripts/core/`；已有项目沿用其结构（如 monorepo 的 `packages/`），约定见 `weicoz-cocos-dev` 的分层。
+2. 没有 git 仓库就 `git init`；仓库还没有任何提交时，提醒用户先做首次提交，之后的改动才能回退。
+3. 跑 `weicoz-cocos-run` 的预检。需要用户在编辑器里点的步骤（Configure + Skills、Restart）一次性列给用户；用户不在场时先走 CLI 路径。
+4. 按 `references/project-agents.md` 模板写项目 `AGENTS.md`，写明 Cocos 工程目录与规则核位置。
 
-完成标准：预检无 ❌，`AGENTS.md` 存在。
+完成标准：预检无 ❌；`AGENTS.md` 存在；已记录本项目走 MCP 还是 CLI 路径，以及留给用户的手动步骤。
 
 ## 阶段 1：找乐趣（灰盒）
 
@@ -40,7 +56,7 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 **灰盒门**（全部满足才进入阶段 2）：
 
 - 运行验证达到“核心循环已验证”（浏览器即可）。
-- 对标指标逐项达标，或差距已列出并经用户接受。
+- 对标指标逐项达标，或差距已列出并经用户接受。没有参考视频时，对标指标改用设计简报里的量化目标（单局时长、首次失败出现在第几关、关卡数），写进 `docs/benchmark.md`。
 - 用户亲手玩过，并明确说方向对。
 
 用户试玩时少解释，困惑本身就是证据。记下：是否看懂第一个目标、是否找到第一个操作、是否把操作和反馈对上、是否知道为什么失败、是否想再来一局。
@@ -59,20 +75,23 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 ## 阶段 3：生产（竖切）
 
 1. `implement`（多票用 `implement-spec`）。规则核改动走 `tdd`。
-2. 美术、音效按 `weicoz-game-assets` 替换灰盒表现。
-3. 改动收尾用 `weicoz-code-review`。
-4. 目标平台构建与验证用 `weicoz-cocos-run`。
+2. 平台能力（存档、分享、广告、隐私）按 `weicoz-cocos-dev` 的 `references/wechat-platform.md` 接入；先接存档，广告在流量主开通前用空实现。
+3. 美术、音效按 `weicoz-game-assets` 替换灰盒表现。
+4. 改动收尾用 `weicoz-code-review`。
+5. 目标平台构建与验证用 `weicoz-cocos-run`，跑它第 4 节的发版回归清单。
 
 **竖切门**：
 
-- 运行验证达到“目标平台已验证”（微信开发者工具或真机）。
-- wechatgame 主包 ≤ 4 MB。
+- 运行验证达到“目标平台已验证”（微信开发者工具或真机）。这一步需要用户开开发者工具的服务端口或拿真机；用户不在场时竖切门判为未通过，汇报写“目标平台未验证”和用户要做的那一步。
+- `--release` wechatgame 构建的主包 ≤ 4 MB（以 `cocos-build.mjs` 输出的“主包”行为准）。
 - 首个循环的画面、UI、音效都已接入，或已由用户明确同意保留占位。
-- 测试钩子与试玩脚本可重跑。
+- 发版回归清单在 debug 构建上全部通过。
 
 ## 阶段 4：复盘
 
-阶段门通过或项目暂停时，用 `retro` 记录哪些 skill 帮上忙、哪些步骤卡住。上传、提审、发布不在本套件范围内，需要用户亲自操作。
+阶段门通过或项目暂停时，用 `retro` 记录哪些 skill 帮上忙、哪些步骤卡住。
+
+准备上线时，按 `weicoz-cocos-dev` 的 `references/wechat-platform.md` “上线前检查”整理清单和材料。上传、类目与资质、备案、提审由用户在 MP 后台亲自操作。
 
 ## Matt 流程在游戏里的用法
 

@@ -7,7 +7,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { connect } from 'node:net'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 const args = process.argv.slice(2)
 const flag = (name) => {
@@ -82,20 +82,56 @@ const extDirs = [join(project, 'extensions/funplay-cocos-mcp'), wanted && join(h
 const ext = extDirs.find((d) => existsSync(join(d, 'package.json')))
 if (ext) add('ok', 'funplay 扩展', `${ext}（${readJson(join(ext, 'package.json'))?.version ?? '?'}）`)
 else add('fail', 'funplay 扩展', '未找到 funplay-cocos-mcp 扩展', '按 https://github.com/FunplayAI/funplay-cocos-mcp 安装到 ~/.CocosCreator/builtin-extensions/<Creator 版本>/')
+// funplay 的 Kimi Code / DSH 等目录装在最近的 Git 根；monorepo 时 Git 根与工程根不同
+const gitRoot = (() => {
+  for (let d = project; ; d = dirname(d)) {
+    if (existsSync(join(d, '.git'))) return d
+    if (dirname(d) === d) return null
+  }
+})()
 const skillRoots = ['.claude/skills', '.agents/skills', '.dsh/skills', '.kimi-code/skills']
-const projectSkills = skillRoots.filter((r) => existsSync(join(project, r, 'funplay-cocos-mcp-workflow', 'SKILL.md')))
+const skillBases = [...new Set([project, gitRoot].filter(Boolean))]
+const projectSkills = skillBases.flatMap((base) => skillRoots.map((r) => join(base, r)))
+  .filter((d) => existsSync(join(d, 'funplay-cocos-mcp-workflow', 'SKILL.md')))
 if (projectSkills.length) add('ok', 'funplay 项目 skill', `已装于 ${projectSkills.join(', ')}`)
-else add('warn', 'funplay 项目 skill', '工程内未安装 funplay-cocos-mcp-workflow / funplay-cocos-ui-composition', '编辑器 Funplay > MCP Server 选当前客户端，点 Configure + Skills')
-const mcpConfig = readJson(join(project, 'funplay-cocos-mcp.config.json'))
-const mcpPort = Number(process.env.COCOS_MCP_PORT ?? mcpConfig?.port ?? 0)
-const profile = process.env.COCOS_MCP_PROFILE ?? mcpConfig?.toolProfile ?? 'core'
-const needed = ['run_project_preview', 'capture_game_screenshot', 'simulate_preview_input', 'invoke_component_method', 'save_current_scene']
-const enabled = new Set(mcpConfig?.enabledTools ?? [])
-const missing = profile === 'full' ? [] : needed.filter((t) => !enabled.has(t))
-if (missing.length) {
-  add('warn', 'MCP 工具档', `toolProfile=${profile}，缺少预览/试玩工具：${missing.join(', ')}`, '在 funplay-cocos-mcp.config.json 设 "toolProfile":"custom" 并把缺少项加入 "enabledTools"，然后重启 MCP')
+else add('warn', 'funplay 项目 skill', `工程与 Git 根（${gitRoot ?? '无'}）内都未安装 funplay-cocos-mcp-workflow / funplay-cocos-ui-composition`, '编辑器 Funplay > MCP Server 选当前客户端，点 Configure + Skills')
+
+// 工具档：按扩展 docs/TOOLS.md 复现 funplay 的暴露规则（core 集 + enabledTools/Categories - disabled*）
+const mcpConfig = readJson(join(project, 'funplay-cocos-mcp.config.json')) ?? {}
+const mcpPort = Number(process.env.COCOS_MCP_PORT ?? mcpConfig.port ?? 0)
+const profile = process.env.COCOS_MCP_PROFILE ?? mcpConfig.toolProfile ?? 'core'
+const profileSrc = process.env.COCOS_MCP_PROFILE ? '（来自本 shell 环境变量；编辑器以其启动环境为准）' : ''
+const toolsDoc = ext && existsSync(join(ext, 'docs/TOOLS.md')) ? readFileSync(join(ext, 'docs/TOOLS.md'), 'utf8') : ''
+const catalog = new Map() // 工具名 -> 分类（小写）
+let category = ''
+for (const line of toolsDoc.split('\n')) {
+  const h = line.match(/^### (.+)/)
+  if (h) category = h[1].trim().toLowerCase()
+  const t = line.match(/^\| `([a-z0-9_]+)`/)
+  if (t && category) catalog.set(t[1], category)
+}
+const coreLine = toolsDoc.split('## Core Tools')[1]?.split('\n').find((l) => l.includes('`')) ?? ''
+const core = new Set([...coreLine.matchAll(/`([a-z0-9_]+)`/g)].map((m) => m[1]))
+const lower = (xs) => new Set((xs ?? []).map((x) => String(x).toLowerCase()))
+const exposed = (tool) => {
+  const cat = catalog.get(tool)
+  if (mcpConfig.disabledTools?.includes(tool) || lower(mcpConfig.disabledToolCategories).has(cat)) return false
+  return profile === 'full' || core.has(tool) || mcpConfig.enabledTools?.includes(tool) || lower(mcpConfig.enabledToolCategories).has(cat)
+}
+const needs = {
+  '预览/试玩': ['run_project_preview', 'set_preview_mode', 'capture_game_screenshot', 'simulate_preview_input'],
+  '搭场景/UI': ['create_node', 'set_node_transform', 'add_component', 'set_component_property', 'instantiate_prefab', 'create_prefab_from_node', 'save_current_scene'],
+}
+if (!catalog.size) {
+  add('warn', 'MCP 工具档', `toolProfile=${profile}${profileSrc}；读不到扩展 docs/TOOLS.md，无法核对工具`)
 } else {
-  add('ok', 'MCP 工具档', `toolProfile=${profile}`)
+  const gaps = Object.entries(needs).map(([use, tools]) => [use, tools.filter((t) => !exposed(t))]).filter(([, m]) => m.length)
+  if (gaps.length) {
+    add('warn', 'MCP 工具档', `toolProfile=${profile}${profileSrc}；缺 ${gaps.map(([u, m]) => `${u}：${m.join(', ')}`).join('；')}`,
+      '在 funplay-cocos-mcp.config.json 加 "enabledToolCategories": ["build","input","screenshots","scene","components","prefabs","ui"]，然后 Funplay > MCP Server 点 Restart')
+  } else {
+    add('ok', 'MCP 工具档', `toolProfile=${profile}${profileSrc}，预览与搭场景工具齐全`)
+  }
 }
 const mcpUp = mcpPort > 0 && await portOpen(mcpPort)
 if (mcpUp && editorOnThis && !others.length) add('ok', 'MCP 端口', `127.0.0.1:${mcpPort} 可连接`)

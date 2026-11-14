@@ -40,15 +40,21 @@ const types = {
   '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.ttf': 'font/ttf',
 }
 const server = createServer((req, res) => {
-  const path = decodeURIComponent(new URL(req.url, 'http://x').pathname)
-  const file = normalize(join(root, path.endsWith('/') ? `${path}index.html` : path))
+  let file
+  try {
+    const path = decodeURIComponent(new URL(req.url, 'http://x').pathname)
+    file = normalize(join(root, path.endsWith('/') ? `${path}index.html` : path))
+  } catch {
+    res.writeHead(400).end('bad request') // 畸形 URL（如 %E0%A4%A）不得打掉服务
+    return
+  }
   // 只服务构建目录内的文件
-  if (!file.startsWith(root + sep) || !existsSync(file) || statSync(file).isDirectory()) {
+  if (!file.startsWith(root + sep) || file.includes('\0') || !existsSync(file) || statSync(file).isDirectory()) {
     res.writeHead(404).end('not found')
     return
   }
   res.writeHead(200, { 'Content-Type': types[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' })
-  createReadStream(file).pipe(res)
+  createReadStream(file).on('error', () => res.destroy()).pipe(res)
 })
 
 server.on('error', (e) => {

@@ -23,8 +23,9 @@
 
 ## 约定
 
-- 规则核在 `assets/scripts/core/`，不 import 'cc'；规则改动必须补测试（`npm test`）。
+- Cocos 工程目录：<`.` / `apps/cocos`>（各脚本的 `--project` 指向这里）。
+- 规则核在 <`assets/scripts/core/` / `packages/<name>-core`（经软链导入 assets）>，不 import 'cc'；规则改动必须补测试（`npm test`）。
 - 改完 `.ts` 跑 `weicoz-cocos-dev` 的类型检查；每轮结束用 `weicoz-cocos-run` 给出预览 URL。
 - 平台 API（`wx` 等）只在 `assets/scripts/platform/` 里调用。
-- funplay MCP 工具档为 custom（含预览工具），一次只开本工程的编辑器。
+- funplay MCP 的 `funplay-cocos-mcp.config.json` 已开预览与搭场景工具（预检无工具缺口），一次只开本工程的编辑器。
 ```

@@ -12,15 +12,23 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { unusedModules } from './cocos-modules.mjs'
 
+// 微信官方（2026-04 版文档）：主包 ≤ 4 MB，主包 + 全部分包 ≤ 30 MB，普通分包不限，独立分包 ≤ 4 MB
+// https://developers.weixin.qq.com/minigame/dev/guide/base-ability/subPackage/useSubPackage.html
+const TOTAL_LIMIT_MB = 30
+
 const args = process.argv.slice(2)
 const flag = (name, fallback) => {
   const i = args.indexOf(name)
   return i >= 0 ? args[i + 1] : fallback
 }
 const project = resolve(flag('--project', process.cwd()))
-const platform = flag('--platform', 'web-mobile')
 const config = flag('--config')
 const release = args.includes('--release')
+// --config 时以配置文件里的平台与输出目录为准
+const cfg = config ? JSON.parse(readFileSync(resolve(config), 'utf8')) : {}
+const platform = cfg.platform ?? flag('--platform', 'web-mobile')
+const buildRoot = cfg.buildPath ? resolve(project, cfg.buildPath.replace(/^project:\/\//, '')) : join(project, 'build')
+const outDir = join(buildRoot, cfg.outputName ?? platform)
 
 const wanted = (() => {
   try { return JSON.parse(readFileSync(join(project, 'package.json'), 'utf8')).creator?.version } catch { return undefined }
@@ -45,7 +53,6 @@ writeFileSync(logFile, `${run.stdout ?? ''}\n${run.stderr ?? ''}`)
 const meaning = { 0: '成功', 36: '成功（Creator CLI 惯例）', 32: '构建参数无效', 34: '构建异常，查日志' }
 console.log(`退出码 ${run.status}：${meaning[run.status] ?? '未知，查日志'}`)
 
-const outDir = join(project, 'build', platform)
 const required = platform === 'wechatgame' ? ['game.json', 'project.config.json'] : ['index.html']
 // 旧产物可能残留：只认本次构建后更新过的文件
 const missing = required.filter((f) => !existsSync(join(outDir, f)) || statSync(join(outDir, f)).mtimeMs < startedAt - 1000)
@@ -64,9 +71,17 @@ const total = sizeOf(outDir)
 console.log(`产物：${outDir}（${mb(total)} MB）`)
 
 if (platform === 'wechatgame') {
-  // 微信小游戏：主包 ≤ 4 MB，总包 ≤ 20 MB。整个目录超 4 MB 不算失败，需核对分包。
-  if (total > 20 * 1024 * 1024) console.warn('⚠️ 总包超过 20 MB 上限')
-  else if (total > 4 * 1024 * 1024) console.warn('⚠️ 目录超过 4 MB：核对主包与分包大小（subpackages / Asset Bundle）')
+  // 主包 = 上传目录 - game.json 声明的分包；remote/ 是远程包，不上传
+  const MB4 = 4 * 1024 * 1024
+  const subs = JSON.parse(readFileSync(join(outDir, 'game.json'), 'utf8')).subpackages ?? []
+  const subSizes = subs.map((s) => [s.name ?? s.root, existsSync(join(outDir, s.root)) ? sizeOf(join(outDir, s.root)) : 0, s.independent])
+  const remote = existsSync(join(outDir, 'remote')) ? sizeOf(join(outDir, 'remote')) : 0
+  const upload = total - remote
+  const main = upload - subSizes.reduce((sum, [, n]) => sum + n, 0)
+  console.log(`主包 ${mb(main)} MB（上限 4 MB）；上传总计 ${mb(upload)} MB${remote ? `；远程包 ${mb(remote)} MB（不计入）` : ''}`)
+  for (const [name, n, indep] of subSizes) console.log(`  ${indep ? '独立分包' : '分包'} ${name}：${mb(n)} MB${indep && n > MB4 ? '  ⚠️ 独立分包超过 4 MB' : ''}`)
+  if (main > MB4) console.warn(`⚠️ 主包超过 4 MB${release ? '' : '（debug 未压缩，以 --release 为准）'}`)
+  if (upload > TOTAL_LIMIT_MB * 1024 * 1024) console.warn(`⚠️ 上传总计超过 ${TOTAL_LIMIT_MB} MB`)
   const largest = []
   const walk = (dir) => {
     for (const f of readdirSync(dir)) {

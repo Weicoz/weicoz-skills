@@ -4,17 +4,24 @@
  * 用法：node cocos-modules.mjs [--project <工程根>]
  * 也被 cocos-build.mjs 调用。只读，不改设置。
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // 模块 → 使用痕迹（TS 代码与 .scene/.prefab 序列化类型名都会命中）与可识别的资源扩展名
 const HEAVY = {
   'spine-3.8': { use: /\bsp\.Skeleton\b/, ext: ['.skel'] },
+  'spine-4.2': { use: /\bsp\.Skeleton\b/, ext: ['.skel'] },
   'dragon-bones': { use: /\bdragonBones\.\w+/, ext: ['.dbbin'] },
   'tiled-map': { use: /\bTiledMap\b/, ext: ['.tmx'] },
   'physics-2d-box2d': { use: /\b(RigidBody2D|\w*Collider2D|PhysicsSystem2D)\b/ },
+  'physics-2d-box2d-wasm': { use: /\b(RigidBody2D|\w*Collider2D|PhysicsSystem2D)\b/ },
   'physics-2d-builtin': { use: /\b(\w*Collider2D|PhysicsSystem2D)\b/ },
+  // 3D 物理：名字后不带 2D
+  'physics-ammo': { use: /\b(RigidBody|\w+Collider|PhysicsSystem)\b/ },
+  'physics-cannon': { use: /\b(RigidBody|\w+Collider|PhysicsSystem)\b/ },
+  'physics-physx': { use: /\b(RigidBody|\w+Collider|PhysicsSystem)\b/ },
+  'physics-builtin': { use: /\b(RigidBody|\w+Collider|PhysicsSystem)\b/ },
   'video': { use: /\bVideoPlayer\b/ },
   'webview': { use: /\bWebView\b/ },
   'particle-2d': { use: /\bParticleSystem2D\b/, ext: ['.plist'] },
@@ -30,7 +37,11 @@ export function unusedModules(project) {
 
   const texts = []
   const exts = new Set()
+  const seen = new Set() // 软链可能成环
   const walk = (dir) => {
+    const real = realpathSync(dir)
+    if (seen.has(real)) return
+    seen.add(real)
     for (const f of readdirSync(dir)) {
       const p = join(dir, f)
       if (statSync(p).isDirectory()) { walk(p); continue }

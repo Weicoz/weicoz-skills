@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-assets
-version: 1.1.0
+version: 1.2.0
 description: 小游戏美术与素材：定美术方向、写素材契约、批量出图、切分裁边、审查、导入 Cocos 与首包预算；含音效占位。用于灰盒换正式画面、“做一套素材/图标/角色帧”、素材看着不对或包体过大。
 ---
 
@@ -40,11 +40,15 @@ description: 小游戏美术与素材：定美术方向、写素材契约、批�
 ## 4. 切分与审查
 
 ```bash
-python3 <本目录>/scripts/sheet.py split generated/icons.png 2 4 generated/icons --pad 4
+python3 <本目录>/scripts/sheet.py key generated/icons.png generated/keyed   # 出图没有透明通道时先去纯色底
+python3 <本目录>/scripts/sheet.py split generated/keyed/icons.png 2 4 generated/icons --pad 4
 python3 <本目录>/scripts/sheet.py check generated/icons
+python3 <本目录>/scripts/sheet.py check generated/bg --opaque   # 整幅背景、九宫格面板、铺满的图块
 ```
 
-`split` 逐格裁掉多余透明边并统一留边；背景没去掉的格子原样保存并标 ✗。`check` 报告背景残留、留白过多、尺寸过大。
+`key` 从四角泛洪去掉纯色背景，主体内同色像素保留。`split` 逐格裁掉多余透明边并统一留边；背景没去掉的格子原样保存并标 ✗。`check` 报告背景残留、留白过多、尺寸过大，`--opaque` 只查尺寸。
+
+`key` 后仍有 ✗（渐变底、投影、抗锯齿白边）：改提示词要求纯色单色底且无投影后重出，不手工擦。
 
 脚本通过后再做人工审查，把素材放进真实游戏截图里看：
 
