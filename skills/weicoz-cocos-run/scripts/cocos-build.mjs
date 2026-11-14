@@ -15,6 +15,7 @@ import { unusedModules } from './cocos-modules.mjs'
 // 微信官方（2026-04 版文档）：主包 ≤ 4 MB，主包 + 全部分包 ≤ 30 MB，普通分包不限，独立分包 ≤ 4 MB
 // https://developers.weixin.qq.com/minigame/dev/guide/base-ability/subPackage/useSubPackage.html
 const TOTAL_LIMIT_MB = 30
+const COCOS_DEFAULT_APPID = 'wx6ac3f5090a6b99c5'
 
 const args = process.argv.slice(2)
 const flag = (name, fallback) => {
@@ -71,6 +72,16 @@ const total = sizeOf(outDir)
 console.log(`产物：${outDir}（${mb(total)} MB）`)
 
 if (platform === 'wechatgame') {
+  // AppID：Cocos 构建面板默认值不是有效 AppID，开发者工具命令行导入会报“不存在此 AppID”
+  const pcPath = join(outDir, 'project.config.json')
+  const pc = JSON.parse(readFileSync(pcPath, 'utf8'))
+  if (process.env.WECHAT_APPID && pc.appid !== process.env.WECHAT_APPID) {
+    pc.appid = process.env.WECHAT_APPID
+    writeFileSync(pcPath, JSON.stringify(pc, null, 2))
+    console.log(`AppID：已写入 WECHAT_APPID（${pc.appid}）`)
+  } else if (pc.appid === COCOS_DEFAULT_APPID) {
+    console.warn(`⚠️ AppID 仍是 Cocos 默认值 ${COCOS_DEFAULT_APPID}，开发者工具无法导入。设 WECHAT_APPID（小游戏测试号即可），或在构建面板填写`)
+  }
   // 主包 = 上传目录 - game.json 声明的分包；remote/ 是远程包，不上传
   const MB4 = 4 * 1024 * 1024
   const subs = JSON.parse(readFileSync(join(outDir, 'game.json'), 'utf8')).subpackages ?? []

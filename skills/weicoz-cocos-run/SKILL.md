@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-run
-version: 1.3.0
+version: 1.4.0
 description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行构建（web-mobile / wechatgame）、给用户可点开的预览、自动试玩验收与分级证据。用于“跑起来看看”“我怎么测试”“在 Cocos 里预览给我看”“构建微信小游戏”“验收 demo”。
 ---
 
@@ -71,7 +71,7 @@ MCP 连接方式决定写操作怎么调用：
 | 编辑器里看 | MCP 路径：`open_scene(target="db://assets/<启动场景>.scene")`（编辑器常打开空的 Untitled 场景，预览“当前场景”就是黑屏）→ `set_preview_mode(mode="gameView")` → `run_project_preview` → `capture_game_screenshot`。该截图区域可能偏移、裁掉画面底部，只作“已启动”证据；完整画面以浏览器截图为准。CLI 路径：告诉用户点编辑器顶部 ▶，并说明尚未由你确认画面。 |
 | 浏览器里玩 | 后台运行 `cocos-preview.mjs --open`：构建 web-mobile、起本地服务并打开浏览器。不需要编辑器。编辑器开着时也可直接给 `http://127.0.0.1:7456/`。 |
 | 手机浏览器里玩 | `cocos-preview.mjs --lan`，只给标“默认网卡”的那个地址，并先在本机 `curl` 一次确认返回 200。用户说打不开：重跑取新地址（网络切换后地址会变）。该地址对同一网络可见，用户玩完后停掉进程。 |
-| 微信里玩 | debug wechatgame 构建后，`wechat-devtools` MCP `launch(projectPath=<工程>/build/wechatgame)`。需要开发者工具已登录并开“设置 → 安全设置 → 服务端口”：未开时报“服务端口已关闭”，命令行 `cli auto` 同样受阻。这一步请用户开，或请用户授权 Computer Use 操作开发者工具后由你打开。 |
+| 微信里玩 | debug wechatgame 构建后，`wechat-devtools` MCP `launch(projectPath=<工程>/build/wechatgame)`。需要开发者工具已登录并开“设置 → 安全设置 → 服务端口”：未开时报“服务端口已关闭”，命令行 `cli auto` 同样受阻。还需要有效 AppID：Cocos 默认的 `wx6ac3f5090a6b99c5` 和 `touristappid` 都会报“不存在此 AppID”；设 `WECHAT_APPID`（小游戏测试号即可）后构建脚本自动写入产物。这几项都属于 `weicoz-game-flow` 的 H0，由预检一次列出。这一步请用户开，或请用户授权 Computer Use 操作开发者工具后由你打开。 |
 
 截图确认：`playwright-cli open <url>` → `resize 390 844` → 等 3–4 秒 → `screenshot`；`eval "cc.director.getScene().name"` 返回场景名即说明引擎已启动。
 

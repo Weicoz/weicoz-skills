@@ -5,7 +5,7 @@
  * 退出码：0 = 无阻塞项；1 = 有阻塞项（❌）。
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { connect } from 'node:net'
 import { dirname, join, resolve } from 'node:path'
 
@@ -139,7 +139,26 @@ else if (mcpUp) add('warn', 'MCP 端口', `127.0.0.1:${mcpPort} 可连接，但�
 else if (!mcpPort) add('warn', 'MCP 端口', '工程未固定端口（funplay 按工程路径分配）', 'MCP 经聚合器接入时，在 funplay-cocos-mcp.config.json 写聚合器指向的端口并加 "portMode": "fixed"；直连时看 Funplay > MCP Server 面板里的 URL')
 else add('warn', 'MCP 端口', `127.0.0.1:${mcpPort} 无监听`, '打开当前工程的编辑器，确认 Funplay > MCP Server 已启动；不可用时走 CLI 路径')
 
-// 5. 编辑器浏览器预览端口
+// 5. 微信开发者工具（目标平台验证用）：服务端口、登录、AppID。都是一次性设置，开工时一次列给用户
+const devtoolsData = join(home, 'Library/Application Support/微信开发者工具')
+if (!existsSync('/Applications/wechatwebdevtools.app')) {
+  add('warn', '微信开发者工具', '未安装（macOS 标准位置）', '目标平台验证需要：安装微信开发者工具')
+} else {
+  const ideDir = existsSync(devtoolsData) ? readdirSync(devtoolsData).map((d) => join(devtoolsData, d, 'Default')).find((d) => existsSync(join(d, '.ide'))) : null
+  const idePort = ideDir ? readFileSync(join(ideDir, '.ide'), 'utf8').trim() : ''
+  const ideOn = ideDir ? readFileSync(join(ideDir, '.ide-status'), 'utf8').trim() === 'On' : false
+  let login = null
+  if (ideOn && idePort) {
+    try { login = (await (await fetch(`http://127.0.0.1:${idePort}/v2/islogin`, { signal: AbortSignal.timeout(2000) })).json()).login } catch { /* 工具没在运行 */ }
+  }
+  if (!ideOn) add('warn', '微信开发者工具', '服务端口未开启', '用户在开发者工具“设置 → 安全设置”打开服务端口（一次性）')
+  else if (login === false) add('warn', '微信开发者工具', `服务端口 ${idePort} 已开，未登录`, '用户扫码登录开发者工具')
+  else add('ok', '微信开发者工具', `服务端口 ${idePort} 已开${login ? '，已登录' : '（工具未运行，登录状态未知）'}`)
+  if (process.env.WECHAT_APPID) add('ok', '微信 AppID', `WECHAT_APPID=${process.env.WECHAT_APPID}`)
+  else add('warn', '微信 AppID', '未设置 WECHAT_APPID；Cocos 默认 AppID 无法导入开发者工具', '用户申请小游戏测试号（一次性），把 AppID 写进 ~/.zsh_secrets 的 WECHAT_APPID')
+}
+
+// 6. 编辑器浏览器预览端口
 const previewPort = Number(process.env.COCOS_PREVIEW_PORT ?? 7456)
 const previewUp = await portOpen(previewPort)
 add(previewUp ? 'ok' : 'warn', '预览端口', `127.0.0.1:${previewPort} ${previewUp ? '可连接' : '无监听'}`, previewUp ? undefined : '编辑器内点击预览，或调用 run_project_preview(mode="browser")')
