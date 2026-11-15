@@ -62,3 +62,16 @@ async page => {
 ```
 
 截图写在工程的 `temp/` 下，文件名以 `playtest-` 开头并按步骤编号，`cocos-verify.mjs` 会把它们拼成联系图。
+
+## 跳到指定关卡截图
+
+不要先写存档再 `page.reload()`：游戏在切后台事件里会把内存中的旧存档写回，覆盖刚写的值。改为在新页面脚本加载前注入：
+
+```js
+await page.addInitScript((n) => localStorage.setItem('<存档键>', JSON.stringify({ version: 1, currentLevel: n })), n)
+await page.reload()
+```
+
+## 钩子计数的局限
+
+`residue()` 这类计数若与渲染共用同一份数据（例如“已揭示格子”集合），只能证明代码前后一致，证明不了像素上没有漏。涉及遮挡、裁剪的修复，必须在最小、中等、最大规格各截一张开局图看过，才算视觉巡检通过。
