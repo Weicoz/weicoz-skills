@@ -28,6 +28,9 @@ const HEAVY = {
   '3d': { use: /\b(MeshRenderer|SkinnedMeshRenderer)\b/, ext: ['.fbx', '.gltf', '.glb'] },
 }
 
+// 功能裁剪的开关在 cache 的分组键上：spine-3.8 的开关是 spine，physics-2d-* 的开关是 physics-2d
+export const cacheKey = (m) => m.startsWith('spine-') ? 'spine' : m.startsWith('physics-2d-') ? 'physics-2d' : m.startsWith('physics-') ? 'physics' : m
+
 export function unusedModules(project) {
   const settings = join(project, 'settings/v2/packages/engine.json')
   if (!existsSync(settings)) return { included: [], unused: [] }
@@ -64,6 +67,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { included, unused } = unusedModules(project)
   console.log(`已启用模块（${included.length}）：${included.join(', ') || '未读到 settings/v2/packages/engine.json'}`)
   console.log(unused.length
-    ? `⚠️ 已启用但未发现使用：${unused.join(', ')}\n   → 编辑器“项目设置 → 功能裁剪”中关闭，重新构建后对比包体`
+    ? `⚠️ 已启用但未发现使用：${unused.join(', ')}\n   → 编辑器“项目设置 → 功能裁剪”中关闭；或不开编辑器，在 settings/v2/packages/engine.json 的 cache 里把这些分组键的 _value 设为 false：${[...new Set(unused.map(cacheKey))].join(', ')}，并从 includeModules 删掉对应项（只删数组会在构建时按 cache 还原）。重新构建后对比包体`
     : '✅ 未发现可裁剪的重型模块')
 }

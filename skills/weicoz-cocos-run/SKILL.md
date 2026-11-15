@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-run
-version: 1.4.0
+version: 1.5.0
 description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行构建（web-mobile / wechatgame）、给用户可点开的预览、自动试玩验收与分级证据。用于“跑起来看看”“我怎么测试”“在 Cocos 里预览给我看”“构建微信小游戏”“验收 demo”。
 ---
 
@@ -57,7 +57,7 @@ MCP 连接方式决定写操作怎么调用：
 - 编辑器正开着同一工程时不跑命令行构建，避免两个进程争用 `library/`。funplay 没有“执行构建”的工具，代理无法替用户点编辑器内构建：编辑器是你打开的且场景已保存，就关掉它再构建；是用户开的，请用户关闭或在编辑器内构建。
 - wechatgame：主包 ≤ 4 MB，主包加全部分包 ≤ 30 MB，独立分包 ≤ 4 MB，普通分包不限（微信官方文档 2026-04 版）。脚本按 `game.json` 的 `subpackages` 算出主包，`remote/` 远程包不计入上传。包体以 `--release` 构建为准；debug 构建不压缩，日常预览用。
 - 主包超限：把后续关卡、皮肤等放进 Asset Bundle，压缩类型选“小游戏分包”（输出到 `subpackages/`，只能本地）或配成远程包（`remote/` 上传到资源服务器）；可勾选“初始场景分包”。微信不允许下载远程脚本。
-- 构建脚本会调用 `cocos-modules.mjs`，列出已启用但工程里找不到使用痕迹的重型模块（Spine、DragonBones、TiledMap、2D 物理、Video、WebView 等）。让用户在“项目设置 → 功能裁剪”关闭后重建。实测一个只用 Graphics 的解谜 demo：debug 5.92 MB → 裁掉 7 个模块 4.21 MB → 再加 `--release` 1.86 MB。
+- 构建脚本会调用 `cocos-modules.mjs`，列出已启用但工程里找不到使用痕迹的重型模块（Spine、DragonBones、TiledMap、2D 物理、Video、WebView 等）。在“项目设置 → 功能裁剪”关闭后重建；不开编辑器时按脚本提示改 `engine.json` 的 `cache` 分组键（只删 `includeModules` 会在构建时被还原）。实测一个只用 Graphics 的解谜 demo：debug 5.92 MB → 裁掉 7 个模块 4.21 MB → 再加 `--release` 1.86 MB。
 - 真实 appid 只在测试微信 API（登录、分享、广告、支付）时需要。纯玩法用测试号即可。
 
 完成标准：脚本输出“构建已验证”，并记录产物大小与最大文件。

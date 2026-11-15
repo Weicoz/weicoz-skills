@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-flow
-version: 1.4.0
+version: 1.5.0
 description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）：开项目、先找乐趣再工程化的两段式路线、阶段门与各阶段该用的 skill。用于开始或接手一个小游戏项目、问“下一步做什么”、判断能否进入下一阶段。
 ---
 
@@ -18,7 +18,7 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 | --- | --- | --- | --- |
 | H0 环境 | 每台机器/账号一次 | 微信开发者工具登录并开服务端口；申请小游戏测试号，把 AppID 写进 `WECHAT_APPID` | 预检结果里所有“用户 …”项，一条消息列全 |
 | H1 立项 | 每个项目一次 | 回答立项问题：参考、平台、差异化、非目标 | 设计简报草稿 + 编号选择题 |
-| H2 灰盒门 | 阶段 1 结束 | 手机玩 3 分钟，给方向结论；顺带答积压的待定项 | 验收包（`references/acceptance-pack.md`） |
+| H2 灰盒门 | 阶段 1 结束 | 手机玩 3 分钟，给方向结论；顺带答积压的待定项和阶段 2 要锁定的问题 | 验收包（`references/acceptance-pack.md`），含阶段 2 问题，门过后可直接写规格与票据 |
 | H3 竖切门 | 阶段 3 结束 | 真机试玩；选美术方向；答积压的待定项 | 验收包 |
 
 上线（类目资质、备案、提审）也由制作人操作，按 `weicoz-cocos-dev` 的 `references/wechat-platform.md` 清单一次性准备材料。
@@ -56,6 +56,7 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 2. 没有 git 仓库就 `git init`；仓库还没有任何提交时，提醒用户先做首次提交，之后的改动才能回退。
 3. 跑 `weicoz-cocos-run` 的预检，按提示补 funplay 配置。编辑器可以由你用命令行打开（预检输出里有命令），funplay 项目 skill 可以由你经编辑器脚本安装（见 `weicoz-cocos-run` 第 1 节）。只有编辑器开着时改了 MCP 配置，才需要用户点 Restart；微信开发者工具的服务端口必须由用户开。用户不在场时先走 CLI 路径。
 4. 按 `references/project-agents.md` 模板写项目 `AGENTS.md`，写明 Cocos 工程目录与规则核位置。
+5. 要派子代理并行开发时，在项目根加 `.worktreeinclude`（`library/`、`temp/`、`node_modules/` 各一行），`wt` 新建 worktree 会写时复制这些目录，构建不必重新导入。会话所在仓库不是游戏项目时，不用子代理的 `isolation: worktree`（它建在会话仓库里），改为先在项目里 `wt switch --create <分支> --no-cd`，再把 worktree 路径写进派单。
 
 完成标准：预检无 ❌；`AGENTS.md` 存在；已记录本项目走 MCP 还是 CLI 路径。预检里的“用户 …”项归入 H0，一条消息发给制作人，然后继续阶段 1，不等回复。
 
@@ -82,7 +83,7 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 
 用户确认乐趣后，再用 Matt 流程补齐决策：
 
-- 待定项多：`grill-with-docs`，把术语写进 `GLOSSARY.md`，决定写进 `docs/adr/`。
+- 问题在 H2 验收包里已经问过。剩余问题能用默认值推进的，按默认值写规格，并记进 `docs/PENDING.md` 的“待制作人确认”，到下一节点再问。只有阻塞规格的问题才用 `grill-with-docs` 单独追问，把术语写进 `GLOSSARY.md`，决定写进 `docs/adr/`。
 - 跨多个会话：`to-spec` → `to-tickets`。单个会话做得完：跳过，直接阶段 3。
 
 完成标准：待定项清单为空，或剩余项已标“demo 后再定”。
