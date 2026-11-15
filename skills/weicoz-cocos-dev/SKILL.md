@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-dev
-version: 1.5.0
+version: 1.5.1
 description: Cocos Creator 3.8 小游戏代码实现约定：规则核与视图分层、主控组件、触控输入、测试钩子、Cocos 坑点与离线类型检查。用于写或改 Cocos 玩法代码、搭单场景 demo、排查脚本在编辑器或预览里不生效。
 ---
 
