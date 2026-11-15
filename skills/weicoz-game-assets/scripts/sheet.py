@@ -5,7 +5,7 @@
   sheet.py key <png 或目录> <输出目录> [--tol 40]            从四角泛洪去掉纯色背景（出图没有透明通道时用）
   sheet.py split <网格图.png> <行> <列> <输出目录> [--pad 4] [--largest]
                                                               切成单帧，逐帧裁透明边后统一留边；
-                                                              --largest 只保留每格最大的连通主体（去掉切进来的相邻格碎片）
+                                                              --largest 去掉碰到格边的小碎片（切进来的相邻格内容），保留图标自身的多个部件
   sheet.py check <png 或目录>... [--opaque]                    检查透明背景、主体占比、尺寸
   sheet.py selftest
 
@@ -30,7 +30,7 @@ def largest_only(img):
     from collections import deque
     a = img.getchannel("A").load()
     w, h = img.size
-    seen, best = set(), []
+    seen, comps = set(), []
     for y in range(h):
         for x in range(w):
             if a[x, y] > 16 and (x, y) not in seen:
@@ -43,9 +43,13 @@ def largest_only(img):
                         if 0 <= n[0] < w and 0 <= n[1] < h and n not in seen and a[n] > 16:
                             seen.add(n)
                             q.append(n)
-                if len(comp) > len(best):
-                    best = comp
-    keep, px = set(best), img.load()
+                comps.append(comp)
+    # 只删“碰到格子边缘且不到最大块 5%”的碎片：那是切进来的相邻格内容；
+    # 图标自身的多个部件（灯泡光线、齿轮中心、锁孔）不碰边或足够大，保留
+    big = max((len(c) for c in comps), default=0)
+    edge = lambda c: any(x in (0, w - 1) or y in (0, h - 1) for x, y in c)
+    keep = set(p for c in comps if not (edge(c) and len(c) < big * 0.05) for p in c)
+    px = img.load()
     for y in range(h):
         for x in range(w):
             if a[x, y] > 16 and (x, y) not in keep:
@@ -145,10 +149,17 @@ def selftest():
         # --largest：主体旁的小碎片被去掉，裁边后只剩主体
         frag = Image.new("RGBA", (60, 40), (0, 0, 0, 0))
         frag.paste((0, 200, 0, 255), (10, 10, 30, 30))
-        frag.paste((0, 200, 0, 255), (55, 5, 58, 8))
+        frag.paste((0, 200, 0, 255), (56, 15, 60, 19))  # 贴右边缘的碎片：切进来的相邻格内容
         frag.save(f"{d}/f.png")
         split(f"{d}/f.png", 1, 1, f"{d}/fo", 0, largest=True)
         assert Image.open(f"{d}/fo/f_00.png").size == (20, 20)
+        # 多部件图标：不碰边的小部件保留
+        multi = Image.new("RGBA", (60, 40), (0, 0, 0, 0))
+        multi.paste((0, 0, 200, 255), (10, 10, 30, 30))
+        multi.paste((0, 0, 200, 255), (40, 15, 43, 18))
+        multi.save(f"{d}/m.png")
+        split(f"{d}/m.png", 1, 1, f"{d}/mo", 0, largest=True)
+        assert Image.open(f"{d}/mo/m_00.png").size == (33, 20)
         # key：白底上一个红块，去底后四角透明、红块保留
         flat = Image.new("RGBA", (50, 50), (255, 255, 255, 255))
         flat.paste((255, 0, 0, 255), (15, 15, 35, 35))
