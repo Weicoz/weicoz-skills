@@ -6,53 +6,59 @@
 
 ## 钩子约定
 
-只在调试构建中挂到 `globalThis.__game`。`--release` 构建里钩子被剔除，试玩脚本只对 debug 构建（web-mobile 或 wechatgame）跑；release 包只验证启动与包体。挂载点放在主控组件的 `start()` 里：
+标准实现是同目录的 `TestHook.ts`：复制进工程，实现 `TestHookAdapter`，在主控组件 `start()` 调 `installTestHook({...})`。它只在 DEBUG 下挂到 `globalThis.__game`，`--release` 构建自动剔除，所以试玩只对 debug 构建跑。
 
-```ts
-import { DEBUG } from 'cc/env'
+| 字段 | 用途 | 不实现的后果（实测） |
+| --- | --- | --- |
+| `state()` | 规则状态，至少 `status`；关卡制含 `levelIndex`、`levelCount` | 脚本无法断言 |
+| `screen()` | 当前界面名 | 无法确认点到了哪个界面 |
+| `idle()`、`panelOpen()` | 动画结束、面板可点 | 脚本只能固定等待，大棋盘面板晚出现就误报失败 |
+| `button(name)` | 按名字取按钮位置 | 脚本要手算坐标，界面一改就坏 |
+| `hint()`、`wrong()` | 正确与出错操作的位置 | 无法自动通关和验证扣命 |
+| `residue()` | 本该清空却仍可见的元素数 | 画面残留只能靠人看图发现 |
+| `fast(on)` | 动画时长乘 0.1 | 30 关全量回归从约 1 分钟变成约 8 分钟 |
+| `metrics()` | 每关耗时、点击数、出错数（游戏在对应时机调 `recordMetric`） | 验收包没有体验指标 |
 
-start() {
-  if (DEBUG) (globalThis as any).__game = {
-    state: () => ({ phase: this.phase, level: this.levelIndex, lives: this.lives, timeLeft: this.timeLeft, modal: this.modalName }),
-    // 把逻辑坐标转成屏幕坐标（CSS 像素，左上原点），供真实点击使用
-    screenPoint: (x: number, y: number) => this.view.toScreen(x, y),
-    // 直接驱动规则层，跳过输入；用于构造场景
-    act: (name: string, ...args: unknown[]) => (this as any)[name](...args),
-    solution: () => this.level.solutionOrder,
-    setTime: (sec: number) => { this.timeLeft = sec },
-    idle: () => !this.locked && !this.animating,
-  }
-}
-```
-
-`idle()`（或等价的 `panelOpen()`：结算面板已显示且可点）不能省。实测：30 关通关脚本在第 25 关卡住，因为大棋盘最后一根箭头滑出更久，面板出现晚于固定等待。另建议加“残留计数”类钩子（如 `coversLeft()`），把视觉巡检发现的问题变成可断言的回归测试。`idle()` 不能省的原因：结算面板、动画通常在操作后延迟出现，没有它脚本只能固定等待，面板晚弹出就会误报失败。项目钩子缺 `idle()` 时，在等面板的步骤加足等待（≥ 动画时长 + 面板延迟），并在汇报里注明。
-
-字段按玩法增减，但保持三类：**读状态**（`state`、`idle`）、**真实输入坐标**（`screenPoint`）、**作弊构造**（`setTime`、`solution`、`act`）。验收“点击有效”必须用真实点击；“超时失败”这类可以用作弊构造。
+工程已有自己的钩子（名字或字段不同）：不改原钩子，写一个适配器调用 `installTestHook`，把已有方法逐个接上，缺的补上。
 
 ## 试玩脚本模板
 
-`playwright-cli run-code --filename=tests/playtest.mjs`，文件内容是一个 `async page => {}`：
+存为 `tests/e2e/playtest.mjs`，`cocos-verify.mjs` 会自动运行。逐关通关直接复制 `levels-template.mjs`。本模板覆盖核心循环的特殊场景，按游戏改按钮名和期望值；每步都 `check(步骤名, 条件, 状态)`，返回值格式固定为 `{ pass, log }`。
 
 ```js
 async page => {
-  await page.reload()  // 每次从干净页面开始，脚本才能重跑
-  await page.waitForFunction(() => globalThis.__game, null, { timeout: 15000 })
-  const state = () => page.evaluate(() => __game.state())
-  const waitIdle = () => page.waitForFunction(() => __game.idle(), null, { timeout: 4000 })
-  const tap = async (x, y) => {
-    const p = await page.evaluate(([x, y]) => __game.screenPoint(x, y), [x, y])
-    await page.mouse.click(p.x, p.y)
-  }
+  const W = page.viewportSize().width, H = page.viewportSize().height
+  const g = (fn, ...a) => page.evaluate(([fn, a]) => globalThis.__game[fn](...a), [fn, a])
+  const click = async (f) => { if (!f) throw new Error('目标位置为 null'); await page.mouse.click(f.fx * W, f.fy * H) }
+  const until = (body, ms = 15000) => page.waitForFunction(body, null, { timeout: ms })
   const shot = (name) => page.screenshot({ path: `temp/playtest-${name}.png` })
   const log = []
+  const check = (step, ok, s) => log.push({ step, ok, state: s })
 
-  log.push({ step: 'launch', state: await state() }); await shot('launch')
-  // 1) 合法操作 → 进度变化
-  // 2) 非法操作 → 扣命/反馈，状态不前进
-  // 3) 失败 → 失败面板 → 重开回到干净状态
-  // 4) 按 solution() 通关 → 胜利面板 → 下一关
-  return log
+  await page.reload()  // 每次从干净页面开始，脚本才能重跑
+  await until(() => globalThis.__game)
+  await g('resetSave'); await page.reload(); await until(() => globalThis.__game?.screen() === 'home')
+  await shot('01-home')
+  await click(await g('button', 'start'))
+  await until(() => globalThis.__game.screen() === 'game' && globalThis.__game.idle())
+  const s0 = await g('state'); await shot('02-start')
+  check('开局', s0.status === 'playing', s0)
+
+  // 1) 出错操作 → 扣命，进度不变
+  await click(await g('wrong')); await until(() => globalThis.__game.idle())
+  const s1 = await g('state'); await shot('03-wrong')
+  check('出错扣命', s1.hearts === s0.hearts - 1, s1)
+
+  // 2) 按提示通关 → 面板 → 无残留
+  while ((await g('state')).status === 'playing') { await until(() => globalThis.__game.idle()); await click(await g('hint')) }
+  await until(() => globalThis.__game.panelOpen(), 30000)
+  const s2 = await g('state'); await shot('04-win')
+  check('通关且无残留', s2.status === 'won' && (await g('residue')) === 0, s2)
+
+  // 3) 失败 → 失败面板 → 重开回到干净状态（按游戏补）
+  // 4) 存档：重载页面后进度仍在（按游戏补）
+  return { pass: log.every((l) => l.ok), log }
 }
 ```
 
-截图写在工程的 `temp/` 下（Cocos 工程默认忽略该目录），汇报时给出路径。
+截图写在工程的 `temp/` 下，文件名以 `playtest-` 开头并按步骤编号，`cocos-verify.mjs` 会把它们拼成联系图。

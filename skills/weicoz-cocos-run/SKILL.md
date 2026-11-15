@@ -1,12 +1,27 @@
 ---
 name: weicoz-cocos-run
-version: 1.6.0
+version: 1.7.0
 description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行构建（web-mobile / wechatgame）、给用户可点开的预览、自动试玩验收与分级证据。用于“跑起来看看”“我怎么测试”“在 Cocos 里预览给我看”“构建微信小游戏”“验收 demo”。
 ---
 
 # Cocos 运行闭环
 
 把“代码写完”变成“用户能玩、证据可查”。脚本在本 skill 的 `scripts/`，用 `node <本目录>/scripts/<脚本> --project <工程根>` 调用。
+
+## 速查：要做什么 → 跑哪条命令 → 看哪一行
+
+脚本都在本 skill 的 `scripts/`，`--project` 指向含 `assets/` 的 Cocos 工程目录。只照抄脚本输出的结论行，不自己推断“应该没问题”。
+
+| 要做什么 | 命令 | 看哪一行 |
+| --- | --- | --- |
+| 会话开始 | `node cocos-preflight.mjs --project <工程>` | 有 ❌ 先处理；⚠️ 决定走 MCP 还是 CLI |
+| 改完代码（日常） | `node cocos-verify.mjs --project <工程> --quick` | 最后一行“结论：通过/不通过” |
+| 阶段门、合并前 | `node cocos-verify.mjs --project <工程>` | 同上，并看“视觉巡检”行给的联系图 |
+| 给用户手机试玩 | 后台运行 `node cocos-preview.mjs --project <工程> --no-build --lan` | 只发带 ✅ 的地址 |
+| 只跑某个试玩脚本 | `node cocos-playtest.mjs --project <工程> --script tests/e2e/<名>.mjs` | ✅/❌ 行与“失败步骤” |
+| 查包体 | `node cocos-build.mjs --project <工程> --platform wechatgame --release` | “主包 x MB” |
+
+`cocos-verify.mjs` 不通过时：按“失败”列出的项逐个修，修完重跑同一条命令。同一项连续两次修不好，停下报告，附该行说明。
 
 ## 1. 预检（每个会话第一次碰 Cocos 前）
 
@@ -80,11 +95,17 @@ MCP 连接方式决定写操作怎么调用：
 
 ## 4. 自动试玩验收
 
-浏览器路径用 `playwright-cli`：`open <url>` → `resize 390 844` → `run-code --filename=<试玩脚本>`。读取状态和发起操作都通过游戏暴露的**测试钩子**，不靠反复 eval 探查节点树。钩子约定与试玩脚本模板见 `references/playtest-hook.md`。工程已有等效钩子（名字或字段不同）时沿用，不改名，在项目 `AGENTS.md` 记下钩子名和试玩脚本位置；还没有钩子时，先让实现方按约定加上。试玩脚本放进仓库，位置按项目的目录归属定（如 `tests/e2e/`）。
+1. **测试钩子**：新工程把 `references/TestHook.ts` 复制到 `assets/scripts/game/TestHook.ts`，在主控组件 `start()` 里调用 `installTestHook({...})`，逐个实现接口里的方法（`idle`、`panelOpen`、`residue` 不能省）。工程已有自己的钩子时不改名，另写一个适配器调用 `installTestHook`，把已有方法接上；在项目 `AGENTS.md` 记下钩子与脚本位置。
+2. **试玩脚本**：
+   - 逐关通关：复制 `references/levels-template.mjs` 到 `tests/e2e/levels.mjs`，只改开头两个按钮名。
+   - 核心循环（被挡、失败、重开、存档等）：按 `references/playtest-hook.md` 的模板写 `tests/e2e/playtest.mjs`。
+   - 脚本放 `tests/e2e/`，`cocos-verify.mjs` 会自动全部运行。
+3. **运行**：跑 `cocos-verify.mjs`。它构建、起预览、用手机尺寸跑全部脚本、采样帧率、输出每关点击数与耗时、拼出联系图 `temp/contact.png`。
+4. **两档回归**：日常 `--quick`（只跑 `playtest.mjs`，钩子开快速模式）；阶段门前不带 `--quick`（全部脚本、真实动画、release 包体）。
 
 每条验收写成：步骤 → 期望 → 证据（状态 JSON 或截图路径）→ 通过 / 失败。另查一遍浏览器控制台或编辑器日志，有报错就写进缺陷。
 
-**视觉巡检**：脚本全部通过后，你逐张看关键状态的截图（开局、操作中、结算、每个新界面，以及最大规格的关卡），按下面清单找问题，发现即按缺陷分级记录。脚本断言只证明状态对，画面问题只能靠看图发现。实测例子：30 关脚本全过，但通关截图里插画上残留了无箭头格的遮盖块。
+**视觉巡检**：脚本全部通过后，看联系图 `temp/contact.png`（按名字排序拼好的关键截图），按下面清单找问题，发现即按缺陷分级记录。当前模型不能看图时，用 `modlens` 把联系图转成文字后按清单判断；仍无法判断的写“视觉巡检：未验证”，交给制作人在验收包里看。脚本断言只证明状态对，画面问题只能靠看图发现。实测例子：30 关脚本全过，但通关截图里插画上残留了无箭头格的遮盖块。
 
 - 残留：该消失的节点（遮盖、旧棋盘、弹窗）还在。
 - 遮挡与重叠：提示文字压在可点区域、换盘时新旧棋盘重叠、HUD 被刘海或胶囊按钮挡住。
@@ -92,7 +113,9 @@ MCP 连接方式决定写操作怎么调用：
 - 对比度与可读性：遮罩把奖励画面压暗、颜色区分不了可点和不可点。
 - 尺寸极值：最小和最大棋盘各看一张。
 
-体验类问题（手感、节奏）不靠截图下结论：记录帧率、单局时长、每关点击数和出错率作为参考，交给制作人在验收包里判断。
+每发现一类画面缺陷，同时给钩子的 `residue()` 加上对应计数，让它变成脚本断言；这样之后即使不看图也能抓住同类回归。
+
+体验类问题（手感、节奏）不靠截图下结论：把 `cocos-verify.mjs` 输出的帧率、每关点击数和耗时抄进验收包，交给制作人判断。
 
 缺陷按影响分级，先修高级别：
 
@@ -111,7 +134,7 @@ MCP 连接方式决定写操作怎么调用：
 
 1. 规则核单测（项目的 `npm test`）与生成器对标指标测试。
 2. `cocos-typecheck.mjs` 通过。
-3. debug 构建上试玩脚本跑完全部关卡：每关用 `solution()` 通关，再验证失败与重开。
+3. `cocos-verify.mjs`（不带 `--quick`）结论为“通过”：其中逐关脚本通完全部关卡，`playtest.mjs` 覆盖失败与重开。
 4. `--release` wechatgame 构建：主包与总包在限额内，`cocos-modules.mjs` 无可裁剪项或已说明原因。
 5. 切后台再回来（`Game.EVENT_HIDE/SHOW`）：计时和音乐暂停与恢复。
 6. 存档：通关后刷新页面，进度仍在。

@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-dev
-version: 1.4.0
+version: 1.5.0
 description: Cocos Creator 3.8 小游戏代码实现约定：规则核与视图分层、主控组件、触控输入、测试钩子、Cocos 坑点与离线类型检查。用于写或改 Cocos 玩法代码、搭单场景 demo、排查脚本在编辑器或预览里不生效。
 ---
 
@@ -23,14 +23,22 @@ description: Cocos Creator 3.8 小游戏代码实现约定：规则核与视图�
 
 单场景 demo 用一个挂在 Canvas 上的主控组件：
 
-1. `start()`：读关卡 → 创建规则核运行时 → 代码创建棋盘与 HUD 节点 → 挂测试钩子（约定见 `weicoz-cocos-run` 的 `references/playtest-hook.md`）。
+1. `start()`：读关卡 → 创建规则核运行时 → 代码创建棋盘与 HUD 节点 → 挂测试钩子：复制 `weicoz-cocos-run/references/TestHook.ts`，调用 `installTestHook`；过关、出错、通关处调 `recordMetric`。
 2. 输入：`node.on(Node.EventType.TOUCH_END, …)`。`const p = event.getUILocation()`，再 `uiTransform.convertToNodeSpaceAR(new Vec3(p.x, p.y, 0))` 转成棋盘坐标（参数是 `Vec3`，直接传 `Vec2` 类型检查不过），交给规则核。拖拽类操作同时处理 `TOUCH_CANCEL`（手指滑出或被系统打断），按松手取消处理。
 3. 规则核返回结果 → 播动画 → 动画期间 `locked = true`，丢弃新输入。
 4. 计时放在 `update(dt)`，弹窗或暂停时停表；不用 `setInterval`。监听 `game.on(Game.EVENT_HIDE / EVENT_SHOW)`：切后台、来电、下拉通知时停表和音乐，回来后恢复。
 5. 胜负、扣命只读规则核状态，视图层不重复计算。
 6. `onDestroy()` 里解绑所有 `on` 过的事件和定时器，重开本关时才不会重复触发。
 
-单个主控组件只适合灰盒。出现第二类玩法对象、经济或多场景时，按领域拆出系统（输入、关卡、计分、音频），主控组件只做编排。
+单个主控组件只适合灰盒。出现第二个界面或第二种模式（首页、关卡选择、图册、限时……）时按下面拆，主控组件只做编排：
+
+| 文件 | 内容 |
+| --- | --- |
+| `game/GameRoot.ts` | 只做界面切换（`go(name)`）和公共服务（存档、钩子），每个界面一行注册 |
+| `game/screens/<Name>Screen.ts` | 每个界面或模式一个文件，自己建节点、绑事件、`onDestroy` 解绑 |
+| `game/<Domain>.ts` | 棋盘渲染、插画层等可复用视图 |
+
+新功能的票只新增 `screens/` 下的文件，加上 `GameRoot` 里的一行注册。这样并行的前端分支不会同时改同一个大文件。实测：两个分支都往 `GameRoot.ts` 里加界面，合并时冲突了 4 处。
 
 需要人在编辑器里调布局的 UI（主菜单、商店、结算页）做成 Prefab，按 `funplay-cocos-ui-composition` 装配。棋盘这类数据驱动内容保持代码创建。Prefab 实例化后调用 `init(data)` 传入数据，不让 Prefab 脚本自己全场景找管理器。
 
