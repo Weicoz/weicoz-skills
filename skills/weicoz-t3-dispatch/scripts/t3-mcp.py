@@ -43,9 +43,11 @@ def t3_json(*args):
 
 def login():
     # 1. 用短期管理会话换一个绑定权限等级的一次性配对码；用完立即吊销
-    adm = t3_json("auth", "session", "issue", "--scope", "access:write", "--scope", "orchestration:read",
-                  "--scope", "orchestration:operate", "--ttl", "5m", "--label", "t3-dispatch-admin", "--json")
     access = os.environ.get("T3_MCP_ACCESS", "auto-accept-edits")
+    # full-access 配对码要求管理会话具备全部权限（实测逐个缺 settings:write、source-control:write…），
+    # 所以 full-access 时不限定 scope（默认即全部）；仍是 5 分钟短期会话，用完立即吊销
+    scopes = [] if access == "full-access" else ["--scope", "access:write", "--scope", "orchestration:read", "--scope", "orchestration:operate"]
+    adm = t3_json("auth", "session", "issue", *scopes, "--ttl", "5m", "--label", "t3-dispatch-admin", "--json")
     try:
         code = http("/api/auth/pairing-token", {"label": "t3-dispatch", "access": access},
                     {"Authorization": "Bearer " + adm["token"]})["credential"]

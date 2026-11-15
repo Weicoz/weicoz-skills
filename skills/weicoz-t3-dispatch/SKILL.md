@@ -1,6 +1,6 @@
 ---
 name: weicoz-t3-dispatch
-version: 1.1.0
+version: 1.2.0
 description: 经本机 T3 Code（`t3` CLI）把编码任务派给其他 harness（DSH、Kimi Code、Antigravity 等），在独立 worktree 里执行，并巡检、续派、验收。用户说“用 T3 派”“通过 t3 code 分发任务”“让 DSH/Kimi 在 T3 里做”时使用。跨机器派单见本文“跨机器派单”一节（也可用 weicoz-remote-dispatch）；当前会话自己的子代理不需要本技能。
 ---
 
@@ -59,7 +59,12 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
    ```bash
    t3 thread start --provider <id> --model '<模型串>' --title "<任务名>" --json <worktree> - < task.md
    ```
-   记下返回的 `threadId`。提示词必须写明：已在独立 worktree、可写范围、完成判据、提交但不合并不推送、交付说明格式。
+   记下返回的 `threadId`。然后设推理等级（命令行传不了，必须这一步）：
+   ```bash
+   scripts/t3-effort.sh <threadId> <provider id> '<模型串>' max   # 输出 reasoning_effort=max 才算设好
+   ```
+   用户偏好：DSH 派单一律 `max`。各模型可选值见 MCP `orchestrator_capabilities`（选项名 `reasoning_effort`）；不设时多数模型默认 `high`，`magpie` 路由组默认为空。脚本内部签 5 分钟 full-access 令牌、校验后即吊销，属于本 skill 的既定步骤。
+   提示词必须写明：已在独立 worktree、可写范围、完成判据、提交但不合并不推送、交付说明格式。
 5. **巡检**：把等待放进宿主后台作业，完成时会唤醒发起会话。
    ```bash
    scripts/t3-wait.sh <threadId> [超时秒，默认 5400]   # 0 完成；1 失败或等待输入；2 超时
