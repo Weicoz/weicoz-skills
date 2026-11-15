@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-dev
-version: 1.3.0
+version: 1.4.0
 description: Cocos Creator 3.8 小游戏代码实现约定：规则核与视图分层、主控组件、触控输入、测试钩子、Cocos 坑点与离线类型检查。用于写或改 Cocos 玩法代码、搭单场景 demo、排查脚本在编辑器或预览里不生效。
 ---
 
@@ -54,7 +54,7 @@ Canvas
 ## 坑点
 
 - `.meta`、`.scene`、`.prefab` 不手写、不复制。新增脚本后由编辑器导入（MCP 用 `refresh_assets`），或由 CLI 构建导入。复制资源时不复制 `.meta`，否则 UUID 冲突。
-- 新脚本的 `.meta` 在第一次导入后立刻提交到主分支，再开并行 worktree。否则每个 worktree 构建时都会给同一脚本生成不同 uuid，合并时冲突，场景引用也会断。
+- 新脚本或资源的 `.meta` 在第一次导入后立刻提交到主分支，再开并行 worktree：后端交付新 core 文件或关卡 JSON 并合并后，由合并方在主分支跑一次 `cocos-build.mjs`（导入即可）并提交新增 `.meta`，然后才开前端分支。否则每个 worktree 构建时都会给同一脚本生成不同 uuid，合并时冲突，场景引用也会断。
 - 自定义组件一律写 `@ccclass('MyComponent')` 显式类名。构建产物里的类名可能被压缩改写，运行时 `getComponent('MyComponent')` 和 MCP `add_component` 都用这个字符串名。
 - 试玩脚本在页面里经全局 `cc` 取引擎组件时，web-mobile 构建曾出现 `cc.UITransform` 取不到、别名 `cc.UITransformComponent` 能取到（原因未确认）。只影响页面内脚本；组件代码照常 `import { UITransform } from 'cc'`。
 - MCP 挂自定义组件失败：先确认脚本已导入并编译通过，类名与 `@ccclass` 一致，再重试。
