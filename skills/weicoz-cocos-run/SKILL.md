@@ -21,7 +21,7 @@ description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行�
 | 只跑某个试玩脚本 | `node cocos-playtest.mjs --project <工程> --script tests/e2e/<名>.mjs` | ✅/❌ 行与“失败步骤” |
 | 查包体 | `node cocos-build.mjs --project <工程> --platform wechatgame --release` | “主包 x MB” |
 
-`cocos-verify.mjs` 不通过时：按“失败”列出的项逐个修，修完重跑同一条命令。同一项连续两次修不好，停下报告，附该行说明。
+`cocos-verify.mjs` 不通过时：按“失败”列出的项逐个修，修完重跑同一条命令。你在修复时，同一项连续两次修不好，停下报告，附该行说明；只做验收、不修代码时，直接报告“不通过”和失败项。多个代理可以同时运行它：试玩端口和浏览器会话按空闲端口自动分配。脚本可以直接执行，不需要先读它依赖的其他 skill。
 
 ## 1. 预检（每个会话第一次碰 Cocos 前）
 

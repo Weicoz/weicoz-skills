@@ -7,6 +7,7 @@
  *   --script      试玩脚本，可多个；不传时用工程 tests/e2e/ 下全部 .mjs（--quick 时只用 playtest.mjs）
  *   --quick       日常回归：跳过 release 构建，只跑 playtest.mjs
  *   --no-release  不做 wechatgame release 包体检查
+ *   --port        试玩预览端口；默认自动取空闲端口，可多个代理并行验收
  * 顺序：类型检查 → 单元测试（package.json 有 test 脚本时）→ 引擎模块 → web-mobile 构建 → 试玩（含联系图）→ release 包体。
  * 任一项失败继续跑完其余项，便于一次看全；退出码 0 = 通过，1 = 不通过。
  */
@@ -67,10 +68,12 @@ if (!scripts.length && existsSync(e2e)) {
 if (!scripts.length) {
   rows.push({ name: '浏览器试玩', ok: false, detail: '没有试玩脚本：按 references/playtest-hook.md 写 tests/e2e/playtest.mjs' })
 } else if (rows.find((r) => r.name === 'web-mobile 构建')?.ok) {
-  const out = run('浏览器试玩', process.execPath, [join(here, 'cocos-playtest.mjs'), '--project', project, ...scripts.flatMap((s) => ['--script', s])], (code, o) => {
+  const out = run('浏览器试玩', process.execPath, [join(here, 'cocos-playtest.mjs'), '--project', project, ...all('--port').flatMap((p) => ['--port', p]), ...scripts.flatMap((s) => ['--script', s])], (code, o) => {
     const lines = o.split('\n').filter((l) => /^(✅|❌)|失败步骤|错误：/.test(l)).map((l) => l.trim())
     return { ok: code === 0, detail: lines.join('；') || '无输出' }
   })
+  const metricLines = out.split('\n').filter((l) => /^\s*指标：/.test(l)).map((l) => l.trim().replace(/^指标：/, ''))
+  if (metricLines.length) rows.push({ name: '体验指标', ok: true, detail: metricLines.join('；').slice(0, 600) })
   const contact = out.match(/联系图（视觉巡检看这张）：(\S+)/)?.[1]
   rows.push({ name: '视觉巡检', ok: true, detail: contact ? `待人工或看图模型检查：${contact}（清单见 SKILL.md 第 4 节；不能看图时用 modlens）` : '无截图' })
 } else {

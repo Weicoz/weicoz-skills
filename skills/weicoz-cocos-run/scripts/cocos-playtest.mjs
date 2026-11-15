@@ -4,7 +4,7 @@
  * 采样帧率 → 汇总通过与否、失败步骤、指标 → 拼关键截图联系图 → 关会话、停服务。
  *
  * 用法：node cocos-playtest.mjs --project <工程根> --script tests/e2e/playtest.mjs [--script ...]
- *        [--build] [--port 8140] [--shots "temp/playtest-*.png"] [--json]
+ *        [--build] [--port <端口，默认自动取空闲端口>] [--shots "temp/playtest-*.png"] [--json]
  *   --build   先构建 web-mobile（默认用现有 build/web-mobile）
  *   --shots   截图 glob（相对工程根），拼成 temp/contact.png 供视觉巡检；默认 temp/playtest-*.png
  * 试玩脚本约定：`async page => {...}`，返回 { pass, log: [{ step, ok, ... }], metrics? }。
@@ -12,6 +12,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { createServer as createNetServer } from 'node:net'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -20,7 +21,10 @@ const all = (name) => args.flatMap((a, i) => (a === name ? [args[i + 1]] : []))
 const flag = (name, fallback) => all(name)[0] ?? fallback
 const project = resolve(flag('--project', process.cwd()))
 const scripts = all('--script')
-const port = Number(flag('--port', 8140))
+// 不传 --port 时取系统分配的空闲端口：多个代理并行验收时不会抢同一端口
+const port = all('--port')[0] ? Number(all('--port')[0]) : await new Promise((ok) => {
+  const srv = createNetServer().listen(0, '127.0.0.1', () => { const p = srv.address().port; srv.close(() => ok(p)) })
+})
 const shots = flag('--shots', 'temp/playtest-*.png')
 const asJson = args.includes('--json')
 const here = dirname(fileURLToPath(import.meta.url))
