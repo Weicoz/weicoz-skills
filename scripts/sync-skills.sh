@@ -9,6 +9,7 @@
 #
 # 行为约定：
 #   - 只管理 weicoz-* 条目，不碰其他 Skill。
+#   - 单个 Skill 可放 .harness-exclude 逐行列出不挂载的 harness（如 claude、codex）。
 #   - --apply 只重指已漂移的软链，并把「已被任一 harness 挂载」的 Skill 补齐到其余 harness。
 #   - 任何 harness 都没挂过的 Skill（例如被新版取代的旧目录）不会被自动挂上；
 #     确需挂载时用 --skill <name> 显式点名。
@@ -84,6 +85,19 @@ expected_target() { printf '%s/skills/%s\n' "$repo" "$1"; }
 tiers_gen="${SKILL_TIERS_HOME:-$HOME/.agents/skill-tiers}/generated"
 is_tiered() { [[ -L "$1" && "$(readlink "$1")" == "$tiers_gen"/* ]]; }
 
+# harness 目录的短名：~/.claude/skills -> claude，~/.agents/skills -> agents
+harness_key() {
+  local base
+  base="$(basename "$(dirname "$1")")"
+  printf '%s' "${base#.}"
+}
+
+# 单个 Skill 可用 .harness-exclude 逐行列出不挂载的 harness 短名
+excluded_for() {
+  local f="$root/$1/.harness-exclude"
+  [[ -f "$f" ]] && grep -qxF "$2" "$f"
+}
+
 say() { (( quiet )) || printf '%s\n' "$*"; }
 
 existing_harnesses=()
@@ -136,6 +150,19 @@ for name in "${skills[@]}"; do
 
     if is_tiered "$entry"; then
       mounted_here=1
+      continue
+    fi
+
+    # .harness-exclude 命中的 harness：不建链；已有链在 apply 时移除
+    if excluded_for "$name" "$(harness_key "$h")"; then
+      if [[ -L "$entry" ]]; then
+        if [[ "$mode" == "apply" ]]; then
+          rm -f "$entry" && say "移除排除项 $name @ $(harness_key "$h")" && fixed=$((fixed + 1))
+        else
+          printf '不应挂载: %s（.harness-exclude 已排除）\n' "$entry" >&2
+          fail=1
+        fi
+      fi
       continue
     fi
 
