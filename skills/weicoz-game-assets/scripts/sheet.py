@@ -3,7 +3,9 @@
 
 用法：
   sheet.py key <png 或目录> <输出目录> [--tol 40]            从四角泛洪去掉纯色背景（出图没有透明通道时用）
-  sheet.py split <网格图.png> <行> <列> <输出目录> [--pad 4]   切成单帧，逐帧裁透明边后统一留边
+  sheet.py split <网格图.png> <行> <列> <输出目录> [--pad 4] [--largest]
+                                                              切成单帧，逐帧裁透明边后统一留边；
+                                                              --largest 只保留每格最大的连通主体（去掉切进来的相邻格碎片）
   sheet.py check <png 或目录>... [--opaque]                    检查透明背景、主体占比、尺寸
   sheet.py selftest
 
@@ -24,6 +26,33 @@ except ImportError:
     sys.exit("错误：缺少 Pillow。\n请安装：python3 -m pip install Pillow")
 
 
+def largest_only(img):
+    from collections import deque
+    a = img.getchannel("A").load()
+    w, h = img.size
+    seen, best = set(), []
+    for y in range(h):
+        for x in range(w):
+            if a[x, y] > 16 and (x, y) not in seen:
+                comp, q = [], deque([(x, y)])
+                seen.add((x, y))
+                while q:
+                    cx, cy = q.popleft()
+                    comp.append((cx, cy))
+                    for n in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
+                        if 0 <= n[0] < w and 0 <= n[1] < h and n not in seen and a[n] > 16:
+                            seen.add(n)
+                            q.append(n)
+                if len(comp) > len(best):
+                    best = comp
+    keep, px = set(best), img.load()
+    for y in range(h):
+        for x in range(w):
+            if a[x, y] > 16 and (x, y) not in keep:
+                px[x, y] = (0, 0, 0, 0)
+    return img
+
+
 def trim(img, pad):
     rgba = img.convert("RGBA")
     box = rgba.getchannel("A").getbbox()
@@ -35,7 +64,7 @@ def trim(img, pad):
     return out
 
 
-def split(sheet, rows, cols, out_dir, pad):
+def split(sheet, rows, cols, out_dir, pad, largest=False):
     img = Image.open(sheet)
     w, h = img.width // cols, img.height // rows
     out = Path(out_dir)
@@ -49,7 +78,7 @@ def split(sheet, rows, cols, out_dir, pad):
                 cell.save(path)  # 背景未去除：原样保存，裁边会掩盖问题
                 print(f"✗ 背景未去除，未裁边  {path}")
             else:
-                trim(cell, pad).save(path)
+                trim(largest_only(cell.convert("RGBA")) if largest else cell, pad).save(path)
                 print(path)
 
 
@@ -113,6 +142,13 @@ def selftest():
         assert inspect(f"{d}/out/s_00.png")[2] == []
         assert inspect(f"{d}/out/s_01.png")[2][0].startswith("✗")
         assert inspect(f"{d}/out/s_01.png", opaque_ok=True)[2] == []
+        # --largest：主体旁的小碎片被去掉，裁边后只剩主体
+        frag = Image.new("RGBA", (60, 40), (0, 0, 0, 0))
+        frag.paste((0, 200, 0, 255), (10, 10, 30, 30))
+        frag.paste((0, 200, 0, 255), (55, 5, 58, 8))
+        frag.save(f"{d}/f.png")
+        split(f"{d}/f.png", 1, 1, f"{d}/fo", 0, largest=True)
+        assert Image.open(f"{d}/fo/f_00.png").size == (20, 20)
         # key：白底上一个红块，去底后四角透明、红块保留
         flat = Image.new("RGBA", (50, 50), (255, 255, 255, 255))
         flat.paste((255, 0, 0, 255), (15, 15, 35, 35))
@@ -128,7 +164,7 @@ if __name__ == "__main__":
     pad = int(a[a.index("--pad") + 1]) if "--pad" in a else 4
     tol = int(a[a.index("--tol") + 1]) if "--tol" in a else 40
     if a[:1] == ["split"] and len(a) >= 5:
-        split(a[1], int(a[2]), int(a[3]), a[4], pad)
+        split(a[1], int(a[2]), int(a[3]), a[4], pad, "--largest" in a)
     elif a[:1] == ["key"] and len(a) >= 3:
         key(a[1], a[2], tol)
     elif a[:1] == ["check"] and len(a) >= 2:

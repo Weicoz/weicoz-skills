@@ -1,12 +1,14 @@
 ---
 name: weicoz-game-assets
-version: 1.2.0
+version: 1.3.0
 description: 小游戏美术与素材：定美术方向、写素材契约、批量出图、切分裁边、审查、导入 Cocos 与首包预算；含音效占位。用于灰盒换正式画面、“做一套素材/图标/角色帧”、素材看着不对或包体过大。
 ---
 
 # 游戏素材
 
 灰盒阶段不做本 skill。用户在灰盒门确认玩法后才开始，见 `weicoz-game-flow`。
+
+**占位素材**（玩法需要图片才能验证，但美术方向还没定，如插画剪影、关卡图）：跳过第 1 节的方向与锚点，只写第 2 节契约里的尺寸、透明、禁止三项，按第 3、4 节出图和切分，文件放 `assets/art/placeholder/`。正式美术到时整目录替换，不在占位图上精修。
 
 ## 1. 美术方向
 
@@ -30,7 +32,7 @@ description: 小游戏美术与素材：定美术方向、写素材契约、批�
 
 ## 3. 出图
 
-- 用当前宿主可用的出图能力，例如 `gpt-image-2`。提示词写进契约字段，并附锚点图作风格参考。
+- 用当前宿主可用的出图能力，例如 magpie 的 `generate_image` MCP（可传 `background: transparent` 与保存路径）或 `gpt-image-2`。提示词写进契约字段，并附锚点图作风格参考。
 - 同类素材（图标组、状态帧、道具组）**一次出成网格图**，保证风格一致；单张只用于锚点和定点重做。
 - 出图顺序：首个循环必需的玩法物体与反馈 → 最小 HUD 与结算界面 → 背景与装饰 → 次要动画和变体。
 - UI 图里不生成文字，文字由 `Label` 渲染。
@@ -41,7 +43,7 @@ description: 小游戏美术与素材：定美术方向、写素材契约、批�
 
 ```bash
 python3 <本目录>/scripts/sheet.py key generated/icons.png generated/keyed   # 出图没有透明通道时先去纯色底
-python3 <本目录>/scripts/sheet.py split generated/keyed/icons.png 2 4 generated/icons --pad 4
+python3 <本目录>/scripts/sheet.py split generated/keyed/icons.png 2 4 generated/icons --pad 4 --largest
 python3 <本目录>/scripts/sheet.py check generated/icons
 python3 <本目录>/scripts/sheet.py check generated/bg --opaque   # 整幅背景、九宫格面板、铺满的图块
 ```
