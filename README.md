@@ -77,7 +77,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-game-design`](skills/weicoz-game-design/) | 1.2.0 | 参考视频抽帧拆解、可量化对标指标、可解关卡生成器、数值、交互、IP 安全 |
 | [`weicoz-cocos-dev`](skills/weicoz-cocos-dev/) | 1.5.0 | 规则核与视图分层、主控组件、Cocos 坑点、离线类型检查脚本、微信存档/分享/广告/隐私与上线检查 |
 | [`weicoz-cocos-run`](skills/weicoz-cocos-run/) | 1.8.0 | 预检、一键 web 验收（cocos-verify）、试玩运行器与联系图、标准测试钩子模板、预览与手机地址自检、验证分级 |
-| [`weicoz-game-assets`](skills/weicoz-game-assets/) | 1.4.1 | 美术方向与风格锚点、素材契约、网格图切分裁边检查、导入与首包预算 |
+| [`weicoz-game-assets`](skills/weicoz-game-assets/) | 1.5.0 | 美术方向与风格锚点、素材契约、网格图切分裁边检查、导入与首包预算 |
 
 #### 飞书与办公自动化
 

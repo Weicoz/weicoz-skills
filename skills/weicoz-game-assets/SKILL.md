@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-assets
-version: 1.4.1
+version: 1.5.0
 description: 小游戏美术与素材：定美术方向、写素材契约、批量出图、切分裁边、审查、导入 Cocos 与首包预算；含音效占位。用于灰盒换正式画面、“做一套素材/图标/角色帧”、素材看着不对或包体过大。
 ---
 
@@ -46,7 +46,8 @@ description: 小游戏美术与素材：定美术方向、写素材契约、批�
 ## 3. 出图
 
 - 用当前宿主可用的出图能力，例如 magpie 的 `generate_image` MCP（可传 `background: transparent` 与保存路径）或 `gpt-image-2`。提示词写进契约字段，并附锚点图作风格参考。
-- 同类素材（图标组、状态帧、道具组）**一次出成网格图**，保证风格一致；单张只用于锚点和定点重做。
+- **所有素材都出成 3×3 九宫格、背景镂空**（`generate_image` 传 `background: transparent`，附锚点图作参考），包括图标、装饰、按钮、面板、边框这类界面组件。提示词写明“每个物件不超过格子的 70%、四周留 15% 空白、不得越过格线”，否则大物件会被切断。
+- 界面组件在 Cocos 里按九宫格拉伸（Sprite `SLICED` + SpriteFrame inset），不用代码画纸质感；拉伸边距写进项目 `docs/ui-style.md`。
 - 出图顺序：首个循环必需的玩法物体与反馈 → 最小 HUD 与结算界面 → 背景与装饰 → 次要动画和变体。
 - UI 图里不生成文字，文字由 `Label` 渲染。
 - 生成原件放 `generated/`（不进 `assets/`），挑选后再复制进 `assets/`。复制时不带 `.meta`，不覆盖已有文件。
@@ -55,8 +56,8 @@ description: 小游戏美术与素材：定美术方向、写素材契约、批�
 ## 4. 切分与审查
 
 ```bash
-python3 <本目录>/scripts/sheet.py key generated/icons.png generated/keyed   # 出图没有透明通道时先去纯色底
-python3 <本目录>/scripts/sheet.py split generated/keyed/icons.png 2 4 generated/icons --pad 4 --largest
+python3 <本目录>/scripts/sheet.py split generated/icons.png 3 3 generated/icons --pad 4 --largest --key   # 每格单独去底、去相邻格碎片、裁边
+python3 <本目录>/scripts/sheet.py pack assets/resources/ui   # 进主包前：最长边 256、量化 128 色，实测 1.38 MB → 217 KB
 python3 <本目录>/scripts/sheet.py check generated/icons
 python3 <本目录>/scripts/sheet.py check generated/bg --opaque   # 整幅背景、九宫格面板、铺满的图块
 ```
