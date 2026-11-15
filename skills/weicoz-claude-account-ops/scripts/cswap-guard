@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""cswap-guard — 在任何改动 Claude Code 登录态的命令前做确定性检查。
+
+背景：cswap 以「live 凭据就是当前活跃槽位」为假设做回写。登录新账号后若先跑
+list/switch，它会把新账号凭据写进旧槽位，两份账号互相覆盖，refresh token
+随即被轮换作废。
+
+用法：
+  cswap-guard check              只检查，不改动任何东西
+  cswap-guard backup             把当前 live 凭据备份到账号目录（0600）
+  cswap-guard run <cswap 参数…>   检查通过后执行 cswap
+
+检查项：
+  1. 没有其它 cswap 进程在跑（长跑的 list 与登录重叠是本事故的直接原因）
+  2. ~/.claude.json 的登录身份与 cswap 记录的活跃槽位一致
+     （不一致时只放行 `add`，因为「刚登录新号」正是该跑 add 的状态）
+  3. active 槽位的备份存在且 refreshToken 非空
+
+退出码：0 通过；2 拒绝；3 钥匙串不可用（需在本地图形终端运行）。
+环境变量：CSWAP_BIN、CSWAP_BACKUP_DIR、CSWAP_ACCOUNTS_DIR、
+          CSWAP_LIVE_SERVICE、CSWAP_STORE_SERVICE、CLAUDE_CONFIG_DIR。
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HOME = Path.home()
+CSWAP = os.environ.get("CSWAP_BIN") or shutil.which("cswap") or str(HOME / ".local/bin/cswap")
+BACKUP_DIR = Path(os.environ.get("CSWAP_BACKUP_DIR") or HOME / ".claude-swap-backup")
+ACCOUNTS_DIR = Path(os.environ.get("CSWAP_ACCOUNTS_DIR") or HOME / ".claude-accounts")
+LIVE_SERVICE = os.environ.get("CSWAP_LIVE_SERVICE") or "Claude Code-credentials"
+STORE_SERVICE = os.environ.get("CSWAP_STORE_SERVICE") or "claude-swap"
+CONFIG = Path(os.environ.get("CLAUDE_CONFIG_DIR") or HOME / ".claude.json")
+
+MUTATING = {"add", "switch", "import", "remove", "purge", "move", "swap", "restore"}
+KEEP_BACKUPS = 10
+
+
+def die(msg: str, code: int = 2) -> "NoReturn":
+    print(f"cswap-guard: {msg}", file=sys.stderr)
+    raise SystemExit(code)
+
+
+def read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        die(f"找不到 {path}")
+    except json.JSONDecodeError:
+        die(f"{path} 不是合法 JSON")
+
+
+def keychain_read(account: str, service: str) -> str | None:
+    r = subprocess.run(
+        ["security", "find-generic-password", "-a", account, "-s", service, "-w"],
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        return None
+    value = r.stdout.strip()
+    return value or None
+
+
+def keychain_write(account: str, service: str, value: str) -> bool:
+    r = subprocess.run(
+        ["security", "add-generic-password", "-U", "-a", account, "-s", service, "-w", value],
+        capture_output=True,
+        text=True,
+    )
+    return r.returncode == 0
+
+
+def live_identity() -> tuple[str, str]:
+    data = read_json(CONFIG)
+    oauth = data.get("oauthAccount") or {}
+    email = (oauth.get("emailAddress") or "").strip()
+    org = (oauth.get("organizationUuid") or "").strip()
+    if not email:
+        die(f"{CONFIG} 里没有 oauthAccount.emailAddress；先确认 Claude Code 已登录")
+    return email, org
+
+
+def slot_identity() -> tuple[str, str, str]:
+    seq = read_json(BACKUP_DIR / "sequence.json")
+    num = str(seq.get("activeAccountNumber") or "")
+    acc = (seq.get("accounts") or {}).get(num)
+    if not num or not acc:
+        die("cswap 还没有登记账号；先跑 cswap-guard run add")
+    return num, (acc.get("email") or ""), (acc.get("organizationUuid") or "")
+
+
+def check_no_concurrent() -> None:
+    me = os.getpid()
+    out = subprocess.run(["ps", "-Ao", "pid=,command="], capture_output=True, text=True).stdout
+    hits = []
+    for line in out.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        pid, _, cmd = line.partition(" ")
+        if not pid.isdigit() or int(pid) == me:
+            continue
+        if "cswap-guard" in cmd:
+            continue
+        if "cswap" in cmd:
+            hits.append(f"{pid} {cmd[:80]}")
+    if hits:
+        die(
+            "有其它 cswap 进程在跑，现在改登录态会和它抢凭据：\n  "
+            + "\n  ".join(hits)
+            + "\n等它退出，或先终止它。"
+        )
+
+
+def check_keychain() -> dict:
+    raw = keychain_read(os.environ.get("USER", ""), LIVE_SERVICE)
+    if not raw:
+        die(
+            "读不到钥匙串里的登录凭据。SSH 会话、锁屏或无图形会话都会这样。\n"
+            "请在 Mac 本地终端窗口里重新运行。",
+            3,
+        )
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        die("live 凭据不是合法 JSON；不要在异常状态下继续操作")
+    oauth = data.get("claudeAiOauth") or {}
+    if not oauth.get("refreshToken"):
+        die("live 凭据缺少 refreshToken；继续操作会把它写成空壳")
+    return data
+
+
+def check_slot_backup(active_num: str, email: str) -> None:
+    raw = keychain_read(f"account-{active_num}-{email}", STORE_SERVICE)
+    if not raw:
+        print(
+            f"提示：槽位 {active_num} 的备份读不到（可能只存在文件态）。继续前建议先 backup。",
+            file=sys.stderr,
+        )
+        return
+    oauth = (json.loads(raw) if raw.startswith("{") else {}).get("claudeAiOauth") or {}
+    if not oauth.get("refreshToken"):
+        die(f"槽位 {active_num} 的备份没有 refreshToken，切回去会掉登录")
+
+
+def cmd_check(require_match: bool = True) -> None:
+    check_no_concurrent()
+    email, org = live_identity()
+    num, slot_email, slot_org = slot_identity()
+    identical = email == slot_email and (org or "") == (slot_org or "")
+    if require_match and not identical:
+        die(
+            f"身份不一致：live 是 {email}，cswap 认为活跃槽位 {num} 是 {slot_email}。\n"
+            f"刚登录新账号是正常状态，此时只应执行：cswap-guard run add\n"
+            f"其它命令（list/status/switch）会把新凭据写进槽位 {num}，必须避免。"
+        )
+    check_keychain()
+    check_slot_backup(num, slot_email)
+    print(f"检查通过：live={email}，活跃槽位={num}（{slot_email}）")
+
+
+def cmd_backup() -> Path:
+    data = check_keychain()
+    ACCOUNTS_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(ACCOUNTS_DIR, 0o700)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    dest = ACCOUNTS_DIR / f"live-{stamp}.json"
+    dest.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+    os.chmod(dest, 0o600)
+    old = sorted(ACCOUNTS_DIR.glob("live-*.json"))[:-KEEP_BACKUPS]
+    for path in old:
+        path.unlink(missing_ok=True)
+    print(f"已备份 live 凭据：{dest}")
+    return dest
+
+
+def cmd_run(argv: list[str]) -> None:
+    if not argv:
+        die("用法：cswap-guard run <cswap 参数…>")
+    sub = argv[0]
+    email, org = live_identity()
+    num, slot_email, slot_org = slot_identity()
+    identical = email == slot_email and (org or "") == (slot_org or "")
+
+    check_no_concurrent()
+    if sub in MUTATING and not identical and sub != "add":
+        die(
+            f"身份不一致：live 是 {email}，活跃槽位 {num} 是 {slot_email}。\n"
+            f"只允许先执行 cswap-guard run add 登记新账号。"
+        )
+    if sub in {"add", "switch", "import"}:
+        cmd_backup()
+
+    print(f"执行：{CSWAP} {' '.join(argv)}", file=sys.stderr)
+    raise SystemExit(subprocess.call([CSWAP, *argv]))
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if not args or args[0] in {"-h", "--help", "help"}:
+        print(__doc__.strip())
+        return
+    cmd, rest = args[0], args[1:]
+    if cmd == "check":
+        cmd_check()
+    elif cmd == "backup":
+        cmd_backup()
+    elif cmd == "run":
+        cmd_run(rest)
+    else:
+        die(f"未知子命令 {cmd}；可用：check / backup / run")
+
+
+if __name__ == "__main__":
+    main()
