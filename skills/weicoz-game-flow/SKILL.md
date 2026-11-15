@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-flow
-version: 1.7.0
+version: 1.7.1
 description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）：开项目、先找乐趣再工程化的两段式路线、阶段门与各阶段该用的 skill。用于开始或接手一个小游戏项目、问“下一步做什么”、判断能否进入下一阶段。
 ---
 
@@ -108,9 +108,10 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 
 1. **写票**：按 `references/ticket-template.md` 写，完成判据逐条写全。
 2. **开分支**：后端票合并后、开前端分支前，合并方先在主分支跑一次 `cocos-build.mjs` 导入并提交新增 `.meta`。然后 `wt switch --create <分支> --no-cd`；项目根有 `.worktreeinclude` 时，`library/` 与 `node_modules/` 会写时复制过去。
-3. **派单**：提示词里写 worktree 绝对路径和任务单路径；会话所在仓库不是游戏项目时，不用子代理的 `isolation: worktree`。
-4. **验收**：在该 worktree 跑 `cocos-verify.mjs`，结论为“通过”且本票特有断言成立才合并；看联系图做视觉巡检。复跑可以派给便宜的子代理（Claude Code 中用 Haiku 的 `audit`），只回结论表。执行方自述不算通过。
-5. **合并**：`git merge --no-ff`；有冲突时代码取并集、`.meta` 取先合并的一方；合并后在主分支再跑一次 `cocos-verify.mjs --quick`。然后 `wt remove <分支>`。
+3. **并行判断**（派单前先判断，不直接加人）：票之间改的文件不重叠 → 并行派；单票内是前后依赖、改同一批文件 → 不拆，拆了只会互等和合并冲突；单票但算法不确定、靠试错（如满覆盖生成器）→ 可再开一路用不同思路竞速，谁先通过用谁，代价是 token 翻倍；与主票不冲突的周边检查（如新尺寸下的布局）可同时派给另一侧执行者。
+4. **派单**：提示词里写 worktree 绝对路径和任务单路径；会话所在仓库不是游戏项目时，不用子代理的 `isolation: worktree`。
+5. **验收**：在该 worktree 跑 `cocos-verify.mjs`，结论为“通过”且本票特有断言成立才合并；看联系图做视觉巡检。复跑可以派给便宜的子代理（Claude Code 中用 Haiku 的 `audit`），只回结论表。执行方自述不算通过。
+6. **合并**：`git merge --no-ff`；有冲突时代码取并集、`.meta` 取先合并的一方；合并后在主分支再跑一次 `cocos-verify.mjs --quick`。然后 `wt remove <分支>`。
 
 ## 阶段 4：复盘
 
