@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-dev
-version: 1.5.1
+version: 1.6.0
 description: Cocos Creator 3.8 小游戏代码实现约定：规则核与视图分层、主控组件、触控输入、测试钩子、Cocos 坑点与离线类型检查。用于写或改 Cocos 玩法代码、搭单场景 demo、排查脚本在编辑器或预览里不生效。
 ---
 
@@ -15,7 +15,9 @@ description: Cocos Creator 3.8 小游戏代码实现约定：规则核与视图�
 | 规则核 | 默认 `assets/scripts/core/`；项目 `AGENTS.md` 另有规定时从其规定 | 纯 TS，不 `import 'cc'`，不读时间和随机数全局（由调用方传入 seed、dt）。Node 直接跑测试。 |
 | 关卡数据 | 规则核旁的 `levels/` 或 `assets/resources/levels/*.json` | 生成器离线产出并写入；运行时只读。 |
 | 视图 | `assets/scripts/view/` | 主控组件 + 渲染辅助。只调用规则核，不自己判胜负。 |
-| 平台 | `assets/scripts/platform/` | 微信、抖音等 API 的唯一出口。其他层不直接碰 `wx`。接存档、分享、广告、隐私前读 `references/wechat-platform.md`。 |
+| 平台 | `assets/scripts/platform/` | 微信、抖音等 API 的唯一出口。其他层不直接碰 `wx`、`tt`。接存档、分享、广告、隐私前读 `references/wechat-platform.md` 与 `references/douyin-platform.md`。 |
+
+起名、写简介、准备提审材料前，先读这两份 reference：名称与简介的字数上限、改名次数、软著与备案顺序都在里面。两平台口径不同（微信介绍 120 字符、抖音简介 60 字符，汉字都算 2），各读各的。
 
 新项目把规则核放在 `assets/` 内，编辑器、构建和 Node 测试共用同一份源码。已有 monorepo 把规则核放在工程外（如 `packages/<name>-core`）时保持原结构，在 `assets/scripts/` 里放指向它的软链；`.meta` 由编辑器为软链生成，不手写。所有脚本的 `--project` 都指向含 `assets/` 的 Cocos 工程目录，不是仓库根。Node 测试用 `tsc -p tsconfig.test.json` 编到 `temp/` 再 `node --test`，或用 vitest 直接跑。
 
