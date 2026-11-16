@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-run
-version: 1.9.1
+version: 1.9.2
 description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行构建（web-mobile / wechatgame）、给用户可点开的预览、自动试玩验收与分级证据。用于“跑起来看看”“我怎么测试”“在 Cocos 里预览给我看”“构建微信小游戏”“验收 demo”。
 ---
 

@@ -75,9 +75,9 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | --- | --- | --- |
 | [`weicoz-game-flow`](skills/weicoz-game-flow/) | 1.7.1 | 总流程：先找乐趣（灰盒）再工程化，人工检查点集中到 4 个节点与验收包，衔接 Matt 流程 |
 | [`weicoz-game-design`](skills/weicoz-game-design/) | 1.2.0 | 参考视频抽帧拆解、可量化对标指标、可解关卡生成器、数值、交互、IP 安全 |
-| [`weicoz-cocos-dev`](skills/weicoz-cocos-dev/) | 1.5.0 | 规则核与视图分层、主控组件、Cocos 坑点、离线类型检查脚本、微信存档/分享/广告/隐私与上线检查 |
-| [`weicoz-cocos-run`](skills/weicoz-cocos-run/) | 1.8.1 | 预检、一键 web 验收（cocos-verify）、试玩运行器与联系图、标准测试钩子模板、预览与手机地址自检、验证分级 |
-| [`weicoz-game-assets`](skills/weicoz-game-assets/) | 1.5.0 | 美术方向与风格锚点、素材契约、网格图切分裁边检查、导入与首包预算 |
+| [`weicoz-cocos-dev`](skills/weicoz-cocos-dev/) | 1.6.0 | 规则核与视图分层、主控组件、Cocos 坑点、离线类型检查脚本、微信与抖音存档/分享/广告/隐私、后台资料次数与上线检查 |
+| [`weicoz-cocos-run`](skills/weicoz-cocos-run/) | 1.9.2 | 预检、一键 web 验收（cocos-verify）、试玩运行器与联系图、标准测试钩子模板、预览与手机地址自检、验证分级 |
+| [`weicoz-game-assets`](skills/weicoz-game-assets/) | 1.7.0 | 美术方向与风格锚点、素材契约、网格图切分裁边检查、字体授权与字形核对、导入与首包预算 |
 
 #### 飞书与办公自动化
 
@@ -155,7 +155,7 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-session-hub`](skills/weicoz-session-hub/) | 1.0.0 | 总控会话协调多个代理会话，派任务、收汇报、验收 |
 | [`weicoz-session-recall`](skills/weicoz-session-recall/) | 1.0.0 | 跨 harness 检索历史会话，回答“我以前做过什么” |
 | [`weicoz-remote-dispatch`](skills/weicoz-remote-dispatch/) | 1.0.1 | 把代理会话、测试与构建经 SSH 派到另一台机器执行 |
-| [`weicoz-t3-dispatch`](skills/weicoz-t3-dispatch/) | 1.2.0 | 经 T3 Code CLI 把任务派给本机其他 harness，在独立 worktree 执行并巡检验收；含经 MCP 跨机器派单 |
+| [`weicoz-t3-dispatch`](skills/weicoz-t3-dispatch/) | 1.3.0 | 经 T3 Code CLI 把任务派给本机其他 harness：起会话、等状态、取回复、一步问话；含经 MCP 跨机器派单 |
 | [`weicoz-claude-account-ops`](skills/weicoz-claude-account-ops/) | 1.0.0 | Claude Code 多账号切换运维：固定顺序、三项前置检查、槽位凭据修复 |
 | [`weicoz-agent-implement`](skills/weicoz-agent-implement/) | 1.2.0 | 把单张票据委派给编码代理实现，派单方监控与验收 |
 | [`weicoz-agent-implement-spec`](skills/weicoz-agent-implement-spec/) | 1.3.0 | 按依赖图编排整份规格，每票一个实现会话并统一合并验收 |

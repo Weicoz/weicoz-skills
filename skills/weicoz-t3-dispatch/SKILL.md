@@ -1,6 +1,6 @@
 ---
 name: weicoz-t3-dispatch
-version: 1.2.0
+version: 1.3.0
 description: 经本机 T3 Code（`t3` CLI）把编码任务派给其他 harness（DSH、Kimi Code、Antigravity 等），在独立 worktree 里执行，并巡检、续派、验收。用户说“用 T3 派”“通过 t3 code 分发任务”“让 DSH/Kimi 在 T3 里做”时使用。跨机器派单见本文“跨机器派单”一节（也可用 weicoz-remote-dispatch）；当前会话自己的子代理不需要本技能。
 ---
 
@@ -38,7 +38,7 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
 - 报错 `Model X is not advertised by provider Y` 表示模型串不对。
 - 某 provider 还没有历史模型串时，请用户先在 T3 界面用它开一个会话，再重跑脚本。不要猜模型串。
 - T3 服务端必须在运行（桌面 App 开着，或 `t3 serve`）。
-- CLI 与服务端版本不一致时，stdout 会混入 `WARN ... migration history diverges` 日志。这不影响执行；解析 `--json` 输出时只取以 `{` 开头的行。
+- CLI 与服务端版本不一致时，stdout 会混入 `WARN ... Database migration history diverges` 等日志。手工敲命令统一加全局参数 `--log-level none`；本目录脚本已内置该参数，并由 `scripts/t3-json.py` 跳过非 JSON 行兜底。
 
 ## 派单流程
 
@@ -46,54 +46,66 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
    ```bash
    wt switch --create <branch> --no-cd      # 生成 <仓库>/.worktrees/<branch 中 / 换成 ->
    ```
-2. **登记项目**：每个 worktree 登记成一个 T3 项目，会话就在该目录里运行。
+2. **冒烟**（该 provider 本机首次使用时）：
    ```bash
-   t3 project add --title "<仓库> <branch>" <worktree 路径>
-   ```
-3. **冒烟**（该 provider 本机首次使用时）：
-   ```bash
-   t3 thread start --provider <id> --model '<模型串>' --title "冒烟测试" --wait --json <worktree> "只回复 OK"
+   t3 --log-level none thread start --provider <id> --model '<模型串>' --title "冒烟测试" --wait --json <worktree> "只回复 OK"
    ```
    结果 `"status":"completed","reply":"OK"` 即通。
-4. **派单**：提示词写进文件，经 stdin 传入。
+3. **派单**：一条命令登记项目、起会话、设推理等级。
    ```bash
-   t3 thread start --provider <id> --model '<模型串>' --title "<任务名>" --json <worktree> - < task.md
+   export T3_PROVIDER=<provider 实例 id>
+   export T3_MODEL='<模型串>'
+   scripts/t3-start.sh <worktree> "<任务名>" task.md      # stdout 最后一行是 threadId
    ```
-   记下返回的 `threadId`。然后设推理等级（命令行传不了，必须这一步）：
+   - 脚本顺序：项目未登记时 `t3 project add`（名称默认取 worktree 目录名，`--project-title` 可改），已登记则跳过 → `thread start --json` → 解析 threadId → `t3-effort.sh` 设 `reasoning_effort`。
+   - DSH 默认值（2026-11 实测；provider 实例名以 `scripts/t3-models.sh` 为准）：`T3_PROVIDER=acpRegistry_dsh`，`T3_MODEL='["magpie","auto/deepseek-v4.1-flash"]'`。
+   - 用户偏好：DSH 派单一律 `max`（`T3_EFFORT` 或 `--effort` 可改）。各模型可选值见 MCP `orchestrator_capabilities`（选项名 `reasoning_effort`）；不设时多数模型默认 `high`，`magpie` 路由组默认为空。脚本内部签 5 分钟 full-access 令牌、校验后即吊销，属于本 skill 的既定步骤。
+   - 手工起会话：`t3 --log-level none thread start --provider <id> --model '<模型串>' --title "<任务名>" --json <worktree> - < task.md`，再 `scripts/t3-effort.sh <threadId> <provider id> '<模型串>' max`（输出 `reasoning_effort=max` 才算设好）。
+   - 提示词必须写明：已在独立 worktree、可写范围、完成判据、提交但不合并不推送、交付说明格式。
+4. **巡检**：把等待放进宿主后台作业，完成时会唤醒发起会话。
    ```bash
-   scripts/t3-effort.sh <threadId> <provider id> '<模型串>' max   # 输出 reasoning_effort=max 才算设好
+   scripts/t3-wait.sh <threadId> [超时秒，默认 5400] [--project <路径>]   # 0 完成；1 失败或等待输入；2 超时；3 参数错误
+   scripts/t3-last.sh <threadId> [--project <路径>]                      # 只打印最后一条 assistant 正文
    ```
-   用户偏好：DSH 派单一律 `max`。各模型可选值见 MCP `orchestrator_capabilities`（选项名 `reasoning_effort`）；不设时多数模型默认 `high`，`magpie` 路由组默认为空。脚本内部签 5 分钟 full-access 令牌、校验后即吊销，属于本 skill 的既定步骤。
-   提示词必须写明：已在独立 worktree、可写范围、完成判据、提交但不合并不推送、交付说明格式。
-5. **巡检**：把等待放进宿主后台作业，完成时会唤醒发起会话。
+   - 完成判据是 `t3 thread list --project` 里该线程状态不再是 `running`；不传 `--project` 时按线程所属项目查询。
+   - `t3-last.sh` 去掉 t3 告警日志与 JSON 残行，只输出正文；传 `--project` 时还能把 `mcp:84354ccf` 这类前缀还原成完整 id。
+   - 用户问进度时：`t3 --log-level none thread show --messages 3 <threadId>`。不要前台忙轮询。
+5. **验收**：在 worktree 里自己跑完成判据中的命令（测试、类型检查、构建、截图），查看 `git log`、`git diff --stat <基线>..`。代理自述不算通过。
+6. **打回**：
    ```bash
-   scripts/t3-wait.sh <threadId> [超时秒，默认 5400]   # 0 完成；1 失败或等待输入；2 超时
+   scripts/t3-ask.sh <threadId> fix.md       # send → wait → last 一步完成
+   # 或只发不等下一轮：t3 --log-level none thread send <threadId> - < fix.md
    ```
-   用户问进度时：`t3 thread show --messages 3 <threadId>`。不要前台忙轮询。
-6. **验收**：在 worktree 里自己跑完成判据中的命令（测试、类型检查、构建、截图），查看 `git log`、`git diff --stat <基线>..`。代理自述不算通过。
-7. **打回**：
+   - `t3 thread send` 返回 `Sent.`（线程空闲，立刻开跑）或 `Queued.`（线程忙，排到下一轮），两者都算发出成功，不重发。
+   - 只发消息时，发出后再挂 `scripts/t3-wait.sh` 等下一轮。
+7. **合并与清理**：验收通过后由发起方合并。删 worktree 前先确认没有绑定它的存活线程：
    ```bash
-   t3 thread send <threadId> - < fix.md     # 会话忙时排到下一轮，不打断
+   t3 --log-level none thread list --project <worktree 路径> --json    # 仍有 running 或未归档线程时保留该目录
    ```
-   然后重挂 `t3-wait.sh`。
-8. **合并与清理**：验收通过后由发起方合并。不再续派时：
-   ```bash
-   wt remove <branch>
-   t3 project remove <worktree 路径或项目 id>
-   ```
-   `t3 project remove` 只能删空项目。项目下还有会话时报 `ProjectLiveServerDeclaredResponseError ... invalid_command`（实测：空项目删除成功，含会话的项目失败，本机与 m4 同样）。有会话时的做法：
-   - 在 T3 界面里删除或归档会话后再删项目（未验证）；
-   - 或用 MCP `t3_project_delete`，传 `force:true`；该工具要求 full-access 客户端，`auto-accept-edits` 令牌会被拒（`capability_denied`）。未获用户同意前不要为此升级到 full-access。
-   - 会话的运行模式比 MCP 令牌宽时，`t3_thread_organize archive` 被拒（`runtime_mode_escalation_denied`）。CLI 派出的会话默认 full-access。
-   不确定时保留项目，并告知用户。删除 worktree 前确认不再需要其中未提交的产物（截图、日志）。
+   - 线程还在跑、或要留着续派时，worktree 不删；先归档或结束会话再删目录。删前确认其中未提交的产物（截图、日志）已导出。
+   - 长期线程（上线、运营、巡检）用固定 worktree，不随某次合并删除，后续只给它发消息。
+   - 不再续派时：
+     ```bash
+     wt remove <branch>
+     t3 project remove <worktree 路径或项目 id>
+     ```
+     `t3 project remove` 只能删空项目。项目下还有会话时报 `ProjectLiveServerDeclaredResponseError ... invalid_command`（实测：空项目删除成功，含会话的项目失败，本机与 m4 同样）。有会话时的做法：
+     - 在 T3 界面里删除或归档会话后再删项目（未验证）；
+     - 或用 MCP `t3_project_delete`，传 `force:true`；该工具要求 full-access 客户端，`auto-accept-edits` 令牌会被拒（`capability_denied`）。未获用户同意前不要为此升级到 full-access。
+     - 会话的运行模式比 MCP 令牌宽时，`t3_thread_organize archive` 被拒（`runtime_mode_escalation_denied`）。CLI 派出的会话默认 full-access。
+     不确定时保留项目，并告知用户。
 
 ## 常用命令
 
 | 目的 | 命令 |
 | --- | --- |
-| 列出项目下会话 | `t3 thread list --project <路径> --json` |
-| 看状态与最新回复 | `t3 thread show --messages N <threadId>` |
-| 同步等待一轮结束 | `t3 thread send --wait <threadId> <消息>`（退出码 1 失败，2 等待用户回答） |
+| 起会话（含登记项目与 effort） | `scripts/t3-start.sh <worktree> <标题> <任务文件>` |
+| 等一轮结束 | `scripts/t3-wait.sh <threadId> [超时秒]` |
+| 取最后一条回复正文 | `scripts/t3-last.sh <threadId>` |
+| 发消息并等回复 | `scripts/t3-ask.sh <threadId> <消息文件>` |
+| 列出项目下会话 | `t3 --log-level none thread list --project <路径> --json` |
+| 看状态与最新回复 | `t3 --log-level none thread show --messages N <threadId>` |
+| 同步等待一轮结束（无超时） | `t3 --log-level none thread send --wait <threadId> <消息>`（退出码 1 失败，2 等待用户回答） |
 | 网页查看 | `t3 thread show --json` 返回的 `thread.link` |
 
 ## 失败处理

@@ -9,7 +9,7 @@
  *   --shots   截图 glob（相对工程根），拼成 temp/contact.png 供视觉巡检；默认 temp/playtest-*.png
  *             试玩结束后另开一个桌面上下文（1440×900、非移动、无触摸、桌面 Chrome UA）截
  *             temp/playtest-zz-desktop.png，拼在联系图末尾；手机上下文的 resize 只会得到被放大的手机画面
- * 试玩脚本约定：`async page => {...}`，返回 { pass, log: [{ step, ok, ... }], metrics? }。
+ * 试玩脚本约定：`async page => {...}`，返回 { pass, log: [{ step, ok, ... }], metrics? }；未按约定返回时报错会在错误信息里重述该格式。
  * 退出码：0 全部通过；1 有脚本失败或报错。依赖 playwright-cli；拼图依赖 ffmpeg（没有时跳过）。
  */
 import { spawn, spawnSync } from 'node:child_process'
@@ -76,7 +76,12 @@ try {
     const text = `${out.stdout}\n${out.stderr}`
     const raw = text.match(/### Result\s*\n(.+)/)?.[1]
     let r
-    try { r = JSON.parse(raw) } catch { r = { pass: false, error: (text.match(/### Error\s*\n(.+)/)?.[1] ?? '没有拿到 Result').slice(0, 300) } }
+    try { r = JSON.parse(raw) } catch { r = null }
+    if (!r || typeof r !== 'object' || typeof r.pass !== 'boolean') {
+      // 拿不到结果时指明脚本该返回什么，否则只看到“失败”却不知改哪里
+      const reason = text.match(/### Error\s*\n(.+)/)?.[1]
+      r = { pass: false, error: ['没有拿到结果：试玩脚本须返回 { pass: boolean, log: [{ step, ok, ... }] }', reason && `原因：${reason}`].filter(Boolean).join('；').slice(0, 300) }
+    }
     results.push({ script: s, seconds: Math.round((Date.now() - started) / 1000), fps, ...r })
   }
   // 桌面横屏截图（1440×900）：另开桌面上下文，竖屏游戏在宽窗口下是否居中留边只能这样看到；
