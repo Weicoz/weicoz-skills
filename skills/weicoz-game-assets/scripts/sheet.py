@@ -3,9 +3,11 @@
 
 用法：
   sheet.py key <png 或目录> <输出目录> [--tol 40]            从四角泛洪去掉纯色背景（出图没有透明通道时用）
-  sheet.py split <网格图.png> <行> <列> <输出目录> [--pad 4] [--largest] [--key [--tol 40]]
+  sheet.py split <网格图.png> <行> <列> <输出目录> [--pad 4] [--largest] [--key [--tol 40]] [--names a,b,c] [--dehalo N]
                                                               切成单帧，逐帧裁透明边后统一留边；
                                                               --key 每格单独去纯色背景（九宫格推荐，一步完成）
+                                                              --names 按行优先给每格命名（数量须等于 行×列）
+                                                              --dehalo N 切分前把整图 alpha < N 置 0（去生图自带的半透明光晕）
                                                               --largest 去掉碰到格边的小碎片（切进来的相邻格内容），保留图标自身的多个部件
   sheet.py pack <png 或目录> [--max 256] [--colors 128]       进主包前原地压缩：限制最长边并量化到调色板（通常缩小 4～6 倍）
   sheet.py check <png 或目录>... [--opaque]                    检查透明背景、主体占比、尺寸
@@ -77,8 +79,13 @@ def trim(img, pad):
     return out
 
 
-def split(sheet, rows, cols, out_dir, pad, largest=False, key_tol=None):
+def split(sheet, rows, cols, out_dir, pad, largest=False, key_tol=None, names=None, dehalo=0):
+    if names is not None and len(names) != rows * cols:
+        sys.exit(f"错误：--names 给了 {len(names)} 个名字，需要 {rows * cols} 个")
     img = Image.open(sheet)
+    if dehalo:
+        img = img.convert("RGBA")
+        img.putalpha(img.getchannel("A").point(lambda v: 0 if v < dehalo else v))
     w, h = img.width // cols, img.height // rows
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -88,7 +95,7 @@ def split(sheet, rows, cols, out_dir, pad, largest=False, key_tol=None):
             cell = img.crop((c * w, r * h, (c + 1) * w, (r + 1) * h))
             if key_tol is not None:
                 cell = key_image(cell.convert("RGBA"), key_tol)  # 每格从自己的四角去背景，整图泛洪够不到被组件围住的背景
-            path = out / f"{stem}_{r * cols + c:02d}.png"
+            path = out / (f"{names[r * cols + c]}.png" if names else f"{stem}_{r * cols + c:02d}.png")
             if opaque_corners(cell.convert("RGBA")):
                 cell.save(path)  # 背景未去除：原样保存，裁边会掩盖问题
                 print(f"✗ 背景未去除，未裁边  {path}")
@@ -198,6 +205,20 @@ def selftest():
         haze.save(f"{d}/h.png")
         split(f"{d}/h.png", 1, 1, f"{d}/ho", 0)
         assert Image.open(f"{d}/ho/h_00.png").size == (10, 10)
+        # --names / --dehalo
+        halo = Image.new("RGBA", (40, 20), (255, 255, 255, 30))  # 淡光晕 alpha 30
+        halo.paste((200, 0, 0, 255), (5, 5, 15, 15))
+        halo.paste((0, 0, 200, 255), (25, 5, 35, 15))
+        halo.save(f"{d}/n.png")
+        split(f"{d}/n.png", 1, 2, f"{d}/no", 0, names=["a", "b"], dehalo=60)
+        assert Image.open(f"{d}/no/a.png").size == (10, 10) and Path(f"{d}/no/b.png").exists()
+        split(f"{d}/n.png", 1, 2, f"{d}/no2", 0)  # 不去光晕：整格都算主体
+        assert Image.open(f"{d}/no2/n_00.png").size == (20, 20)
+        try:
+            split(f"{d}/n.png", 1, 2, f"{d}/no3", 0, names=["a"])
+            raise AssertionError("names 数量不符应报错")
+        except SystemExit:
+            pass
         # key：白底上一个红块，去底后四角透明、红块保留
         flat = Image.new("RGBA", (50, 50), (255, 255, 255, 255))
         flat.paste((255, 0, 0, 255), (15, 15, 35, 35))
@@ -213,7 +234,9 @@ if __name__ == "__main__":
     pad = int(a[a.index("--pad") + 1]) if "--pad" in a else 4
     tol = int(a[a.index("--tol") + 1]) if "--tol" in a else 40
     if a[:1] == ["split"] and len(a) >= 5:
-        split(a[1], int(a[2]), int(a[3]), a[4], pad, "--largest" in a, tol if "--key" in a else None)
+        names = a[a.index("--names") + 1].split(",") if "--names" in a else None
+        dehalo = int(a[a.index("--dehalo") + 1]) if "--dehalo" in a else 0
+        split(a[1], int(a[2]), int(a[3]), a[4], pad, "--largest" in a, tol if "--key" in a else None, names, dehalo)
     elif a[:1] == ["key"] and len(a) >= 3:
         key(a[1], a[2], tol)
     elif a[:1] == ["check"] and len(a) >= 2:

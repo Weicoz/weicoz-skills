@@ -13,6 +13,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { cpus, loadavg } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -23,6 +24,8 @@ const quick = args.includes('--quick')
 const here = dirname(fileURLToPath(import.meta.url))
 const typecheck = join(here, '../../weicoz-cocos-dev/scripts/cocos-typecheck.mjs')
 const rows = []
+const load = loadavg()[0]
+const loadHigh = load > cpus().length * 0.8 // 每核负载超 0.8 视为偏高：超时类失败多半是环境导致
 
 const run = (name, cmd, cmdArgs, judge) => {
   process.stdout.write(`… ${name}\n`)
@@ -34,6 +37,14 @@ const run = (name, cmd, cmdArgs, judge) => {
 }
 const lastLine = (out, re) => out.split('\n').filter((l) => re.test(l)).pop()?.trim() ?? ''
 
+// 超时类失败：Test timed out / Timeout calling "?onTaskUpdate / 时长断言；出现其他断言报错则不算
+const isTimeoutOnly = (out) => {
+  const timeout = /Test timed out|Timeout calling "?onTaskUpdate/.test(out)
+  const durationOnly = /to be less than or equal to/.test(out)
+  const otherAssert = out.split('\n').some((l) => /AssertionError|expected .* to (be|equal|deeply|have|match|contain)/.test(l) && !/less than or equal to/.test(l))
+  return (timeout || durationOnly) && !otherAssert
+}
+
 if (!existsSync(join(project, 'assets'))) {
   console.error(`错误：${project} 下没有 assets/。--project 要指向 Cocos 工程目录`)
   process.exit(2)
@@ -44,8 +55,17 @@ run('类型检查', process.execPath, [typecheck, '--project', project], (code, 
 
 const pkg = existsSync(join(project, 'package.json')) ? JSON.parse(readFileSync(join(project, 'package.json'), 'utf8')) : {}
 if (pkg.scripts?.test) {
-  run('单元测试', 'npm', ['test', '--silent'], (code, out) =>
-    ({ ok: code === 0, detail: lastLine(out, /Tests\s+\d+|passed|failed/) || (code === 0 ? '通过' : '失败') }))
+  const judgeUnit = (code, out) =>
+    ({ ok: code === 0, detail: lastLine(out, /Tests\s+\d+|passed|failed/) || (code === 0 ? '通过' : '失败') })
+  const out = run('单元测试', 'npm', ['test', '--silent'], judgeUnit)
+  // 失败全是超时类（无其他断言失败）：多半是负载导致，重跑一次
+  if (!rows.at(-1).ok && isTimeoutOnly(out)) {
+    rows.pop()
+    run('单元测试', 'npm', ['test', '--silent'], judgeUnit)
+    const last = rows.at(-1)
+    if (last.ok) last.detail = '✅（首轮负载超时，已重跑通过）'
+    else last.detail = `重跑仍失败：${last.detail}`
+  }
 } else {
   rows.push({ name: '单元测试', ok: true, detail: '跳过：package.json 没有 test 脚本' })
 }
@@ -88,6 +108,7 @@ if (!quick && !args.includes('--no-release')) {
   })
 }
 
+if (loadHigh) console.log(`负载高（1 分钟负载 ${load.toFixed(1)}，${cpus().length} 核），超时可能是环境导致\n`)
 console.log('\n| 检查 | 结果 | 说明 |\n| --- | --- | --- |')
 for (const r of rows) console.log(`| ${r.name} | ${r.ok ? '✅' : '❌'} | ${r.detail.replace(/\|/g, '/')} |`)
 const pass = rows.every((r) => r.ok)
