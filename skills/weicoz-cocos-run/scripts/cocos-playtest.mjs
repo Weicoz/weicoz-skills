@@ -7,6 +7,7 @@
  *        [--build] [--port <端口，默认自动取空闲端口>] [--shots "temp/playtest-*.png"] [--json]
  *   --build   先构建 web-mobile（默认用现有 build/web-mobile）
  *   --shots   截图 glob（相对工程根），拼成 temp/contact.png 供视觉巡检；默认 temp/playtest-*.png
+ *             试玩结束后另截一张桌面横屏 1440×900 图（temp/playtest-zz-desktop.png），拼在联系图末尾
  * 试玩脚本约定：`async page => {...}`，返回 { pass, log: [{ step, ok, ... }], metrics? }。
  * 退出码：0 全部通过；1 有脚本失败或报错。依赖 playwright-cli；拼图依赖 ffmpeg（没有时跳过）。
  */
@@ -67,6 +68,11 @@ try {
     try { r = JSON.parse(raw) } catch { r = { pass: false, error: (text.match(/### Error\s*\n(.+)/)?.[1] ?? '没有拿到 Result').slice(0, 300) } }
     results.push({ script: s, seconds: Math.round((Date.now() - started) / 1000), fps, ...r })
   }
+  // 桌面横屏截图（1440×900）：竖屏游戏在宽窗口下的适配问题只能这样看到；文件名排最后，进联系图末尾
+  mkdirSync(join(project, 'temp'), { recursive: true })
+  cli('resize', '1440', '900')
+  await wait(2500)
+  cli('screenshot', '--filename=temp/playtest-zz-desktop.png')
 } catch (e) {
   results.push({ script: '(运行器)', pass: false, error: String(e.message ?? e) })
 } finally {

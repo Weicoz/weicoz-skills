@@ -1,6 +1,6 @@
 ---
 name: weicoz-agent-implement
-version: 1.4.1
+version: 1.5.0
 description: 把一张票据或明确限定的单个工作项委派给编码代理，按当前 implement 技能实现，由派单方监控和验收。用于“让代理实现这张票”“agent-implement”“codex-implement”等单票委派；整份规格及其依赖票据的编排使用 weicoz-agent-implement-spec。
 ---
 
@@ -14,7 +14,7 @@ description: 把一张票据或明确限定的单个工作项委派给编码代�
 
 当前 implement 生命周期是：按票实现 → 在约定接缝调用 `tdd` → 过程中跑相关测试及类型检查 → 调用 `code-review` 并修复 → 按[实现会话检查约定](#实现会话检查约定)正常提交当前分支。原文更新时以现场原文为准；用户指令、项目规则和授权边界优先。没有 Skill 调用工具时，完整读取对应技能文件按其流程执行，不虚报调用。
 
-派单前确定仓库、票据、验收项、允许改动范围、执行工作目录／分支、代理与模型、设备及已有授权。检查工作区和适用 AGENTS；不把他人未提交改动交给会格式化、提交或重置它们的执行方。单票可用干净且无并发写入的当前开发分支；需要隔离时使用独立 worktree，并指定唯一写入者。未提交的规格、样本仅按需复制，注明不得混入实现提交。
+派单前确定仓库、票据、验收项、允许改动范围、执行工作目录／分支、代理与模型、设备及已有授权。检查工作区和适用 AGENTS；不把他人未提交改动交给会格式化、提交或重置它们的执行方。单票可用干净且无并发写入的当前开发分支；需要隔离时使用独立 worktree，并指定唯一写入者；顺序为先在主分支提交任务单，再建 worktree（否则 worktree 里看不到任务单）。未提交的规格、样本仅按需复制，注明不得混入实现提交。
 
 ## 提示词
 
@@ -95,7 +95,7 @@ Git 分工（本机）：worktree 的 Git 目录在主仓库 `.git/worktrees/` �
 
 逐条对照验收项，核实 TDD 接缝与代码审查确实执行且发现已处理，检查越界文件、提交内容与实际副作用，能运行的关键路径做必要冒烟。问题交回原会话返修。单票完成不自动允许合并其他分支或关闭外部票据；按已有授权处理，并区分“实现完成”“验收通过”“已提交／已合入”。
 
-票据合入并验收后，按 [合入后的工作树与远端任务清理](../weicoz-agent-implement-spec/references/worktree-cleanup.md) 自动清理本次创建的 worktree（`scripts/cleanup-merged.sh`，须带本次票名前缀）与 rdispatch 任务（`rdispatch clean --merged`）；用户持续授权，满足安全条件时不再逐次询问。
+票据合入并验收后、删 worktree 之前，先把要交付给用户的截图等产物复制出 worktree 或直接发送；然后按 [合入后的工作树与远端任务清理](../weicoz-agent-implement-spec/references/worktree-cleanup.md) 自动清理本次创建的 worktree（`scripts/cleanup-merged.sh`，须带本次票名前缀）与 rdispatch 任务（`rdispatch clean --merged`）；用户持续授权，满足安全条件时不再逐次询问。
 
 已授权的自有中间缓存按[缓存保留与回收](../weicoz-remote-dispatch/references/cache-retention.md)运行工具并留回执；这不包含删除工作树、job、当前产品、依赖或备份。
 

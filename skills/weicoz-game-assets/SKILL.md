@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-assets
-version: 1.5.0
+version: 1.6.0
 description: 小游戏美术与素材：定美术方向、写素材契约、批量出图、切分裁边、审查、导入 Cocos 与首包预算；含音效占位。用于灰盒换正式画面、“做一套素材/图标/角色帧”、素材看着不对或包体过大。
 ---
 
@@ -49,20 +49,29 @@ description: 小游戏美术与素材：定美术方向、写素材契约、批�
 - **所有素材都出成 3×3 九宫格、背景镂空**（`generate_image` 传 `background: transparent`，附锚点图作参考），包括图标、装饰、按钮、面板、边框这类界面组件。提示词写明“每个物件不超过格子的 70%、四周留 15% 空白、不得越过格线”，否则大物件会被切断。
 - 界面组件在 Cocos 里按九宫格拉伸（Sprite `SLICED` + SpriteFrame inset），不用代码画纸质感；拉伸边距写进项目 `docs/ui-style.md`。
 - 出图顺序：首个循环必需的玩法物体与反馈 → 最小 HUD 与结算界面 → 背景与装饰 → 次要动画和变体。
-- UI 图里不生成文字，文字由 `Label` 渲染。
+- UI 图里不生成文字：游戏名、中文标题一律用 `Label` 渲染，生图只出下划线、装饰。实测生图会把中文字形画错。
 - 生成原件放 `generated/`（不进 `assets/`），挑选后再复制进 `assets/`。复制时不带 `.meta`，不覆盖已有文件。
 - 某一格出错：只重做那一格，不整套重出。
+
+**出图稳定性**
+
+- 同时最多 2 张在途。
+- 服务端返回 524 或 502：降为 `quality: medium` 重试。
+- 返回“已生成但下载失败”：用返回的地址 `curl` 下载。
+- 可用模型以宿主图片服务的设置为准，本技能不写死模型。
 
 ## 4. 切分与审查
 
 ```bash
-python3 <本目录>/scripts/sheet.py split generated/icons.png 3 3 generated/icons --pad 4 --largest --key   # 每格单独去底、去相邻格碎片、裁边
+python3 <本目录>/scripts/sheet.py split generated/icons.png 3 3 generated/icons --pad 4 --largest --key --dehalo 60 --names arrow,bomb,key,lock,star,heart,coin,gem,gear   # 每格单独去底、去相邻格碎片、去半透明光晕、裁边，按行优先命名 9 格
 python3 <本目录>/scripts/sheet.py pack assets/resources/ui   # 进主包前：最长边 256、量化 128 色，实测 1.38 MB → 217 KB
 python3 <本目录>/scripts/sheet.py check generated/icons
 python3 <本目录>/scripts/sheet.py check generated/bg --opaque   # 整幅背景、九宫格面板、铺满的图块
 ```
 
 `key` 从四角泛洪去掉纯色背景，主体内同色像素保留。`split` 逐格裁掉多余透明边并统一留边；背景没去掉的格子原样保存并标 ✗。`check` 报告背景残留、留白过多、尺寸过大，`--opaque` 只查尺寸。
+
+`--names` 数量必须等于 行×列；`--dehalo N` 在切分前把整图 alpha 低于 N 的像素清零。物件越过格线被切断时，按空白行/列手动定框重切，不整张重出。
 
 `key` 后仍有 ✗（渐变底、投影、抗锯齿白边）：改提示词要求纯色单色底且无投影后重出，不手工擦。
 
