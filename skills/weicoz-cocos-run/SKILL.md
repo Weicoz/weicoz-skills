@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-run
-version: 1.9.0
+version: 1.9.1
 description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行构建（web-mobile / wechatgame）、给用户可点开的预览、自动试玩验收与分级证据。用于“跑起来看看”“我怎么测试”“在 Cocos 里预览给我看”“构建微信小游戏”“验收 demo”。
 ---
 
@@ -116,7 +116,7 @@ MCP 连接方式决定写操作怎么调用：
 
 每发现一类画面缺陷，同时给钩子的 `residue()` 加上对应计数，让它变成脚本断言；这样之后即使不看图也能抓住同类回归。
 
-联系图末尾带一张桌面横屏截图（1440×900），用来看竖屏游戏在宽窗口下是否被拉伸或留黑边。
+联系图末尾带一张桌面横屏截图（1440×900），用来看竖屏游戏在宽窗口下是否按 9:16 居中、两侧留深色边。这张图在独立桌面上下文里截（viewport 1440×900、deviceScaleFactor 1、isMobile/hasTouch 为 false、桌面 Chrome UA），不是在手机上下文里 resize。所以图上两侧深色、中间完整竖条首页才算对；画面铺满宽度、被放大裁切就是适配没做。
 
 **桌面横屏适配**：竖屏游戏在桌面浏览器横屏窗口下，用 `ResolutionPolicy.ContainerStrategy.PROPORTION_TO_FRAME` + `SHOW_ALL`。只在非移动端且窗口比设计比例宽时启用；手机尺寸下启用会改变试玩脚本的点击坐标。
 

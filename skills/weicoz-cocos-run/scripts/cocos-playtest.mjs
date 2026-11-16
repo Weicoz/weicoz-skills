@@ -7,13 +7,15 @@
  *        [--build] [--port <端口，默认自动取空闲端口>] [--shots "temp/playtest-*.png"] [--json]
  *   --build   先构建 web-mobile（默认用现有 build/web-mobile）
  *   --shots   截图 glob（相对工程根），拼成 temp/contact.png 供视觉巡检；默认 temp/playtest-*.png
- *             试玩结束后另截一张桌面横屏 1440×900 图（temp/playtest-zz-desktop.png），拼在联系图末尾
+ *             试玩结束后另开一个桌面上下文（1440×900、非移动、无触摸、桌面 Chrome UA）截
+ *             temp/playtest-zz-desktop.png，拼在联系图末尾；手机上下文的 resize 只会得到被放大的手机画面
  * 试玩脚本约定：`async page => {...}`，返回 { pass, log: [{ step, ok, ... }], metrics? }。
  * 退出码：0 全部通过；1 有脚本失败或报错。依赖 playwright-cli；拼图依赖 ffmpeg（没有时跳过）。
  */
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createServer as createNetServer } from 'node:net'
+import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -38,6 +40,14 @@ if (!scripts.length) {
 const cli = (...a) => spawnSync('playwright-cli', [`-s=${session}`, ...a], { cwd: project, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// 桌面截图用独立会话：手机上下文里 resize 只会把手机画面放大裁切，测不出桌面横屏的真实适配
+const desktopSession = `${session}d`
+const desktopConfig = join(tmpdir(), `playtest-desktop-${port}.json`)
+const desktopCli = (...a) => spawnSync('playwright-cli', [`-s=${desktopSession}`, ...a], { cwd: project, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+const desktopShot = 'temp/playtest-zz-desktop.png'
+// 桌面 Chrome UA：显式指定，避免宿主默认配置把 UA 或移动端标记带进来
+const DESKTOP_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
 if (args.includes('--build')) {
   const b = spawnSync(process.execPath, [join(here, 'cocos-build.mjs'), '--project', project, '--platform', 'web-mobile'], { stdio: 'inherit' })
   if (b.status !== 0) process.exit(1)
@@ -51,6 +61,7 @@ for (let i = 0; i < 30 && !up; i++) {
   up = await fetch(url).then((r) => r.ok, () => false)
 }
 const results = []
+let desktopShotError = null
 try {
   if (!up) throw new Error(`预览服务 ${url} 没有起来`)
   cli('open', url)
@@ -68,15 +79,38 @@ try {
     try { r = JSON.parse(raw) } catch { r = { pass: false, error: (text.match(/### Error\s*\n(.+)/)?.[1] ?? '没有拿到 Result').slice(0, 300) } }
     results.push({ script: s, seconds: Math.round((Date.now() - started) / 1000), fps, ...r })
   }
-  // 桌面横屏截图（1440×900）：竖屏游戏在宽窗口下的适配问题只能这样看到；文件名排最后，进联系图末尾
+  // 桌面横屏截图（1440×900）：另开桌面上下文，竖屏游戏在宽窗口下是否居中留边只能这样看到；
+  // 文件名排最后，进联系图末尾。失败只提示，不影响手机试玩的结果判定
   mkdirSync(join(project, 'temp'), { recursive: true })
-  cli('resize', '1440', '900')
-  await wait(2500)
-  cli('screenshot', '--filename=temp/playtest-zz-desktop.png')
+  rmSync(join(project, desktopShot), { force: true }) // 上一轮的旧图不参与本轮判断
+  writeFileSync(desktopConfig, JSON.stringify({
+    browser: {
+      contextOptions: {
+        viewport: { width: 1440, height: 900 },
+        deviceScaleFactor: 1,
+        isMobile: false,
+        hasTouch: false,
+        userAgent: DESKTOP_UA,
+      },
+    },
+  }))
+  desktopCli('open', url, `--config=${desktopConfig}`)
+  // 等首页就绪：有 __game.screen() 就等它变 home（最多 12 秒），没有钩子或等不到就固定等 3 秒
+  const probe = "(()=>{try{const g=window.__game;return g&&typeof g.screen==='function'&&String(g.screen())==='home'?1:0}catch(e){return 0}})()"
+  let home = false
+  for (let i = 0; i < 24 && !home; i++) {
+    home = desktopCli('eval', probe).stdout.match(/### Result\s*\n\s*1\b/)?.[0] !== undefined
+    if (!home) await wait(500)
+  }
+  if (!home) await wait(3000)
+  desktopCli('screenshot', `--filename=${desktopShot}`)
+  if (!existsSync(join(project, desktopShot))) desktopShotError = '桌面上下文没能截图，检查 playwright-cli 是否可启动桌面浏览器'
 } catch (e) {
   results.push({ script: '(运行器)', pass: false, error: String(e.message ?? e) })
 } finally {
   cli('close')
+  desktopCli('close')
+  rmSync(desktopConfig, { force: true })
   server.kill()
 }
 
@@ -113,6 +147,7 @@ if (asJson) {
     if (r.metrics) console.log(`   指标：${JSON.stringify(r.metrics)}`)
   }
   console.log(contact ? `联系图（视觉巡检看这张）：${contact}` : '联系图：无匹配截图或缺 ffmpeg')
+  if (desktopShotError) console.log(`⚠️ 桌面截图：${desktopShotError}`)
   console.log(pass ? '状态：核心循环已验证（浏览器）。' : '状态：失败。')
 }
 process.exit(pass ? 0 : 1)
