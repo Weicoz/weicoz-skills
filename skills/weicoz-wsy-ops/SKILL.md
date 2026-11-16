@@ -86,7 +86,7 @@ Overwrites, deletes and restores keep a backup (`file backups <path>`). Schema c
 
 ## Initialization
 
-A new project needs `init <alias> <https-ops-url> <project-root>`. The user types the channel account password (the same one the web debugger uses) at the hidden prompt; the server needs `DEBUG=true` (read and write) or `readonly`. The user then deploys the generated `ops/` directory. Do not initialize over an existing alias, and do not type the password for the user. Aliases registered with the old random-key scheme fail with an error: the user removes them from `projects.json` and runs `init` again.
+A new project needs `init <alias> <https-ops-url> <project-root>`. The user types the channel account password (the same one the web debugger uses) at the hidden prompt; `DEBUG` need not be set; `DEBUG=readonly` makes the server read-only. The user then deploys the generated `ops/` directory. Do not initialize over an existing alias, and do not type the password for the user. Aliases registered with the old random-key scheme fail with an error: the user removes them from `projects.json` and runs `init` again.
 
 ## Limits
 
