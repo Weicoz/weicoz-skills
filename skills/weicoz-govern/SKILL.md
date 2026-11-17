@@ -1,6 +1,6 @@
 ---
 name: weicoz-govern
-version: 1.1.0
+version: 1.1.1
 description: 长期项目的定期体检与治理：文档保鲜（死链、疑似过期、过程文档归档）、测试治理（孤儿测试、假测试、快慢分层）、规则严进常删、worktree 清理候选。游戏与其他项目通用，是 retro 的补充：retro 往环境里加规则和检查，govern 定期清理与核对。用于阶段结束、加新功能明显变费劲、隔一段时间，或用户说“体检”“治理”“清理文档/测试/worktree”。
 ---
 
@@ -20,6 +20,7 @@ description: 长期项目的定期体检与治理：文档保鲜（死链、疑�
 1. 跑脚本（只读，始终退出码 0，脚本自身出错为 2）：
 
    ```bash
+   # <skill 目录>：~/.agents/skills/weicoz-govern 可能是短桩，完整文件在 ~/.agents/skill-tiers/library/weicoz-govern（见 weicoz-verify 第 8 节“找脚本路径”）
    node <skill 目录>/scripts/govern-audit.mjs --project <项目目录> [--json] [--stale-days 90] [--base <集成分支>]
    ```
 
