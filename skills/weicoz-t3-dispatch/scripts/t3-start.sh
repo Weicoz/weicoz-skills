@@ -88,18 +88,26 @@ EOF
 fi
 command -v t3 >/dev/null || { echo "错误：找不到 t3 命令，请先安装 T3 Code CLI。" >&2; exit 3; }
 
-# 1. 登记项目：已登记时 thread list 正常返回，跳过 add（重复 add 报 ProjectAlreadyExistsError）
-if t3_call_quiet thread list --project "$wt" --json >/dev/null; then
-  echo "项目已登记：$wt" >&2
-else
-  added=$(t3_call project add --title "${ptitle:-$(basename "$wt")}" "$wt") || {
-    echo "错误：登记项目失败。" >&2; exit 1; }
+# 1. 取该 worktree 自己的项目 id：thread start / list 按“路径”解析时，会落到同仓库里已登记的别的 worktree，
+#    所以后面一律传项目 id。add 成功就从输出取 id；已登记（add 报 AlreadyExists）就按根路径精确匹配查 id。
+pid=""
+if added=$(t3_call project add --title "${ptitle:-$(basename "$wt")}" "$wt" 2>&1); then
+  pid=$(printf '%s' "$added" | sed -n 's/^Added project \([^ ]*\) .*/\1/p' | head -1)
   echo "已登记项目：$(printf '%s' "$added" | head -1)" >&2
+else
+  tok=$(T3_MCP_ACCESS=read-only "$here/t3-mcp.py" login 2>/dev/null)
+  pid=$(T3_MCP_TOKEN="$tok" "$here/t3-mcp.py" call t3_project_list '{}' 2>/dev/null \
+        | WT="$wt" python3 -c 'import json,os,sys
+d=json.load(sys.stdin)
+for p in d.get("projects",[]):
+    if p.get("workspaceRoot")==os.environ["WT"]: print(p.get("projectId") or p.get("id")); break')
 fi
+[ -n "$pid" ] || { echo "错误：取不到 $wt 的项目 id（登记失败，或已登记但按根路径查不到）。" >&2; exit 1; }
+echo "项目 id：${pid}（分支 ${branch}）" >&2
 
 # 2. 起会话：提示词经 stdin 传入（用拼好守卫的临时文件）
 if ! out=$(t3_call thread start --provider "$provider" --model "$model" \
-  --title "$title" --json "$wt" - < "$merged"); then
+  --title "$title" --json "$pid" - < "$merged"); then
   echo "错误：thread start 失败。" >&2; exit 1
 fi
 tid=$(printf '%s\n' "$out" | python3 -I "$here/t3-json.py" thread-id) || {
@@ -115,4 +123,4 @@ fi
 echo "$tid"
 # 收尾提示：末行给可直接照抄的下一步命令，threadId 在上一行
 printf '下一步马上执行：%s %s --project %s（后台运行；完成后用 t3-last.sh 读结果并验收，不得只发任务不监测）\n' \
-  "$(shq "$here/t3-wait.sh")" "$tid" "$(shq "$wt")"
+  "$(shq "$here/t3-wait.sh")" "$tid" "$(shq "$pid")"
