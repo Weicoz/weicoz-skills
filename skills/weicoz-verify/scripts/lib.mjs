@@ -17,7 +17,7 @@ export const DEFAULT_CONFIG = {
 };
 
 export function parseArgs(argv) {
-  const out = { project: null, quick: false, baseUrl: null, scripts: [], noStart: false, envFile: null };
+  const out = { project: null, quick: false, baseUrl: null, scripts: [], noStart: false, envFile: null, noChecks: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const need = () => {
@@ -30,6 +30,7 @@ export function parseArgs(argv) {
     else if (a === '--base-url') out.baseUrl = need();
     else if (a === '--script') out.scripts.push(need());
     else if (a === '--no-start') out.noStart = true;
+    else if (a === '--no-checks') out.noChecks = true;
     else if (a === '--env-file') out.envFile = need();
     else throw new Error(`未知参数：${a}`);
   }

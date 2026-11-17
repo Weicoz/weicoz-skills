@@ -1,5 +1,7 @@
 # Web 适配器
 
+怎么为项目选流程、写流程、证明它能抓错，见 `e2e-authoring.md`。本文只讲网页脚本的用法和格式。
+
 脚本：`scripts/web-verify.mjs`（只用 Node 内置模块）。输出遵守 `SKILL.md` 第 2 节：最后一行是结论行，退出码 0 通过、1 不通过、3 未验证。
 
 ```bash
@@ -12,6 +14,7 @@ node ~/.agents/skills/weicoz-verify/scripts/web-verify.mjs --project <目录> [-
 | `--base-url` | 覆盖配置里的 baseUrl |
 | `--script` | 只跑指定流程（可重复），忽略 glob 与 quick 过滤 |
 | `--no-start` | 不拉起服务；服务没起来时相关项记“未验证” |
+| `--no-checks` | 跳过命令检查，只跑流程；写流程时反复试跑用，结论不能当快检或全检 |
 | `--env-file` | 读入 env 文件（只进内存，不打印），传给被拉起的服务和流程；也可用环境变量 `WEB_VERIFY_ENV_FILE` |
 
 ## 配置

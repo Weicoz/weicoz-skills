@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Web 适配器：命令检查 + 浏览器流程 + 联系图，输出 weicoz-verify 第 2 节的结论行。
-// 用法：node web-verify.mjs --project <目录> [--quick] [--base-url <URL>] [--script <路径> ...] [--no-start] [--env-file <路径>]
+// 用法：node web-verify.mjs --project <目录> [--quick] [--base-url <URL>] [--script <路径> ...] [--no-start] [--no-checks] [--env-file <路径>]
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -27,7 +27,7 @@ let args;
 try {
   args = parseArgs(process.argv.slice(2));
 } catch (e) {
-  console.error(`参数错误：${e.message}\n用法：node web-verify.mjs --project <目录> [--quick] [--base-url <URL>] [--script <路径> ...] [--no-start] [--env-file <路径>]`);
+  console.error(`参数错误：${e.message}\n用法：node web-verify.mjs --project <目录> [--quick] [--base-url <URL>] [--script <路径> ...] [--no-start] [--no-checks] [--env-file <路径>]`);
   console.log('结论：未验证（缺：有效参数）');
   process.exit(3);
 }
@@ -62,7 +62,9 @@ if (envFile) {
 for (const [k, v] of Object.entries(fileEnv)) if (process.env[k] === undefined) process.env[k] = v;
 
 // 1. 命令检查
-for (const c of cfg.checks[tier] || []) {
+// --no-checks：写流程时反复试跑用，只跑流程；此时不能当作快检或全检的结论。
+if (args.noChecks) say('⚠️ 已跳过命令检查（--no-checks），本次结论只代表所选流程');
+for (const c of args.noChecks ? [] : cfg.checks[tier] || []) {
   const r = spawnSync(c.cmd, { shell: true, cwd: project, encoding: 'utf8', timeout: (c.timeoutSec || 600) * 1000 });
   if (r.status === 0) record('pass', c.name, `✅ ${c.name}（${c.cmd}）`);
   else {

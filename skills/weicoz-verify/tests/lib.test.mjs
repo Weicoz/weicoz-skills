@@ -4,7 +4,7 @@ import { parseArgs, mergeConfig, matchIgnore, verdict, parseEnvFile, loadLine, s
 
 test('parseArgs：全部参数', () => {
   const a = parseArgs(['--project', '/p', '--quick', '--base-url', 'http://x:1', '--script', 'a.mjs', '--script', 'b.mjs', '--no-start']);
-  assert.deepEqual(a, { project: '/p', quick: true, baseUrl: 'http://x:1', scripts: ['a.mjs', 'b.mjs'], noStart: true, envFile: null });
+  assert.deepEqual(a, { project: '/p', quick: true, baseUrl: 'http://x:1', scripts: ['a.mjs', 'b.mjs'], noStart: true, envFile: null, noChecks: false });
 });
 test('parseArgs：缺 project、未知参数、缺值都报错', () => {
   assert.throws(() => parseArgs([]), /--project/);
@@ -47,6 +47,11 @@ test('failureLines：取失败行去重，没有时退回末尾行', () => {
   assert.match(failureLines('FAIL a\nFAIL b\nFAIL c', 2), /另有 1 条失败/);
   assert.equal(failureLines('× retry t3 15000ms\n FAIL  a.test.ts > t1'), 'FAIL  a.test.ts > t1');
   assert.equal(failureLines('× t3 15000ms\nx'), '× t3 15000ms');
+});
+
+test('parseArgs：--no-checks', () => {
+  assert.equal(parseArgs(['--project', '.', '--no-checks']).noChecks, true);
+  assert.equal(parseArgs(['--project', '.']).noChecks, false);
 });
 
 test('loadLine / safeName / tailLines', () => {

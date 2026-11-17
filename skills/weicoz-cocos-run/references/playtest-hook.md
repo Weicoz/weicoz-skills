@@ -1,5 +1,7 @@
 # 测试钩子与试玩脚本
 
+选哪些流程、怎么证明脚本能抓错、怎么分档，按 `weicoz-verify` 的 `references/e2e-authoring.md`；本文只讲游戏钩子与脚本格式。
+
 ## 为什么要钩子
 
 不用钩子时，试玩脚本得靠 `cc.director.getScene().getChildByName(...)` 层层找节点、手算格子到屏幕坐标，一次试玩要几十次 eval 探查。web-mobile 构建里经全局 `cc` 取组件也不可靠，例如 `cc.UITransform` 曾取不到、别名 `cc.UITransformComponent` 才行。让游戏自己暴露一个稳定接口，试玩脚本只调这个接口。

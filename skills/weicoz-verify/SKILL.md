@@ -1,6 +1,6 @@
 ---
 name: weicoz-verify
-version: 1.1.2
+version: 1.2.0
 description: 通用验证约定：把“代码写完”变成“有证据地证明能用”。规定项目验证命令的唯一结论行、快检与全检两档、修复上限、四级验证状态、证据格式与防自评规则，并按项目类型选适配器（Cocos 游戏、Web、其他）。用于改完代码要验收、“验证一下”“跑验收”“证明它能用”、给项目建立验证约定，或被 weicoz-implement-verified、weicoz-game-flow 调用。
 ---
 
@@ -111,6 +111,8 @@ for d in ~/.agents/skill-tiers/library/<名> ~/.agents/skills/<名>; do [ -d "$d
 ## 9. 选什么测试
 
 动手前先写好“怎样算成功”：一条端到端流程、一条必须成立的性质，或与旧系统的比对。选法见 `references/oracles.md`。
+
+为项目新写或补写端到端测试，按 `references/e2e-authoring.md` 的流程：功能地图 → 选流程 → 定位方式 → 写流程 → 证明能抓错 → 跑稳 → 分档登记。
 
 ## 10. 汇报
 

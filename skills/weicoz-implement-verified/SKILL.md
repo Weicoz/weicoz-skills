@@ -1,6 +1,6 @@
 ---
 name: weicoz-implement-verified
-version: 1.1.0
+version: 1.1.1
 description: 带验证闭环的实现：照 Matt 的 implement（或 implement-spec）原文执行，动手前锁定测试频率纪律，审查统一用 weicoz-code-review，收尾按 weicoz-verify 跑项目验证命令并交付证据。不修改 Matt 原 skill。用于按票据或规格实现功能、“实现并验证”、weicoz-game-flow 阶段 3 的实现步骤。
 ---
 
@@ -20,7 +20,7 @@ description: 带验证闭环的实现：照 Matt 的 implement（或 implement-s
 3. <要看的截图或输出，及要看什么>
 ```
 
-第 2 条按 `weicoz-verify` 的 `references/oracles.md` 选类型，写成可执行的检查，不写“功能正常”这类无法验证的话。
+第 2 条按 `weicoz-verify` 的 `references/oracles.md` 选类型，写成可执行的检查，不写“功能正常”这类无法验证的话。需要新写端到端流程时，按 `weicoz-verify` 的 `references/e2e-authoring.md` 写，并先于实现写好。
 
 ## 1. 执行 Matt implement
 
