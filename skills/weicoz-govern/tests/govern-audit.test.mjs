@@ -147,6 +147,27 @@ test('worktree：已合并、没有独立提交、未合入分别识别；只列
   r.done();
 });
 
+test('--base：集成分支不是默认分支时按它判定，并跳过基线自身的 worktree', () => {
+  const r = repo({ 'AGENTS.md': '#', 'CLAUDE.md': '@AGENTS.md' });
+  r.g('worktree', 'add', '-q', '-b', 'develop', join(r.dir, '.worktrees', 'develop'));
+  const dev = join(r.dir, '.worktrees', 'develop');
+  const c = (d, f, m) => { writeFileSync(join(d, f), m); execFileSync('git', ['add', '-A'], { cwd: d }); execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', m], { cwd: d }); };
+  c(dev, 'd.txt', 'dev');
+  r.g('worktree', 'add', '-q', '-b', 'feat', join(r.dir, '.worktrees', 'feat'), 'develop');
+  const feat = join(r.dir, '.worktrees', 'feat');
+  c(feat, 'f.txt', 'feat');
+  execFileSync('git', ['merge', '-q', '--no-ff', '-m', 'm', 'feat'], { cwd: dev });
+  const msg = (res, b) => res.findings.find((f) => f.message.includes(`worktree ${b}：`))?.message;
+  const byMain = audit(r.dir);
+  assert.match(msg(byMain, 'feat'), /未合入/);
+  const byDev = audit(r.dir, { base: 'develop' });
+  assert.equal(byDev.base, 'develop');
+  assert.match(msg(byDev, 'feat'), /已合并/);
+  assert.equal(msg(byDev, 'develop'), undefined);
+  assert.throws(() => audit(r.dir, { base: 'nope' }), /基线分支不存在/);
+  r.done();
+});
+
 test('CLI：结论行格式、退出码 0；--json 可解析；错误参数退出码 2', () => {
   const r = repo({ 'AGENTS.md': 'x'.repeat(11000), 'CLAUDE.md': '@AGENTS.md' });
   const p = spawnSync('node', [SCRIPT, '--project', r.dir], { encoding: 'utf8' });

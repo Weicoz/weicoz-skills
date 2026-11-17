@@ -12,14 +12,15 @@ const ARCHIVE_RE = /(^|\/)(archive|archived|归档|history|changelog|CHANGELOG|\
 const LEVELS = { 高: 0, 中: 1, 低: 2 };
 
 export function parseArgs(argv) {
-  const o = { project: null, json: false, staleDays: 90 };
+  const o = { project: null, json: false, staleDays: 90, base: null };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--project') o.project = argv[++i];
     else if (argv[i] === '--json') o.json = true;
     else if (argv[i] === '--stale-days') o.staleDays = Number(argv[++i]);
+    else if (argv[i] === '--base') o.base = argv[++i];
     else throw new Error(`未知参数: ${argv[i]}`);
   }
-  if (!o.project) throw new Error('用法: node govern-audit.mjs --project <目录> [--json] [--stale-days N]');
+  if (!o.project) throw new Error('用法: node govern-audit.mjs --project <目录> [--json] [--stale-days N] [--base <集成分支>]');
   return o;
 }
 
@@ -284,7 +285,14 @@ function referenced(f, corpus) {
 }
 
 // ---------- 检查 5：worktree ----------
-function checkWorktrees(root, add) {
+// 基线：--base 优先；否则 origin/HEAD，再否则 main / master。集成分支不是默认分支的项目（如 develop）必须传 --base。
+function pickBase(root, base) {
+  if (base) return git(root, ['rev-parse', '--verify', '-q', base], true) !== null ? base : null;
+  return git(root, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], true)?.trim()
+    || ['main', 'master'].find((b) => git(root, ['rev-parse', '--verify', '-q', b], true) !== null) || null;
+}
+
+function checkWorktrees(root, add, base) {
   const out = git(root, ['worktree', 'list', '--porcelain'], true);
   if (!out) return;
   const wts = out.trim().split('\n\n').map((b) => {
@@ -294,14 +302,14 @@ function checkWorktrees(root, add) {
   });
   if (wts.length < 2) return;
   const main = wts[0];
-  let base = git(root, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], true)?.trim();
-  if (!base) base = ['main', 'master'].find((b) => git(root, ['rev-parse', '--verify', '-q', b], true) !== null);
   if (!base) return;
+  const baseShort = base.replace(/^origin\//, '');
   const home = homedir();
   for (const w of wts.slice(1)) {
     const shown = w.worktree.startsWith(home) ? '~' + w.worktree.slice(home.length) : w.worktree;
     const tip = w.HEAD;
     const branch = (w.branch || '').replace('refs/heads/', '') || '(游离 HEAD)';
+    if (branch === baseShort) continue;
     const where = `${shown}:1`;
     if (w.prunable !== undefined) { add('低', where, `目录已丢失，worktree 记录残留（${branch}）`, '候选：`git worktree prune`（须先征得确认）'); continue; }
     const dirty = (git(w.worktree, ['status', '--porcelain'], true) || '').trim();
@@ -326,7 +334,7 @@ function checkWorktrees(root, add) {
 }
 
 // ---------- 主流程 ----------
-export function audit(project, { staleDays = 90 } = {}) {
+export function audit(project, { staleDays = 90, base = null } = {}) {
   const root = resolve(project.replace(/^~(?=$|\/)/, homedir()));
   if (!existsSync(root) || !statSync(root).isDirectory()) throw new Error(`目录不存在: ${project}`);
   const findings = [];
@@ -335,21 +343,24 @@ export function audit(project, { staleDays = 90 } = {}) {
   checkAgents(root, add);
   checkDocs(root, files, add, staleDays);
   const tests = checkTests(root, files, add);
-  checkWorktrees(root, add);
+  const usedBase = pickBase(root, base);
+  if (base && !usedBase) throw new Error(`基线分支不存在: ${base}`);
+  checkWorktrees(root, add, usedBase);
   findings.sort((a, b) => LEVELS[a.level] - LEVELS[b.level]);
   const c = { 高: 0, 中: 0, 低: 0 };
   findings.forEach((f) => c[f.level]++);
   const conclusion = `结论：${findings.length} 项待处理（高 ${c.高}、中 ${c.中}、低 ${c.低}）`;
-  return { project: root, tests, findings, conclusion };
+  return { project: root, base: usedBase, tests, findings, conclusion };
 }
 
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('govern-audit.mjs')) {
   try {
     const o = parseArgs(process.argv.slice(2));
-    const r = audit(o.project, { staleDays: o.staleDays });
+    const r = audit(o.project, { staleDays: o.staleDays, base: o.base });
     if (o.json) console.log(JSON.stringify(r, null, 2));
     else {
       const rn = Object.entries(r.tests.byRunner).map(([k, v]) => `${k} ${v}`).join('、');
+      console.log(`基线分支：${r.base || '（未找到，跳过 worktree 检查）'}（集成分支不是默认分支时用 --base 指定）`);
       console.log(`测试清单：共 ${r.tests.total} 个测试文件${rn ? `（${rn}）` : ''}`);
       for (const f of r.findings) console.log(`${f.level} ${f.path} ${f.message} 建议：${f.advice}`);
       console.log(r.conclusion);
