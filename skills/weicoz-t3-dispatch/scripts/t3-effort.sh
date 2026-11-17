@@ -5,11 +5,13 @@
 set -euo pipefail
 tid="$1"; provider="$2"; model="$3"; effort="${4:-max}"
 here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=t3-lib.sh
+. "$here/t3-lib.sh"
 export T3_MCP_TOKEN="$(T3_MCP_ACCESS=full-access "$here/t3-mcp.py" login)"
 revoke() {
   unset T3_MCP_TOKEN
   # 吊销本脚本签出的 t3-dispatch 令牌（只在进程环境里出现过）
-  t3 auth session list 2>/dev/null | grep -B4 'client: t3-dispatch' | grep -E '^[0-9a-f-]{36}$' | while read -r id; do t3 auth session revoke "$id" >/dev/null 2>&1 || true; done
+  t3_call_quiet auth session list | grep -B4 'client: t3-dispatch' | grep -E '^[0-9a-f-]{36}$' | while read -r id; do t3_call_quiet auth session revoke "$id" >/dev/null 2>&1 || true; done
 }
 trap revoke EXIT
 sel=$(python3 -c 'import json,sys; print(json.dumps({"threadId":sys.argv[1],"modelSelection":{"instanceId":sys.argv[2],"model":sys.argv[3],"options":[{"id":"reasoning_effort","value":sys.argv[4]}]}}))' "$tid" "$provider" "$model" "$effort")

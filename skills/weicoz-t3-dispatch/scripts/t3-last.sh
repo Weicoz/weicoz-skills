@@ -5,6 +5,8 @@
 # 退出码：0 有正文；3 参数、线程或解析错误。
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=t3-lib.sh
+. "$here/t3-lib.sh"
 tid="" project="" msgs="${T3_LAST_MESSAGES:-200}"
 while (( $# )); do
   case "$1" in
@@ -21,13 +23,13 @@ fi
 command -v t3 >/dev/null || { echo "错误：找不到 t3 命令，请先安装 T3 Code CLI。" >&2; exit 3; }
 
 if [ -n "$project" ]; then
-  tid=$(t3 --log-level none thread list --project "$project" --json 2>/dev/null \
+  listed=$(t3_call thread list --project "$project" --json) || exit 3
+  tid=$(printf '%s\n' "$listed" \
     | python3 -I "$here/t3-json.py" thread-id-prefix "$tid") || exit 3
 fi
 
-out=$(t3 --log-level none thread show --json --messages "$msgs" "$tid" 2>&1) || {
+out=$(t3_call thread show --json --messages "$msgs" "$tid") || {
   echo "错误：读不到线程 ${tid}。" >&2
-  printf '%s\n' "$out" | grep -v '^ *at ' | head -3 >&2
   exit 3
 }
 printf '%s\n' "$out" | python3 -I "$here/t3-json.py" last-assistant

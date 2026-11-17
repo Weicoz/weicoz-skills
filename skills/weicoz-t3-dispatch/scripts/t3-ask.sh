@@ -5,6 +5,8 @@
 # stdout：STATUS=<状态> 一行 + 回复正文。退出码同 t3-wait.sh：0 完成；1 失败或等待输入；2 超时；3 参数或环境错误。
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=t3-lib.sh
+. "$here/t3-lib.sh"
 tid="" file="" limit="" project=""
 while (( $# )); do
   case "$1" in
@@ -20,7 +22,7 @@ fi
 [ -f "$file" ] || { echo "错误：找不到消息文件 ${file}。" >&2; exit 3; }
 command -v t3 >/dev/null || { echo "错误：找不到 t3 命令，请先安装 T3 Code CLI。" >&2; exit 3; }
 
-sent=$(t3 --log-level none thread send "$tid" - < "$file" 2>&1)
+sent=$(t3_call thread send "$tid" - < "$file") || true
 case "$sent" in
   *Sent.*|*Queued.*) echo "发送：（$(printf '%s' "$sent" | head -1)）" >&2 ;;
   *) echo "错误：发送失败。" >&2; printf '%s\n' "$sent" | head -5 >&2; exit 3 ;;
