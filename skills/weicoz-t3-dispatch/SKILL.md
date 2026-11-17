@@ -36,7 +36,7 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
 
 - `--provider` 与 `--model` 必须同时传。模型串取 `t3-models.sh` 输出的原文，例如 `'["magpie","auto/deepseek-v4.1-flash"]'`，整串加单引号。
 - 报错 `Model X is not advertised by provider Y` 表示模型串不对。
-- 某 provider 还没有历史模型串时，请用户先在 T3 界面用它开一个会话，再重跑脚本。不要猜模型串。
+- 某 provider 还没有历史模型串时，请用户先在 T3 界面用它开一个会话，再重跑脚本；模型串取自历史会话原样值。
 - T3 服务端必须在运行（桌面 App 开着，或 `t3 serve`）。
 - CLI 与服务端版本不一致时，会混入 `WARN ... Database migration history diverges` 警告块。实测两点：t3 的日志写 **stdout**，不写 stderr；该警告由内部 `logWarning` 打印，**不改变命令退出码**——`thread list` 退出 1 时伴随的是真实错误（如 `SecretStoreSecureError`），不是警告本身。
 - 手工敲命令统一加全局参数 `--log-level none`。本目录脚本经 `scripts/t3-lib.sh` 的 `t3_call` 调用 t3：成功时过滤该警告块，失败时把原始输出原样打到 stderr（不用 `2>/dev/null` 吞掉真错误），退出码原样返回。`scripts/t3-json.py` 再按 JSON 行兜底。
@@ -78,18 +78,18 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
    - 用户偏好：DSH 派单一律 `max`（`T3_EFFORT` 或 `--effort` 可改）。各模型可选值见 MCP `orchestrator_capabilities`（选项名 `reasoning_effort`）；不设时多数模型默认 `high`，`magpie` 路由组默认为空。脚本内部签 5 分钟 full-access 令牌、校验后即吊销，属于本 skill 的既定步骤。
    - 手工起会话：`t3 --log-level none thread start --provider <id> --model '<模型串>' --title "<任务名>" --json <worktree> - < task.md`，再 `scripts/t3-effort.sh <threadId> <provider id> '<模型串>' max`（输出 `reasoning_effort=max` 才算设好）。
    - 提示词必须写明：已在独立 worktree、可写范围、完成判据、提交但不合并不推送、交付说明格式。
-   - 脚本成功后 stdout 末行给出可直接照抄的 `t3-wait.sh` 命令，接着按第 4 步挂监测，不要就此收工。
-4. **巡检（固定流程，不得跳过）**：起会话后**立刻**把等待挂到宿主后台作业（例如 Bash 工具的 `run_in_background`），完成后再读正文并验收。只发任务不监测等于没派单。
+   - 脚本成功后 stdout 给出可直接照抄的 `t3-wait.sh` 命令，接着按第 4 步挂监测。
+4. **巡检（固定流程）**：起会话后**立刻**把等待挂到宿主后台作业（例如 Bash 工具的 `run_in_background`），完成后再读正文并验收。监测是派单的一部分，任务发出后马上挂上。
    ```bash
    scripts/t3-wait.sh <threadId> [超时秒，默认 5400] [--project <路径>]   # 0 完成；1 失败或等待输入；2 超时；3 参数错误
    scripts/t3-last.sh <threadId> [--project <路径>]                      # 只打印最后一条 assistant 正文
    ```
    - 顺序固定：`t3-start.sh` → 立刻后台挂 `t3-wait.sh` → 唤醒后 `t3-last.sh` 读正文 → 验收（第 5 步）。`t3-start.sh` 末行就是这条命令，路径含空格时已加好引号，可整行照抄。
-   - 三条禁令：不得只发任务不监测；不得把 `t3-wait.sh` 放前台阻塞；不得起完会话就向用户报“已派，等我消息”。
+   - `t3-wait.sh` 放后台运行；向用户报告时写“已派并已挂监测，完成后我验收”。
    - 退出 1（等待输入或失败）、退出 2（超时）都要回报用户，不静默重试。
    - 完成判据是 `t3 thread list --project` 里该线程状态不再是 `running`；不传 `--project` 时按线程所属项目查询。
    - `t3-last.sh` 去掉 t3 告警日志与 JSON 残行，只输出正文；传 `--project` 时还能把 `mcp:84354ccf` 这类前缀还原成完整 id。
-   - 用户问进度时：`t3 --log-level none thread show --messages 3 <threadId>`。不要前台忙轮询。
+   - 用户问进度时：`t3 --log-level none thread show --messages 3 <threadId>`；等待交给后台作业。
 5. **验收**：在 worktree 里自己跑完成判据中的命令（测试、类型检查、构建、截图），查看 `git log`、`git diff --stat <基线>..`。代理自述不算通过。
 6. **打回**：
    ```bash
@@ -141,10 +141,10 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
 
 ## 派单做法（经验）
 
-- 线程的工作目录不一定是登记的 worktree。任务开头先核对分支（脚本已自动加守卫），收尾用审计脚本查提交落点；提交落错分支时，读出有效内容手工并入，不要直接 `cherry-pick` 到较新的文件上。
+- 线程的工作目录不一定是登记的 worktree。任务开头先核对分支（脚本已自动加守卫），收尾用审计脚本查提交落点；提交落错分支时，读出有效内容手工并入（`cherry-pick` 到较新的文件会冲突）。
 - DSH 会话的写根只有它的工作目录，写不了家目录（`~/.zsh_secrets`、`~/.config`）和别的 worktree。需要改家目录凭据或跨 worktree 的步骤，由主会话做，或让用户开 full-access 会话；派单时写明。
-- 同一 worktree 同时只让一个线程写同一个文件：按目录划分写权限，只 `git add` 具体文件，不用 `-A`；补充需求等线程空闲再发，或并到同一线程。
-- 需要扫码的步骤，让线程把页面停在可操作处，不留弹窗（二维码有时效）；用户做完回话后再续派。
+- 同一 worktree 里每个文件只有一个写入线程：按目录划分写权限，`git add` 只加具体文件；补充需求等线程空闲再发，或并到同一线程。
+- 需要用户的步骤（扫码、登录等，清单见 `weicoz-cocos-run` “需要用户或真机的步骤”）：线程把页面停在可操作处并写清要做什么，用户回话后再续派。
 - zsh 下 `for p in "a b"` 配 `set -- $p` 不拆词。监测循环用显式变量或数组，并检查 `t3-wait.sh` 退出码：3 是参数错误，不是完成。
 - `Database migration history diverges` 警告走 stdout，先过滤再解析；退出码为 1 时按真实错误处理。
 

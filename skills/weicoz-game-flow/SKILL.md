@@ -63,9 +63,9 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 新游戏动账号前先定凭据变量前缀，再申请测试号。
 
 1. 每个项目用 `<GAME>` 前缀，形如 `<GAME>_WECHAT_APPID`、`<GAME>_WECHAT_UPLOAD_KEY_PATH`、`<GAME>_WECHAT_APPSECRET`；`<GAME>` 取项目短名的大写下划线形式。
-2. 密钥文件放 `~/.config/weicoz-secrets/<game>/`。仓库、文档与提示词只写变量名和目录约定，不写真实路径、密钥或 AppID。
-3. 禁止用无前缀的全局变量（如 `WECHAT_APPID`、`WECHAT_UPLOAD_KEY_PATH`、`WECHAT_APPSECRET`）：多项目并存时互相覆盖，取值来源不可追溯。
-4. 测试号 AppID 只进测试变量（如 `<GAME>_WECHAT_APPID_TEST`），不得写进正式变量；正式变量等正式号注册后再填。
+2. 密钥文件放 `~/.config/weicoz-secrets/<game>/`（目录 700、文件 600）。仓库、文档与提示词只写变量名和目录约定。
+3. 每个变量都带游戏前缀：多项目并存时各取各的值，来源可追溯。
+4. 测试号 AppID 只进测试变量（如 `<GAME>_WECHAT_APPID_TEST`）；正式变量等正式号注册后再填，测试号用完删掉。
 5. 变量写进 `~/.zsh_secrets`，不入库。改前留可恢复副本，改后 `diff` 核对，只新增目标行。
 
 完成标准：预检无 ❌；`AGENTS.md` 存在；已记录本项目走 MCP 还是 CLI 路径。预检里的“用户 …”项归入 H0，一条消息发给制作人，然后继续阶段 1，不等回复。

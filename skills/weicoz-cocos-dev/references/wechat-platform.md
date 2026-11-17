@@ -74,16 +74,15 @@ const wx = WECHAT ? (globalThis as any).wx : undefined
 - 单机游戏不需要服务器域名：不填 request 合法域名也能发布；只有联网功能（自建后端、排行榜服务）才要。
 - AppSecret 换新前排变更窗口：正在用的服务会立刻拿不到 access_token。
 
-## 凭据与代码上传（2026-11 实测）
+## 代码上传（2026-11 实测）
 
-- 变量按游戏加前缀：`<GAME>_WECHAT_APPID`、`<GAME>_WECHAT_UPLOAD_KEY_PATH`、`<GAME>_WECHAT_APPSECRET`，写在 `~/.zsh_secrets`；密钥文件放 `~/.config/weicoz-secrets/<game>/`（目录 700、文件 600）。别用无前缀的全局变量，多个游戏会互相覆盖。测试号 AppID 不进正式变量，用完删掉。
-- 代码上传密钥（miniprogram-ci）：后台“开发管理 → 开发设置 → 小程序代码上传”。生成密钥要管理员扫码，文件只下载一次，不改名、不读内容、不贴聊天；编辑 IP 白名单要再扫一次码。
-- 报错 `errCode -10008 invalid ip: <ip>`：运行上传的机器出口 IP 不在白名单。换网络、手机热点、代理都会让出口 IP 变；出口 IP 用国内查询服务取，别信境外服务（代理会给出境外出口）。不要图省事选“不限制 IP”；出口常变就固定用一台出口稳定的机器上传。
-- miniprogram-ci 失败时会把压缩后的源码堆栈整段打印，上传脚本应 catch 后只输出 `errMsg`。
-- Cocos 构建出的 `project.config.json` 里 appid 是 Cocos 默认值，开发者工具和上传都不认。构建脚本 `cocos-build.mjs --game <前缀>` 按 `<GAME>_WECHAT_APPID` 写入。
-- 包体以 `--release` 为准：主包 ≤ 4 MB，大图放分包（subpackage）。
-- 提审截图必须在微信里截（含右上角胶囊与游戏名）；网页端、开发者工具截图不行，体验版出来后用真机补拍。
-- 商店文案和审核材料里不写关卡总数：关卡可无限扩展，写“逐关变难”，需要数字时与实际一致。
+变量命名与密钥目录见 `weicoz-game-flow` “账号就绪门”；构建写 AppID 见 `weicoz-cocos-run` 第 2 节。
+
+- 代码上传密钥（miniprogram-ci）：后台“开发管理 → 开发设置 → 小程序代码上传”。生成密钥要管理员扫码，文件只下载一次，原样保存，内容不读不贴；编辑 IP 白名单要再扫一次码。
+- 白名单填运行上传的机器的出口 IP，用国内查询服务取（代理会给出境外出口）。出口 IP 随网络、热点、代理变化；出口常变就固定用一台出口稳定的机器上传。
+- 报错 `errCode -10008 invalid ip: <ip>` 表示该 IP 不在白名单：把它加入白名单后重传。
+- 上传脚本 catch 失败后只输出 `errMsg`（miniprogram-ci 默认会打印整段压缩堆栈）。
+- 商店文案和审核材料写“逐关变难”；需要数字时与实际一致，关卡可无限扩展。
 
 ## 上线前检查
 
