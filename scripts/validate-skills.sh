@@ -51,6 +51,12 @@ while IFS= read -r -d '' dir; do
     printf 'README 未收录: %s\n' "$name" >&2
     fail=1
   fi
+  # 开源卫生：用户目录路径、微信 AppID（wx + 16 位十六进制）、IPv4（127.0.0.1 / 0.0.0.0 除外）
+  hygiene="$(rg -n -I --no-heading -e '/Users/[A-Za-z0-9._-]+/' -e '\bwx[0-9a-f]{16}\b' -e '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' "$dir" 2>/dev/null | rg -v -e '127\.0\.0\.1' -e '0\.0\.0\.0' -e '/Users/<' -e '/Users/xxx' | rg -v -f "$repo/scripts/hygiene-allow.txt" || true)"
+  if [[ -n "$hygiene" ]]; then
+    printf '开源卫生：%s 含用户路径、AppID 或 IP：\n%s\n' "$name" "$hygiene" >&2
+    (( ${STRICT_HYGIENE:-0} )) && fail=1
+  fi
   if rg -n -I -- '-----BEGIN .*PRIVATE KEY-----|\b(sk-|ghp_|github_pat_|xox[baprs]-|AIza|AKIA)[A-Za-z0-9_-]{16,}' "$dir" >/dev/null; then
     printf '疑似硬编码凭据: %s\n' "$name" >&2
     fail=1

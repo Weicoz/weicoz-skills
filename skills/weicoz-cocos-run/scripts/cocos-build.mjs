@@ -87,7 +87,9 @@ if (platform === 'wechatgame') {
     writeFileSync(pcPath, JSON.stringify(pc, null, 2))
     console.log(`AppID：已写入 ${appidVar}（${pc.appid}）`)
   } else if (pc.appid === COCOS_DEFAULT_APPID) {
-    console.warn(`⚠️ AppID 仍是 Cocos 默认值 ${COCOS_DEFAULT_APPID}，开发者工具无法导入。设 ${appidVar}（小游戏测试号即可），或在构建面板填写`)
+    const msg = `AppID 仍是 Cocos 默认值 ${COCOS_DEFAULT_APPID}，开发者工具与上传都不认。设 ${appidVar}（release 要正式 AppID，预览用测试号即可），或在构建面板填写`
+    if (release) { console.error(`❌ ${msg}`); process.exit(1) }
+    console.warn(`⚠️ ${msg}`)
   }
   // 主包 = 上传目录 - game.json 声明的分包；remote/ 是远程包，不上传
   const MB4 = 4 * 1024 * 1024
