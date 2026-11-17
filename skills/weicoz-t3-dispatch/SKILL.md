@@ -150,7 +150,7 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
 
 ## 选会话：续用还是新开
 
-派单前先查 `t3 thread list --project <路径>`，按下表选。
+派单前先跑 `scripts/t3-reuse.sh --project <路径> --keyword <任务关键词> [--model '<模型串>']`：它列出项目内线程，按状态、空闲时间、条目数、模型、标题逐项判定，末行给出 `续用 <threadId>` 或 `新开`（阈值由 `T3_CACHE_MIN` 默认 60、`T3_MAX_ITEMS` 默认 150 调整）。结论与下表不一致时，以对任务的判断为准。
 
 | 情况 | 选择 | 原因 |
 | --- | --- | --- |
