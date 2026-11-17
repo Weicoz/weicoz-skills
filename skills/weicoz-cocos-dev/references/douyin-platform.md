@@ -1,5 +1,7 @@
 # 抖音小游戏平台接入
 
+平台数字（字数、周期、门槛）核对于 2026-11；提交前以抖音后台当页提示为准，口径变了就更新这里。
+
 `tt.*` 调用同样只写在 `assets/scripts/platform/` 里，对外暴露与微信同一套接口（`save/load`、`share`、`showRewarded`）。web-mobile 预览时用同名空实现，灰盒与试玩脚本不依赖平台。
 
 运行时判断：`typeof tt !== 'undefined'`。与微信共用一份平台层时，先判 `tt` 再判 `wx`。

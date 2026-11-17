@@ -21,7 +21,7 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 | H2 灰盒门 | 阶段 1 结束 | 手机玩 3 分钟，给方向结论；顺带答积压的待定项和阶段 2 要锁定的问题 | 验收包（`references/acceptance-pack.md`），含阶段 2 问题，门过后可直接写规格与票据 |
 | H3 竖切门 | 阶段 3 结束 | 真机试玩；选美术方向；答积压的待定项 | 验收包 |
 
-上线（类目资质、备案、提审）也由制作人操作，按 `weicoz-cocos-dev` 的 `references/wechat-platform.md` 清单一次性准备材料。
+上线（类目资质、备案、提审）也由制作人操作，按 `weicoz-cocos-dev` 的 `references/wechat-platform.md` 清单一次性准备材料；抖音线另备软著，从立项就开始申请，流程见 `references/soft-copyright.md`、平台规则见 `references/douyin-platform.md`。
 
 验收包发出前，必须先把能自动验证的全部跑完；不得把“帮我看看能不能打开”这类可自动验证的事交给制作人。
 
