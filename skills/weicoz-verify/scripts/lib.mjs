@@ -97,6 +97,18 @@ export function tailLines(text, n = 5) {
   return text.trim().split(/\r?\n/).slice(-n).join('\n');
 }
 
+// 命令失败时的说明：优先取测试运行器的最终失败行（vitest/jest 的 FAIL、node:test 的 not ok、pytest 的 FAILED）；
+// 没有时再取逐条标记（× / ✗，可能含重试中途的失败）；都没有时退回末尾 n 行。去重后最多 n 行。
+export function failureLines(text, n = 5) {
+  const clean = text.replace(/\x1b\[[0-9;]*m/g, '');
+  const lines = clean.split(/\r?\n/).map((l) => l.trim());
+  let hits = [...new Set(lines.filter((l) => /^(FAIL\s|not ok\s|FAILED\s)/.test(l)))];
+  if (!hits.length) hits = [...new Set(lines.filter((l) => /^[×✗]\s/.test(l)))];
+  if (!hits.length) return tailLines(clean, n);
+  const more = hits.length > n ? `\n（另有 ${hits.length - n} 条失败）` : '';
+  return hits.slice(0, n).join('\n') + more;
+}
+
 export function safeName(s) {
   return s.replace(/[^\p{L}\p{N}_.-]+/gu, '-').replace(/^-+|-+$/g, '') || 'x';
 }

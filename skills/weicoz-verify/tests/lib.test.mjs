@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseArgs, mergeConfig, matchIgnore, verdict, parseEnvFile, loadLine, safeName, tailLines } from '../scripts/lib.mjs';
+import { parseArgs, mergeConfig, matchIgnore, verdict, parseEnvFile, loadLine, safeName, tailLines, failureLines } from '../scripts/lib.mjs';
 
 test('parseArgs：全部参数', () => {
   const a = parseArgs(['--project', '/p', '--quick', '--base-url', 'http://x:1', '--script', 'a.mjs', '--script', 'b.mjs', '--no-start']);
@@ -40,6 +40,15 @@ test('parseEnvFile：引号、注释、export', () => {
   const e = parseEnvFile('# c\nA=1\nexport B="x y"\nC=\'z\'\nD=v # 注释\nbad line\n');
   assert.deepEqual(e, { A: '1', B: 'x y', C: 'z', D: 'v' });
 });
+test('failureLines：取失败行去重，没有时退回末尾行', () => {
+  const out = 'x\n \x1b[31mFAIL\x1b[0m  a.test.ts > t1\nstack\n FAIL  a.test.ts > t1\nnot ok 2 - t2\nTests 2 failed';
+  assert.equal(failureLines(out, 5), 'FAIL  a.test.ts > t1\nnot ok 2 - t2');
+  assert.equal(failureLines('a\nb\nc', 2), 'b\nc');
+  assert.match(failureLines('FAIL a\nFAIL b\nFAIL c', 2), /另有 1 条失败/);
+  assert.equal(failureLines('× retry t3 15000ms\n FAIL  a.test.ts > t1'), 'FAIL  a.test.ts > t1');
+  assert.equal(failureLines('× t3 15000ms\nx'), '× t3 15000ms');
+});
+
 test('loadLine / safeName / tailLines', () => {
   assert.match(loadLine(20, 10), /高于核数/);
   assert.doesNotMatch(loadLine(2, 10), /高于核数/);

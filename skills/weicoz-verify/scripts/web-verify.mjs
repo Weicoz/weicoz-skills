@@ -8,7 +8,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import {
-  parseArgs, mergeConfig, matchIgnore, verdict, parseEnvFile, expandHome, loadLine, tailLines, safeName,
+  parseArgs, mergeConfig, matchIgnore, verdict, parseEnvFile, expandHome, loadLine, tailLines, failureLines, safeName,
 } from './lib.mjs';
 
 const items = [];
@@ -66,7 +66,7 @@ for (const c of cfg.checks[tier] || []) {
   const r = spawnSync(c.cmd, { shell: true, cwd: project, encoding: 'utf8', timeout: (c.timeoutSec || 600) * 1000 });
   if (r.status === 0) record('pass', c.name, `✅ ${c.name}（${c.cmd}）`);
   else {
-    const why = r.error ? String(r.error.message) : tailLines(`${r.stdout || ''}\n${r.stderr || ''}`, 5);
+    const why = r.error ? String(r.error.message) : failureLines(`${r.stdout || ''}\n${r.stderr || ''}`, 5);
     record('fail', c.name, `❌ ${c.name}（${c.cmd}）退出码 ${r.status ?? r.signal}\n${why.replace(/^/gm, '    ')}`);
   }
 }
