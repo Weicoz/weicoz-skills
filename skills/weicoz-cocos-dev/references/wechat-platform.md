@@ -81,6 +81,7 @@ const wx = WECHAT ? (globalThis as any).wx : undefined
 - 代码上传密钥（miniprogram-ci）：后台“开发管理 → 开发设置 → 小程序代码上传”。生成密钥要管理员扫码，文件只下载一次，原样保存，内容不读不贴；编辑 IP 白名单要再扫一次码。
 - 白名单填运行上传的机器的出口 IP，用国内查询服务取（代理会给出境外出口）。出口 IP 随网络、热点、代理变化；出口常变就固定用一台出口稳定的机器上传。
 - 报错 `errCode -10008 invalid ip: <ip>` 表示该 IP 不在白名单：把它加入白名单后重传。
+- 命令行上传报 `errCode -1 ... 41001 access_token missing`（IP 已过、账号信息取不到）时，改用开发者工具 CLI：`/Applications/wechatwebdevtools.app/Contents/MacOS/cli upload --project <build/wechatgame 绝对路径> -v <版本> -d <备注>`。它走开发者工具的微信登录态，不依赖上传密钥与白名单；前提是开发者工具已登录并开启服务端口。
 - 上传脚本 catch 失败后只输出 `errMsg`（miniprogram-ci 默认会打印整段压缩堆栈）。
 - 商店文案和审核材料写“逐关变难”；需要数字时与实际一致，关卡可无限扩展。
 
