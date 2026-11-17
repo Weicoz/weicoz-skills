@@ -81,7 +81,7 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
    - 脚本成功后 stdout 给出可直接照抄的 `t3-wait.sh` 命令，接着按第 4 步挂监测。
 4. **巡检（固定流程）**：起会话后**立刻**把等待挂到宿主后台作业（例如 Bash 工具的 `run_in_background`），完成后再读正文并验收。监测是派单的一部分，任务发出后马上挂上。
    ```bash
-   scripts/t3-wait.sh <threadId> [超时秒，默认 5400] [--project <路径>]   # 0 完成；1 失败或等待输入；2 超时；3 参数错误
+   scripts/t3-wait.sh <threadId> [超时秒，默认 5400] [--project <路径>]   # 0 完成；1 失败或等待输入；2 超时；3 参数错误（输出首词 DONE、TIMEOUT、ERROR）
    scripts/t3-last.sh <threadId> [--project <路径>]                      # 只打印最后一条 assistant 正文
    ```
    - 顺序固定：`t3-start.sh` → 立刻后台挂 `t3-wait.sh` → 唤醒后 `t3-last.sh` 读正文 → 验收（第 5 步）。`t3-start.sh` 末行就是这条命令，路径含空格时已加好引号，可整行照抄。
