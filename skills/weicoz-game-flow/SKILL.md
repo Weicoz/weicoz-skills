@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-flow
-version: 1.8.1
+version: 1.8.2
 description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）：开项目、先找乐趣再工程化的两段式路线、阶段门与各阶段该用的 skill。用于开始或接手一个小游戏项目、问“下一步做什么”、判断能否进入下一阶段。
 ---
 
@@ -16,7 +16,7 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 
 | 节点 | 时机 | 制作人做什么 | 你准备什么 |
 | --- | --- | --- | --- |
-| H0 环境 | 每台机器/账号一次 | 微信开发者工具登录并开服务端口；申请小游戏测试号，把 AppID 写进 `WECHAT_APPID` | 预检结果里所有“用户 …”项，一条消息列全 |
+| H0 环境 | 每台机器/账号一次 | 微信开发者工具登录并开服务端口；申请小游戏测试号，把 AppID 写进本项目前缀的变量（见「账号就绪门」） | 预检结果里所有“用户 …”项，一条消息列全 |
 | H1 立项 | 每个项目一次 | 回答立项问题：参考、平台、差异化、非目标 | 设计简报草稿 + 编号选择题 |
 | H2 灰盒门 | 阶段 1 结束 | 手机玩 3 分钟，给方向结论；顺带答积压的待定项和阶段 2 要锁定的问题 | 验收包（`references/acceptance-pack.md`），含阶段 2 问题，门过后可直接写规格与票据 |
 | H3 竖切门 | 阶段 3 结束 | 真机试玩；选美术方向；答积压的待定项 | 验收包 |
@@ -57,6 +57,16 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 3. 跑 `weicoz-cocos-run` 的预检，按提示补 funplay 配置。编辑器可以由你用命令行打开（预检输出里有命令），funplay 项目 skill 可以由你经编辑器脚本安装（见 `weicoz-cocos-run` 第 1 节）。只有编辑器开着时改了 MCP 配置，才需要用户点 Restart；微信开发者工具的服务端口必须由用户开。用户不在场时先走 CLI 路径。
 4. 按 `references/project-agents.md` 模板写项目 `AGENTS.md`，写明 Cocos 工程目录与规则核位置。
 5. 要派子代理并行开发时，在项目根加 `.worktreeinclude`（`library/`、`temp/`、`node_modules/` 各一行），`wt` 新建 worktree 会写时复制这些目录，构建不必重新导入。会话所在仓库不是游戏项目时，不用子代理的 `isolation: worktree`（它建在会话仓库里），改为先在项目里 `wt switch --create <分支> --no-cd`，再把 worktree 路径写进派单。
+
+### 账号就绪门（H0 的一部分）
+
+新游戏动账号前先定凭据变量前缀，再申请测试号。
+
+1. 每个项目用 `<GAME>` 前缀，形如 `<GAME>_WECHAT_APPID`、`<GAME>_WECHAT_UPLOAD_KEY_PATH`、`<GAME>_WECHAT_APPSECRET`；`<GAME>` 取项目短名的大写下划线形式。
+2. 密钥文件放 `~/.config/weicoz-secrets/<game>/`。仓库、文档与提示词只写变量名和目录约定，不写真实路径、密钥或 AppID。
+3. 禁止用无前缀的全局变量（如 `WECHAT_APPID`、`WECHAT_UPLOAD_KEY_PATH`、`WECHAT_APPSECRET`）：多项目并存时互相覆盖，取值来源不可追溯。
+4. 测试号 AppID 只进测试变量（如 `<GAME>_WECHAT_APPID_TEST`），不得写进正式变量；正式变量等正式号注册后再填。
+5. 变量写进 `~/.zsh_secrets`，不入库。改前留可恢复副本，改后 `diff` 核对，只新增目标行。
 
 完成标准：预检无 ❌；`AGENTS.md` 存在；已记录本项目走 MCP 还是 CLI 路径。预检里的“用户 …”项归入 H0，一条消息发给制作人，然后继续阶段 1，不等回复。
 

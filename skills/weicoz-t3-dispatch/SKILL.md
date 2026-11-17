@@ -1,6 +1,6 @@
 ---
 name: weicoz-t3-dispatch
-version: 1.3.0
+version: 1.3.2
 description: 经本机 T3 Code（`t3` CLI）把编码任务派给其他 harness（DSH、Kimi Code、Antigravity 等），在独立 worktree 里执行，并巡检、续派、验收。用户说“用 T3 派”“通过 t3 code 分发任务”“让 DSH/Kimi 在 T3 里做”时使用。跨机器派单见本文“跨机器派单”一节（也可用 weicoz-remote-dispatch）；当前会话自己的子代理不需要本技能。
 ---
 
@@ -38,7 +38,23 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
 - 报错 `Model X is not advertised by provider Y` 表示模型串不对。
 - 某 provider 还没有历史模型串时，请用户先在 T3 界面用它开一个会话，再重跑脚本。不要猜模型串。
 - T3 服务端必须在运行（桌面 App 开着，或 `t3 serve`）。
-- CLI 与服务端版本不一致时，stdout 会混入 `WARN ... Database migration history diverges` 等日志。手工敲命令统一加全局参数 `--log-level none`；本目录脚本已内置该参数，并由 `scripts/t3-json.py` 跳过非 JSON 行兜底。
+- CLI 与服务端版本不一致时，会混入 `WARN ... Database migration history diverges` 警告块。实测两点：t3 的日志写 **stdout**，不写 stderr；该警告由内部 `logWarning` 打印，**不改变命令退出码**——`thread list` 退出 1 时伴随的是真实错误（如 `SecretStoreSecureError`），不是警告本身。
+- 手工敲命令统一加全局参数 `--log-level none`。本目录脚本经 `scripts/t3-lib.sh` 的 `t3_call` 调用 t3：成功时过滤该警告块，失败时把原始输出原样打到 stderr（不用 `2>/dev/null` 吞掉真错误），退出码原样返回。`scripts/t3-json.py` 再按 JSON 行兜底。
+
+## 分支守卫
+
+派单脚本自动把守卫写进提示词，不依赖派单者记得写。
+
+1. **派单时自动加开头**：`t3-start.sh` 用 `git -C <worktree> branch --show-current` 取分支，把固定开头拼在任务文件前面，合并写入临时文件再派，**不改原任务文件**。开头三条：
+   - 开工先 `git branch --show-current`，必须等于该 worktree 当前分支，不等就停下报告；
+   - 所有提交只落在该分支；
+   - `git add` 只加具体文件，不用 `-A`。
+   worktree 处于 detached HEAD 时取不到分支名，脚本拒派（退出 3）。`--dry-run` 只打印拼接后的完整提示词，不登记项目、不起会话；核对提示词用它。
+2. **收尾审计**：`scripts/t3-audit.sh <worktree> [--branch <目标分支>]` 列出近 24 小时内、所有本地分支上署名含 “via DSH” 的提交，凡不在目标分支上的都报警，给出提交号、摘要与所在分支。
+   - 目标分支默认取 worktree 当前分支；`--hours` 改窗口，`--author` 改署名匹配串。
+   - 署名匹配查提交正文（含 `Co-Authored-By: … via DSH` 尾注）、作者与提交者。DSH 的落款在正文尾注里，`%an` 通常是普通姓名，只查作者会漏。
+   - 默认只在“没落在目标分支”时报警；`--strict` 连“落在目标分支但同时出现在别的分支”一起报。
+   - 退出码 0 无异常、1 有异常、3 参数错误；只读，不改仓库。验收通过、合并前后各跑一次。
 
 ## 派单流程
 
@@ -55,18 +71,22 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
    ```bash
    export T3_PROVIDER=<provider 实例 id>
    export T3_MODEL='<模型串>'
-   scripts/t3-start.sh <worktree> "<任务名>" task.md      # stdout 最后一行是 threadId
+   scripts/t3-start.sh <worktree> "<任务名>" task.md      # stdout 倒数第二行是 threadId，末行是下一步命令
    ```
-   - 脚本顺序：项目未登记时 `t3 project add`（名称默认取 worktree 目录名，`--project-title` 可改），已登记则跳过 → `thread start --json` → 解析 threadId → `t3-effort.sh` 设 `reasoning_effort`。
+   - 脚本顺序：取当前分支拼分支守卫（见「分支守卫」）→ 项目未登记时 `t3 project add`（名称默认取 worktree 目录名，`--project-title` 可改），已登记则跳过 → `thread start --json` → 解析 threadId → `t3-effort.sh` 设 `reasoning_effort`。
    - DSH 默认值（2026-11 实测；provider 实例名以 `scripts/t3-models.sh` 为准）：`T3_PROVIDER=acpRegistry_dsh`，`T3_MODEL='["magpie","auto/deepseek-v4.1-flash"]'`。
    - 用户偏好：DSH 派单一律 `max`（`T3_EFFORT` 或 `--effort` 可改）。各模型可选值见 MCP `orchestrator_capabilities`（选项名 `reasoning_effort`）；不设时多数模型默认 `high`，`magpie` 路由组默认为空。脚本内部签 5 分钟 full-access 令牌、校验后即吊销，属于本 skill 的既定步骤。
    - 手工起会话：`t3 --log-level none thread start --provider <id> --model '<模型串>' --title "<任务名>" --json <worktree> - < task.md`，再 `scripts/t3-effort.sh <threadId> <provider id> '<模型串>' max`（输出 `reasoning_effort=max` 才算设好）。
    - 提示词必须写明：已在独立 worktree、可写范围、完成判据、提交但不合并不推送、交付说明格式。
-4. **巡检**：把等待放进宿主后台作业，完成时会唤醒发起会话。
+   - 脚本成功后 stdout 末行给出可直接照抄的 `t3-wait.sh` 命令，接着按第 4 步挂监测，不要就此收工。
+4. **巡检（固定流程，不得跳过）**：起会话后**立刻**把等待挂到宿主后台作业（例如 Bash 工具的 `run_in_background`），完成后再读正文并验收。只发任务不监测等于没派单。
    ```bash
    scripts/t3-wait.sh <threadId> [超时秒，默认 5400] [--project <路径>]   # 0 完成；1 失败或等待输入；2 超时；3 参数错误
    scripts/t3-last.sh <threadId> [--project <路径>]                      # 只打印最后一条 assistant 正文
    ```
+   - 顺序固定：`t3-start.sh` → 立刻后台挂 `t3-wait.sh` → 唤醒后 `t3-last.sh` 读正文 → 验收（第 5 步）。`t3-start.sh` 末行就是这条命令，路径含空格时已加好引号，可整行照抄。
+   - 三条禁令：不得只发任务不监测；不得把 `t3-wait.sh` 放前台阻塞；不得起完会话就向用户报“已派，等我消息”。
+   - 退出 1（等待输入或失败）、退出 2（超时）都要回报用户，不静默重试。
    - 完成判据是 `t3 thread list --project` 里该线程状态不再是 `running`；不传 `--project` 时按线程所属项目查询。
    - `t3-last.sh` 去掉 t3 告警日志与 JSON 残行，只输出正文；传 `--project` 时还能把 `mcp:84354ccf` 这类前缀还原成完整 id。
    - 用户问进度时：`t3 --log-level none thread show --messages 3 <threadId>`。不要前台忙轮询。
@@ -95,14 +115,49 @@ scripts/t3-models.sh             # provider 实例 id 与可用模型串
      - 会话的运行模式比 MCP 令牌宽时，`t3_thread_organize archive` 被拒（`runtime_mode_escalation_denied`）。CLI 派出的会话默认 full-access。
      不确定时保留项目，并告知用户。
 
+## 补充指令只能排队
+
+`t3` CLI 没有引导（steer）参数。线程忙时 `t3 thread send` 只返回 `Queued.`，消息排到下一轮才执行，改不了当前轮。
+
+- 发之前先看状态：线程空闲就直接 `t3 thread send`，来得及生效；线程忙时排队等于没纠正。
+- 用户要求优先用引导、且线程忙又要即时纠偏时，只有两条路：
+  1. 告知用户 `t3` CLI 只能排队，由用户在 T3 界面用引导插进当前轮；
+  2. 等线程空闲（`scripts/t3-wait.sh`）后再发，把纠偏放到下一轮。
+- 必须原文转达这条限制，不得暗示“已引导”或“马上生效”。排队后按 `t3-wait.sh` 等这一轮，不重复重发。
+
+## 派单模板默认值
+
+派单前问不清的归档位置与体积处理，按下面默认值写进提示词，不为此单独打断用户。
+
+| 项 | 默认 |
+| --- | --- |
+| 产物位置 | 项目内，如 `docs/…`；项目已有归档约定时用它的 |
+| 构建产物、缓存 | 已被 `.gitignore` 覆盖的不提交；未覆盖的写明“不提交” |
+| 大文件与二进制（截图、视频、模型、安装包） | 写明“不提交”；需要留证的放仓库外，或换成小体积替代 |
+| 敏感内容（凭据、密钥、私有地址、真机截图里的账号） | 放仓库外，仓库内只留占位与环境变量名 |
+
+- 提示词必须逐项写明哪些路径“不提交”，否则代理会把大文件一起 `git add`。
+- “仓库外”只写位置约定（如 `~/.config/weicoz-secrets/<game>/`），不写真实路径、密钥或 AppID。
+
+## 踩过的坑（2026-11 实测）
+
+- 线程工作目录可能不是你登记的 worktree：曾有两次，DSH 线程的提交落在另一个分支。任务开头先核对分支（脚本已自动加守卫），收尾用审计脚本查提交落点。落错的提交不要直接 `cherry-pick` 到较新的文件上（会冲突），读出有效内容手工并入。
+- DSH 会话沙箱的写根只有它的工作目录：写不了家目录（`~/.zsh_secrets`、`~/.config`），也写不了别的 worktree。需要改家目录凭据或跨 worktree 的步骤，由主会话做，或让用户开 full-access 会话；派单时写明，否则线程会停在“待你决策”。
+- 两个线程写同一个 worktree：按目录划分写权限，只 `git add` 具体文件，不用 `-A`；一个文件只许一个写入者，补充需求要等线程空闲或归并到同一线程。
+- 需要扫码的步骤：二维码有时效，线程应把页面停在可操作处，不留弹窗；用户做完回话后再续派。
+- zsh 下 `for p in "a b"; do set -- $p` 不拆词（`$1` 得到整串），含空格的参数传不对。写监测循环用显式变量或数组，并检查 `t3-wait.sh` 退出码：3 是参数错误，不是“完成”。
+- 迁移警告（`Database migration history diverges`）走 stdout，会混进解析；退出码为 1 时通常伴随真实错误，脚本先过滤警告再读真错误。
+
 ## 常用命令
 
 | 目的 | 命令 |
 | --- | --- |
-| 起会话（含登记项目与 effort） | `scripts/t3-start.sh <worktree> <标题> <任务文件>` |
+| 起会话（含登记项目、effort、下一步提示） | `scripts/t3-start.sh <worktree> <标题> <任务文件>` |
 | 等一轮结束 | `scripts/t3-wait.sh <threadId> [超时秒]` |
 | 取最后一条回复正文 | `scripts/t3-last.sh <threadId>` |
 | 发消息并等回复 | `scripts/t3-ask.sh <threadId> <消息文件>` |
+| 只看将派出的完整提示词（不派） | `scripts/t3-start.sh <worktree> <标题> <任务文件> --dry-run` |
+| 审计提交是否落错分支 | `scripts/t3-audit.sh <worktree> [--branch <目标分支>]` |
 | 列出项目下会话 | `t3 --log-level none thread list --project <路径> --json` |
 | 看状态与最新回复 | `t3 --log-level none thread show --messages N <threadId>` |
 | 同步等待一轮结束（无超时） | `t3 --log-level none thread send --wait <threadId> <消息>`（退出码 1 失败，2 等待用户回答） |

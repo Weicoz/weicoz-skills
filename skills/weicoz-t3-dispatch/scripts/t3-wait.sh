@@ -5,6 +5,8 @@
 # 退出码：0 完成；1 失败或等待输入；2 超时；3 参数或环境错误。
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=t3-lib.sh
+. "$here/t3-lib.sh"
 tid="" limit="" project=""
 while (( $# )); do
   case "$1" in
@@ -22,7 +24,7 @@ command -v t3 >/dev/null || { echo "错误：找不到 t3 命令，请先安装 
 
 # 未给 --project 时按线程自身所属项目查询（thread list 的 --project 同样接受项目 id）
 if [ -z "$project" ]; then
-  project=$(t3 --log-level none thread show --json --messages 1 "$tid" 2>/dev/null \
+  project=$(t3_call thread show --json --messages 1 "$tid" \
     | python3 -I "$here/t3-json.py" project-id) \
     || { echo "错误：读不到线程 $tid 所属项目，用 --project <路径> 指定。" >&2; exit 3; }
 fi
@@ -30,8 +32,8 @@ fi
 interval="${T3_WAIT_INTERVAL:-60}"
 start=$SECONDS
 while (( SECONDS - start < limit )); do
-  # --log-level none 屏蔽版本不一致时的 migration divergent 告警；t3-json.py 再按 JSON 行兜底
-  st=$(t3 --log-level none thread list --project "$project" --json 2>/dev/null \
+  # t3-lib.sh 过滤 migration divergent 警告块（不过滤真实报错）；t3-json.py 再按 JSON 行兜底
+  st=$(t3_call thread list --project "$project" --json \
     | python3 -I "$here/t3-json.py" list-status "$tid") \
     || { echo "错误：查询线程状态失败，确认 --project 指向该线程所属项目。" >&2; exit 3; }
   if [ -n "$st" ] && [ "$st" != running ]; then
