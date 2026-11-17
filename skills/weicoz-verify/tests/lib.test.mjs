@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseArgs, mergeConfig, matchIgnore, verdict, parseEnvFile, loadLine, safeName, tailLines, failureLines } from '../scripts/lib.mjs';
+import { parseArgs, mergeConfig, matchIgnore, verdict, parseEnvFile, loadLine, safeName, tailLines, failureLines,
+  flowStatus, partialSwitches, partialItem, badIgnorePatterns, cleanIgnore, resolveScript, verifyScriptsChanged, withTimeout } from '../scripts/lib.mjs';
 
 test('parseArgs：全部参数', () => {
   const a = parseArgs(['--project', '/p', '--quick', '--base-url', 'http://x:1', '--script', 'a.mjs', '--script', 'b.mjs', '--no-start']);
-  assert.deepEqual(a, { project: '/p', quick: true, baseUrl: 'http://x:1', scripts: ['a.mjs', 'b.mjs'], noStart: true, envFile: null, noChecks: false });
+  assert.deepEqual(a, { project: '/p', quick: true, baseUrl: 'http://x:1', scripts: ['a.mjs', 'b.mjs'], noStart: true, envFile: null, noChecks: false, base: null });
 });
 test('parseArgs：缺 project、未知参数、缺值都报错', () => {
   assert.throws(() => parseArgs([]), /--project/);
@@ -59,4 +60,56 @@ test('loadLine / safeName / tailLines', () => {
   assert.doesNotMatch(loadLine(2, 10), /高于核数/);
   assert.equal(safeName('会话 中心/a:b'), '会话-中心-a-b');
   assert.equal(tailLines('1\n2\n3\n', 2), '2\n3');
+});
+
+test('flowStatus：失败优先，unverified 不抹掉已有失败，零 step 记失败', () => {
+  assert.equal(flowStatus({ stepCount: 2 }), 'pass');
+  assert.equal(flowStatus({ unverifiedWhy: '凭据', stepCount: 1 }), 'unverified');
+  assert.equal(flowStatus({ unverifiedWhy: '凭据' }), 'unverified');
+  assert.equal(flowStatus({ unverifiedWhy: '凭据', stepFailed: true, stepCount: 1 }), 'fail');
+  assert.equal(flowStatus({ unverifiedWhy: '凭据', problems: 1, stepCount: 1 }), 'fail');
+  assert.equal(flowStatus({ flowError: true, stepCount: 1 }), 'fail');
+  assert.equal(flowStatus({ stepCount: 0 }), 'zero');
+});
+
+test('partialItem：缩小开关降级为未验证，--base-url/--no-start 不降级', () => {
+  const base = { quick: false, noChecks: false, scripts: [] };
+  assert.equal(partialItem({ ...base, noStart: true, baseUrl: 'http://x' }), null);
+  assert.deepEqual(partialSwitches({ ...base, noChecks: true, scripts: ['a'] }), ['--no-checks', '--script']);
+  const it = partialItem({ ...base, quick: true, scripts: ['smoke'] });
+  assert.equal(verdict([{ status: 'pass', name: 'a' }, it]).line, '结论：未验证（缺：完整快检，本次用了 --script）');
+  assert.equal(verdict([{ status: 'pass', name: 'a' }, it]).code, 3);
+  assert.equal(verdict([{ status: 'fail', name: 'a' }, it]).code, 1);
+});
+
+test('badIgnorePatterns / cleanIgnore：能匹配空串的模式有害', () => {
+  const ig = { console: ['.', 'favicon', '.*', ''], requests: ['a|b', '^$'], pageerror: ['[bad'] };
+  assert.deepEqual(badIgnorePatterns({ console: ['.*', 'x'], requests: ['^$'] }), ['console:.*', 'requests:^$']);
+  assert.deepEqual(badIgnorePatterns({ console: ['.', 'favicon'], pageerror: ['[bad'] }), ['console:.']);
+  assert.deepEqual(badIgnorePatterns({ console: ['favicon\\.ico$'], pageerror: ['[bad'] }), []);
+  assert.deepEqual(cleanIgnore({ console: ['.*', 'x'] }), { console: ['x'] });
+});
+
+test('resolveScript：路径与流程名都可用', () => {
+  const ex = (set) => (f) => set.includes(f);
+  assert.equal(resolveScript('smoke', '/p', '/p/t', ex(['/p/t/smoke.flow.mjs'])), '/p/t/smoke.flow.mjs');
+  assert.equal(resolveScript('smoke', '/p', '/p/t', ex(['/p/t/smoke.mjs'])), '/p/t/smoke.mjs');
+  assert.equal(resolveScript('t/a.flow.mjs', '/p', '/p/t', ex([])), '/p/t/a.flow.mjs');
+  assert.equal(resolveScript('x', '/p', '/p/t', ex(['/p/x'])), '/p/x');
+});
+
+test('verifyScriptsChanged：只看 verify:* 项', () => {
+  const o = JSON.stringify({ scripts: { 'verify:web': 'a', build: 'x' } });
+  assert.deepEqual(verifyScriptsChanged(o, JSON.stringify({ scripts: { 'verify:web': 'true', build: 'y' } })), ['verify:web']);
+  assert.deepEqual(verifyScriptsChanged(o, JSON.stringify({ scripts: { 'verify:web': 'a', build: 'y' } })), []);
+  assert.deepEqual(verifyScriptsChanged('', JSON.stringify({ scripts: { 'verify:web:quick': 'q' } })), ['verify:web:quick']);
+});
+
+test('withTimeout：超时 reject，正常返回', async () => {
+  assert.equal(await withTimeout(Promise.resolve(1), 1, 'x'), 1);
+  await assert.rejects(withTimeout(new Promise(() => {}), 0.05, '流程 a '), /超过 0.05 秒/);
+});
+
+test('parseArgs：--base', () => {
+  assert.equal(parseArgs(['--project', '.', '--base', 'main']).base, 'main');
 });

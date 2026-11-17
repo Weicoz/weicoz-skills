@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-run
-version: 1.10.1
+version: 1.11.0
 description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行构建（web-mobile / wechatgame）、给用户可点开的预览、自动试玩验收与分级证据。用于“跑起来看看”“我怎么测试”“在 Cocos 里预览给我看”“构建微信小游戏”“验收 demo”。
 ---
 
@@ -101,9 +101,10 @@ MCP 连接方式决定写操作怎么调用：
 2. **试玩脚本**：
    - 逐关通关：复制 `references/levels-template.mjs` 到 `tests/e2e/levels.mjs`，只改开头两个按钮名。
    - 核心循环（被挡、失败、重开、存档等）：按 `references/playtest-hook.md` 的模板写 `tests/e2e/playtest.mjs`。
-   - 脚本放 `tests/e2e/`，`cocos-verify.mjs` 会自动全部运行。
-3. **运行**：跑 `cocos-verify.mjs`。它构建、起预览、用手机尺寸跑全部脚本、采样帧率、输出每关点击数与耗时、拼出联系图 `temp/contact.png`。
-4. **两档回归**：日常 `--quick`（只跑 `playtest.mjs`，钩子开快速模式）；阶段门前不带 `--quick`（全部脚本、真实动画、release 包体）。
+   - 脚本放 `tests/e2e/`，`cocos-verify.mjs` 会自动全部运行；以 `_` 开头的 `.mjs` 是辅助文件，不运行。一次性排查脚本不放 `tests/e2e/`。
+3. **运行**：跑 `cocos-verify.mjs`。它构建、起预览、用手机尺寸跑全部脚本、采样帧率、输出每关点击数与耗时、拼出联系图 `temp/contact.png`（超过 12 张分页为 `contact-1.png`、`contact-2.png`…，全部路径都会打印，逐张看；桌面图固定在最后一张）。
+4. **两档回归**：日常 `--quick`（只跑 `playtest.mjs`，并给脚本设 `PLAYTEST_FAST=1`；`levels-template.mjs` 读它开钩子快速模式，自写脚本要读它才会加速）；阶段门前不带 `--quick`（全部脚本、真实动画、release 包体，不设 `PLAYTEST_FAST`）。
+5. **档位与未验证**：`npm test` 会收到 `VERIFY_TIER=quick|full`，项目测试据此调规模。`package.json` 没有 `test` 脚本、或用了 `--no-release` / `--script` 缩小范围时，结论为“未验证”（退出码 3），不得写成通过。只有环境高负载且失败全是超时类，单测才重跑 1 次，重跑通过标“不稳定：首轮超时”。
 
 每条验收按 `weicoz-verify` 第 7 节写成一行。另查一遍浏览器控制台或编辑器日志，有报错就写进缺陷。
 

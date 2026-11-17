@@ -1,6 +1,6 @@
 ---
 name: weicoz-code-review
-version: 1.2.0
+version: 1.3.0
 description: 省 token 的本地代码审查：审查某个比较点、提交区间或未提交改动，按规范与需求两条线找问题，再批量打置信分过滤误报。Claude Code 中整体 fork 给 Sonnet 执行，主对话只收最终报告；大改动或高风险改动才加派审查，打分用 Haiku。用于“审查/review 我的改动”“审一下这个分支/这几个提交”“weicoz-code-review”。不用于发布 GitHub PR 评论、安全专项审计（用 /security-review）、高风险最终把关（用 @gatekeeper）。
 argument-hint: "[比较点|A..B] [--repo <路径>] [--incremental] [--deep] [--cheap] [--full] [--spec <路径>]"
 context: fork
@@ -22,8 +22,9 @@ background: false
 
 **解析范围**
 - 参数里的 `A..B`：直接使用。
-- 单个 ref：视为 `<ref>..HEAD`。
-- 无比较点：用 `git merge-base HEAD <默认分支>`（依次尝试 `@{upstream}`、`main`、`master`）到 HEAD，并合并 `git diff HEAD` 的未提交改动。
+- 单个 ref：审查 `<ref>` 到工作区，含已提交、未提交（`git diff <ref>`）与未跟踪文件。
+- 无比较点：用 `git merge-base HEAD <默认分支>`（依次尝试 `@{upstream}`、`main`、`master`）到工作区，同样含未提交与未跟踪文件。
+- 未跟踪文件：`git ls-files --others --exclude-standard` 逐个读入，当作新增文件审查并计入统计。不得用 `git add -N` 或其他方式改用户暂存区。
 - `--incremental`：读 `$(git rev-parse --git-dir)/weicoz-code-review/last-sha`。该 SHA 不是 HEAD 的祖先（如 rebase 后）时，退回上一条规则，并在报告中注明。
 - ref 无法解析：报告错误并停止。
 
@@ -31,7 +32,7 @@ background: false
 `':!*.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!yarn.lock' ':!**/dist/**' ':!**/build/**' ':!**/vendor/**' ':!**/node_modules/**' ':!*.min.*' ':!*.map' ':!**/__snapshots__/**'`
 
 **统计**：用 `git diff --numstat` 统计改动行数（增加 + 删除）与文件数。
-- 无改动：输出“无可审查改动”并停止。
+- 无改动（已提交、未提交、未跟踪都为空）：输出“无可审查改动”并停止。
 - 全部是 `.md` / `.txt`，且都不在 `skills/`、`prompts/`、`.claude/`、`agents/` 下，也不是 `CLAUDE.md`、`AGENTS.md`、`SKILL.md`：
   - 无 `--cheap` 时，输出“仅文档改动，已跳过（加 --cheap 用 Haiku 审）”并停止。
   - 有 `--cheap` 时，派 1 个 `weicoz-cr-reviewer`（model `haiku`，effort `low`）审查，再跳到第 4 步。
@@ -39,6 +40,8 @@ background: false
 **风险扫描**：对 diff 的新增行与文件名执行 `rg -i`。关键词：
 `mutex|lock\(|semaphore|race|atomic|thread|goroutine|Promise\.all|concurren|transaction|auth|permission|privilege|sudo|chmod|chown|token|secret|role|migrat|ALTER TABLE|DROP |schema|subagent|orchestrat|dispatch|spawn`
 另外，`package.json` / `requirements*.txt` / `go.mod` / `Cargo.toml` 的依赖变化、`*.sql`、`migrations/` 也算命中。记录命中项。
+
+**高风险目录**：读项目 `AGENTS.md` “验证约定”里的高风险目录与禁改目录。改动触及高风险目录，算风险命中，走大档并加独立审查者（第 2 步）。触及禁改目录，报“高危”发现，不看分数。
 
 **规范来源**：列出改动目录及其各级上级目录中的 `CLAUDE.md`、`AGENTS.md`、`CONTRIBUTING.md`，以及仓库根的 `CODING_STANDARDS.md`、`REVIEW.md`，只取路径。规范一律按范围的起点（基础分支或起始提交）读取：`git show <起点>:<路径>`，不读当前改动里的版本。本次改动修改了规范文件时，在报告里单独列出“规范文件被改动”，交用户确认；本轮仍按起点版本审查。
 
@@ -55,6 +58,7 @@ background: false
 - **小档**：改动 ≤200 行，且无风险命中。你独自完成两条线，不派 agent。
 - **大档**：改动 >200 行，或有风险命中。
   - **必须**先派 1 个 `weicoz-cr-reviewer`（model `sonnet`，effort `medium`），不得省略。只传：范围、排除 pathspec、需求来源、风险命中项，以及 `--deep`（有则传）。它负责需求与缺陷线。
+  - 触及高风险目录时，另派 1 个独立 `weicoz-cr-reviewer`（model `sonnet`），不传第一个审查者的结论，只审缺陷线；合并去重。
   - 你负责规范线，等它返回后合并去重。
 
 **最低检查量**（两档都适用）：

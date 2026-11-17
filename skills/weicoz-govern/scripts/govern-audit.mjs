@@ -8,7 +8,8 @@ import { homedir } from 'node:os';
 const SIZE_HIGH = 10 * 1024;
 const SIZE_LOW = 8 * 1024;
 const SKIP_DIRS = new Set(['node_modules', '.git', '.worktrees', 'dist', 'build', 'coverage', '.next', 'library', 'temp', 'local']);
-const ARCHIVE_RE = /(^|\/)(archive|archived|归档|history|changelog|CHANGELOG|\.scratch|tmp)[^/]*(\/|$|\.)/i;
+// 只匹配整段目录名或 changelog 文件名，避免 tmpl-guide.md 之类被误当归档。
+export const ARCHIVE_RE = /(^|\/)(archive|archived|归档|deprecated|history|\.scratch|tmp)\/|(^|\/)changelog(\.[^/]*)?$/i;
 const LEVELS = { 高: 0, 中: 1, 低: 2 };
 
 export function parseArgs(argv) {
@@ -280,6 +281,16 @@ function checkTests(root, files, add) {
   return info;
 }
 
+// ---------- 检查：端到端流程 ----------
+function checkE2E(root, files, add) {
+  if (files.some((f) => /^(.*\/)?tests\/e2e\//.test(f)) && !files.some((f) => /^(.*\/)?tests\/e2e\/FEATURES\.md$/.test(f)))
+    add('中', 'tests/e2e:1', '有 tests/e2e 但缺 FEATURES.md（功能地图）', '按 weicoz-verify 的 references/e2e-authoring.md 补功能地图');
+  for (const f of files.filter((x) => /(\.flow\.mjs|(^|\/)playtest[^/]*\.mjs|(^|\/)levels[^/]*\.mjs)$/.test(x))) {
+    if (!/\b(step|check|expect|assert)\s*\(|\bthrow\b/.test(read(join(root, f))))
+      add('中', `${f}:1`, '零断言流程：未见 step(/check(/expect(/throw，流程只会跑不会判', '补断言，或确认作废后删除（须先征得确认）');
+  }
+}
+
 function referenced(f, corpus) {
   return corpus.includes(f) || corpus.includes(basename(f));
 }
@@ -343,6 +354,7 @@ export function audit(project, { staleDays = 90, base = null } = {}) {
   checkAgents(root, add);
   checkDocs(root, files, add, staleDays);
   const tests = checkTests(root, files, add);
+  checkE2E(root, files, add);
   const usedBase = pickBase(root, base);
   if (base && !usedBase) throw new Error(`基线分支不存在: ${base}`);
   checkWorktrees(root, add, usedBase);

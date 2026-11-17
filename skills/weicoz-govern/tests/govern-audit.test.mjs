@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { audit, globToRe } from '../scripts/govern-audit.mjs';
+import { audit, globToRe, ARCHIVE_RE } from '../scripts/govern-audit.mjs';
 
 const SCRIPT = join(import.meta.dirname, '../scripts/govern-audit.mjs');
 
@@ -186,4 +186,26 @@ test('globToRe 处理 ** 与 {a,b}', () => {
   assert.ok(globToRe('**/*.{test,spec}.ts').test('a/b/c.spec.ts'));
   assert.ok(globToRe('**/*.{test,spec}.ts').test('c.test.ts'));
   assert.ok(!globToRe('tests/**/*.ts').test('src/a.ts'));
+});
+
+test('归档匹配只认整段目录名：tmpl-guide.md 不跳过，archive/ 与 CHANGELOG.md 跳过', () => {
+  assert.ok(ARCHIVE_RE.test('docs/archive/a.md'));
+  assert.ok(ARCHIVE_RE.test('归档/a.md'));
+  assert.ok(ARCHIVE_RE.test('docs/deprecated/a.md'));
+  assert.ok(ARCHIVE_RE.test('CHANGELOG.md'));
+  assert.ok(!ARCHIVE_RE.test('docs/tmpl-guide.md'));
+  assert.ok(!ARCHIVE_RE.test('docs/history-of-x.md'));
+  assert.ok(!ARCHIVE_RE.test('docs/archive-notes.md'));
+});
+
+test('端到端：缺 FEATURES.md 与零断言流程为中；有断言或有功能地图则不报', () => {
+  const bad = repo({ 'AGENTS.md': '# a\n', 'CLAUDE.md': '@AGENTS.md', 'tests/e2e/a.flow.mjs': 'await run();\n', 'tools/playtest-x.mjs': 'console.log(1)\n' });
+  const a = audit(bad.dir);
+  assert.equal(find(a, /缺 FEATURES\.md/).length, 1);
+  assert.deepEqual(find(a, /零断言流程/).map((f) => f.path).sort(), ['tests/e2e/a.flow.mjs:1', 'tools/playtest-x.mjs:1']);
+  bad.done();
+  const ok = repo({ 'AGENTS.md': '# a\n', 'CLAUDE.md': '@AGENTS.md', 'tests/e2e/FEATURES.md': '# 功能\n', 'tests/e2e/a.flow.mjs': "step('x', () => {});\n", 'levels-1.mjs': "if (!ok) throw new Error('x');\n" });
+  const b = audit(ok.dir);
+  assert.equal(find(b, /缺 FEATURES\.md|零断言流程/).length, 0);
+  ok.done();
 });

@@ -1,6 +1,8 @@
 # 测试钩子与试玩脚本
 
-选哪些流程、怎么证明脚本能抓错、怎么分档，按 `weicoz-verify` 的 `references/e2e-authoring.md`；本文只讲游戏钩子与脚本格式。
+选哪些流程、怎么分档，按 `weicoz-verify` 的 `references/e2e-authoring.md`；本文只讲游戏钩子与脚本格式。
+
+汇报“脚本能抓错”的证明与证据格式，见 `weicoz-verify` 的 `references/e2e-authoring.md` 汇报节与 `SKILL.md` 第 7 节。
 
 ## 为什么要钩子
 
@@ -25,7 +27,7 @@
 
 ## 试玩脚本模板
 
-存为 `tests/e2e/playtest.mjs`，`cocos-verify.mjs` 会自动运行。逐关通关直接复制 `levels-template.mjs`。本模板覆盖核心循环的特殊场景，按游戏改按钮名和期望值；每步都 `check(步骤名, 条件, 状态)`，返回值格式固定为 `{ pass, log }`。
+存为 `tests/e2e/playtest.mjs`，`cocos-verify.mjs` 会自动运行。逐关通关直接复制 `levels-template.mjs`。本模板覆盖核心循环的特殊场景，按游戏改按钮名和期望值；每步都 `check(步骤名, 条件, 状态)`，返回值格式固定为 `{ pass, log }`；`log` 为空或有任一项 `ok !== true` 都判失败，不信自报的 `pass`。
 
 ```js
 async page => {
@@ -63,7 +65,13 @@ async page => {
 }
 ```
 
-截图写在工程的 `temp/` 下，文件名以 `playtest-` 开头并按步骤编号，`cocos-verify.mjs` 会把它们拼成联系图。
+截图写在工程的 `temp/` 下，文件名以 `playtest-` 开头并按步骤编号，`cocos-verify.mjs` 会把本次运行生成的截图拼成联系图（每页 12 张）。
+
+## tests/e2e 的文件约定
+
+- `tests/e2e/` 下的 `.mjs` 全检时都会当试玩脚本运行；以 `_` 开头的是辅助文件，不运行。
+- 一次性排查脚本、出图脚本放 `spikes/` 或 `temp/`，不放 `tests/e2e/`。
+- 工程要有功能地图 `tests/e2e/FEATURES.md`，路径写进项目 `AGENTS.md` 的验证约定。
 
 ## 跳到指定关卡截图
 

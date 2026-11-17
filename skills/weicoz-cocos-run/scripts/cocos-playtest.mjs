@@ -6,7 +6,7 @@
  * 用法：node cocos-playtest.mjs --project <工程根> --script tests/e2e/playtest.mjs [--script ...]
  *        [--build] [--port <端口，默认自动取空闲端口>] [--shots "temp/playtest-*.png"] [--json]
  *   --build   先构建 web-mobile（默认用现有 build/web-mobile）
- *   --shots   截图 glob（相对工程根），拼成 temp/contact.png 供视觉巡检；默认 temp/playtest-*.png
+ *   --shots   截图 glob（相对工程根），拼成 temp/contact.png（超过 12 张分页 contact-1.png…）供视觉巡检；默认 temp/playtest-*.png
  *             试玩结束后另开一个桌面上下文（1440×900、非移动、无触摸、桌面 Chrome UA）截
  *             temp/playtest-zz-desktop.png，拼在联系图末尾；手机上下文的 resize 只会得到被放大的手机画面
  * 试玩脚本约定：`async page => {...}`，返回 { pass, log: [{ step, ok, ... }], metrics? }；未按约定返回时报错会在错误信息里重述该格式。
@@ -18,6 +18,7 @@ import { createServer as createNetServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { judgePlaytest, paginate } from './lib-verify.mjs'
 
 const args = process.argv.slice(2)
 const all = (name) => args.flatMap((a, i) => (a === name ? [args[i + 1]] : []))
@@ -37,7 +38,9 @@ if (!scripts.length) {
   process.exit(2)
 }
 
-const cli = (...a) => spawnSync('playwright-cli', [`-s=${session}`, ...a], { cwd: project, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+// run-code 超时（秒）：脚本卡死时不挂住整条验收；可用 PLAYTEST_CLI_TIMEOUT 覆盖
+const cliTimeoutMs = (Number(process.env.PLAYTEST_CLI_TIMEOUT) || 300) * 1000
+const cli = (...a) => spawnSync('playwright-cli', [`-s=${session}`, ...a], { cwd: project, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...(a[0] === 'run-code' ? { timeout: cliTimeoutMs } : {}) })
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // 桌面截图用独立会话：手机上下文里 resize 只会把手机画面放大裁切，测不出桌面横屏的真实适配
@@ -61,6 +64,7 @@ for (let i = 0; i < 30 && !up; i++) {
   up = await fetch(url).then((r) => r.ok, () => false)
 }
 const results = []
+const runStart = Date.now() // 联系图只取此刻之后生成的截图
 let desktopShotError = null
 try {
   if (!up) throw new Error(`预览服务 ${url} 没有起来`)
@@ -79,10 +83,12 @@ try {
     try { r = JSON.parse(raw) } catch { r = null }
     if (!r || typeof r !== 'object' || typeof r.pass !== 'boolean') {
       // 拿不到结果时指明脚本该返回什么，否则只看到“失败”却不知改哪里
-      const reason = text.match(/### Error\s*\n(.+)/)?.[1]
+      const reason = out.error?.code === 'ETIMEDOUT' ? `run-code 超过 ${cliTimeoutMs / 1000} 秒被终止` : text.match(/### Error\s*\n(.+)/)?.[1]
       r = { pass: false, error: ['没有拿到结果：试玩脚本须返回 { pass: boolean, log: [{ step, ok, ... }] }', reason && `原因：${reason}`].filter(Boolean).join('；').slice(0, 300) }
     }
-    results.push({ script: s, seconds: Math.round((Date.now() - started) / 1000), fps, ...r })
+    // 不只信脚本自报的 pass：log 必须非空且每项 ok
+    const j = r.error ? { pass: false } : judgePlaytest(r)
+    results.push({ script: s, seconds: Math.round((Date.now() - started) / 1000), fps, ...r, ...j })
   }
   // 桌面横屏截图（1440×900）：另开桌面上下文，竖屏游戏在宽窗口下是否居中留边只能这样看到；
   // 文件名排最后，进联系图末尾。失败只提示，不影响手机试玩的结果判定
@@ -119,29 +125,36 @@ try {
   server.kill()
 }
 
-// 联系图：把匹配的截图按名字排序横向拼成一张，视觉巡检只看这一张
-let contact = null
+// 联系图：只取本次运行开始后生成的截图，按名字排序横向拼；每页最多 12 张，超出分页 contact-1.png、contact-2.png…
+// 桌面图必定保留：固定放在最后一张
+let contacts = []
 const [dirPart, pattern] = [dirname(shots), basename(shots)]
 const dir = join(project, dirPart)
 if (existsSync(dir) && spawnSync('ffmpeg', ['-version']).status === 0) {
   const re = new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`)
-  const files = readdirSync(dir).filter((f) => re.test(f) && f !== 'contact.png').sort().map((f) => join(dir, f))
-    .filter((f) => statSync(f).mtimeMs > Date.now() - 30 * 60 * 1000) // 只拼本轮（30 分钟内）的截图
-    .slice(0, 12)
-  if (files.length) {
+  const desktopName = basename(desktopShot)
+  const fresh = (f) => statSync(f).mtimeMs >= runStart
+  const files = readdirSync(dir).filter((f) => re.test(f) && f !== desktopName && !/^contact(-\d+)?\.png$/.test(f)).sort().map((f) => join(dir, f)).filter(fresh)
+  if (existsSync(join(project, desktopShot)) && fresh(join(project, desktopShot))) files.push(join(project, desktopShot))
+  const pages = paginate(files, 12)
+  if (pages.length) {
     mkdirSync(join(project, 'temp'), { recursive: true })
-    contact = join(project, 'temp', 'contact.png')
-    const inputs = files.flatMap((f) => ['-i', f])
-    const scale = files.map((_, i) => `[${i}:v]scale=-2:640[v${i}]`).join(';')
-    const stack = files.length > 1 ? `;${files.map((_, i) => `[v${i}]`).join('')}hstack=inputs=${files.length}` : ''
-    const ff = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', ...inputs, '-filter_complex', `${scale}${stack}`, ...(files.length > 1 ? [] : ['-map', '[v0]']), '-frames:v', '1', contact])
-    if (ff.status !== 0) contact = null
+    for (const f of readdirSync(join(project, 'temp'))) if (/^contact(-\d+)?\.png$/.test(f)) rmSync(join(project, 'temp', f), { force: true })
+    pages.forEach((pg, pi) => {
+      const out = join(project, 'temp', pages.length === 1 ? 'contact.png' : `contact-${pi + 1}.png`)
+      const inputs = pg.flatMap((f) => ['-i', f])
+      const scale = pg.map((_, i) => `[${i}:v]scale=-2:640[v${i}]`).join(';')
+      const stack = pg.length > 1 ? `;${pg.map((_, i) => `[v${i}]`).join('')}hstack=inputs=${pg.length}` : ''
+      const ff = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', ...inputs, '-filter_complex', `${scale}${stack}`, ...(pg.length > 1 ? [] : ['-map', '[v0]']), '-frames:v', '1', out])
+      if (ff.status === 0) contacts.push(out)
+    })
   }
 }
+const contact = contacts[0] ?? null
 
 const pass = results.length > 0 && results.every((r) => r.pass === true)
 if (asJson) {
-  console.log(JSON.stringify({ pass, contact, results }, null, 2))
+  console.log(JSON.stringify({ pass, contact, contacts, results }, null, 2))
 } else {
   for (const r of results) {
     const steps = r.log?.length ?? 0
@@ -151,7 +164,8 @@ if (asJson) {
     if (r.error) console.log(`   错误：${r.error}`)
     if (r.metrics) console.log(`   指标：${JSON.stringify(r.metrics)}`)
   }
-  console.log(contact ? `联系图（视觉巡检看这张）：${contact}` : '联系图：无匹配截图或缺 ffmpeg')
+  if (contacts.length) for (const c of contacts) console.log(`联系图（视觉巡检看这张）：${c}`)
+  else console.log('联系图：无匹配截图或缺 ffmpeg')
   if (desktopShotError) console.log(`⚠️ 桌面截图：${desktopShotError}`)
   console.log(pass ? '状态：核心循环已验证（浏览器）。' : '状态：失败。')
 }

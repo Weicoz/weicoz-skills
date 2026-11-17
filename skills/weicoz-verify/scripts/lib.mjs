@@ -1,5 +1,7 @@
 // web-verify 的纯逻辑：参数解析、配置合并、结论行、忽略规则、env 文件解析。不依赖浏览器。
 import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
 
 export const DEFAULT_VIEWPORTS = [
   { name: 'mobile', width: 390, height: 844 },
@@ -14,10 +16,11 @@ export const DEFAULT_CONFIG = {
   flows: 'tests/e2e/*.flow.mjs',
   quickFlows: [], // 只写流程名，不带 .flow.mjs
   ignore: { console: [], pageerror: [], requests: [] }, // 正则字符串
+  flowTimeoutSec: 180, // 单个流程（含全部视口中的一个）整体超时
 };
 
 export function parseArgs(argv) {
-  const out = { project: null, quick: false, baseUrl: null, scripts: [], noStart: false, envFile: null, noChecks: false };
+  const out = { project: null, quick: false, baseUrl: null, scripts: [], noStart: false, envFile: null, noChecks: false, base: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const need = () => {
@@ -32,6 +35,7 @@ export function parseArgs(argv) {
     else if (a === '--no-start') out.noStart = true;
     else if (a === '--no-checks') out.noChecks = true;
     else if (a === '--env-file') out.envFile = need();
+    else if (a === '--base') out.base = need();
     else throw new Error(`未知参数：${a}`);
   }
   if (!out.project) throw new Error('缺少 --project <目录>');
@@ -112,4 +116,73 @@ export function failureLines(text, n = 5) {
 
 export function safeName(s) {
   return s.replace(/[^\p{L}\p{N}_.-]+/gu, '-').replace(/^-+|-+$/g, '') || 'x';
+}
+
+// 单个流程的结论。失败（步骤、problems、流程异常）优先；其次未验证；零 step 记失败。
+export function flowStatus({ stepFailed = false, flowError = false, problems = 0, unverifiedWhy = null, stepCount = 0 }) {
+  if (stepFailed || flowError || problems > 0) return 'fail';
+  if (unverifiedWhy) return 'unverified';
+  if (stepCount === 0) return 'zero';
+  return 'pass';
+}
+
+// 缩小范围的开关。--base-url / --no-start 不算：对部署环境跑是正当全检。
+export function partialSwitches(args) {
+  return [args.noChecks && '--no-checks', args.scripts?.length && '--script'].filter(Boolean);
+}
+
+export function partialItem(args) {
+  const sw = partialSwitches(args);
+  if (!sw.length) return null;
+  return { status: 'unverified', name: '完整档', missing: `完整${args.quick ? '快检' : '全检'}，本次用了 ${sw.join('、')}` };
+}
+
+// 能匹配空串的 ignore 模式会吞掉一切（"."、".*" 等），视为配置错误。非法正则按子串，仅空串有害。
+// 探针：空串与无意义文本都命中的模式（"."、".*"、"\\w"）会吞掉一切。
+const PROBES = ['', 'zq9~', '#@ !'];
+export function badIgnorePatterns(ignore = {}) {
+  const bad = [];
+  for (const [kind, list] of Object.entries(ignore)) {
+    for (const p of list || []) {
+      let hit;
+      try {
+        const re = new RegExp(p);
+        hit = PROBES.some((t) => re.test(t));
+      } catch { hit = p === ''; }
+      if (hit) bad.push(`${kind}:${p}`);
+    }
+  }
+  return bad;
+}
+
+// 去掉有害模式后的 ignore，供继续跑流程用。
+export function cleanIgnore(ignore = {}) {
+  const out = {};
+  for (const [kind, list] of Object.entries(ignore)) out[kind] = (list || []).filter((p) => badIgnorePatterns({ [kind]: [p] }).length === 0);
+  return out;
+}
+
+// --script 既可写路径，也可写流程名（smoke -> <flows 目录>/smoke.flow.mjs 或 smoke.mjs）。
+export function resolveScript(s, project, flowsDir, exists = fs.existsSync) {
+  const direct = path.resolve(project, expandHome(s));
+  if (exists(direct) || s.includes('/') || s.endsWith('.mjs')) return direct;
+  for (const f of [`${s}.flow.mjs`, `${s}.mjs`]) if (exists(path.join(flowsDir, f))) return path.join(flowsDir, f);
+  return direct;
+}
+
+// package.json 里 verify:* 脚本相对基线的变化，返回变动的键。
+export function verifyScriptsChanged(oldText, newText) {
+  const pick = (t) => {
+    try { return JSON.parse(t || '{}').scripts || {}; } catch { return {}; }
+  };
+  const a = pick(oldText);
+  const b = pick(newText);
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)].filter((k) => k.startsWith('verify:')));
+  return [...keys].filter((k) => a[k] !== b[k]).sort();
+}
+
+export function withTimeout(promise, sec, label) {
+  let t;
+  const timeout = new Promise((_, rej) => { t = setTimeout(() => rej(new Error(`${label}超过 ${sec} 秒未结束`)), sec * 1000); });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
 }

@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-flow
-version: 1.9.0
+version: 1.9.1
 description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）：开项目、先找乐趣再工程化的两段式路线、阶段门与各阶段该用的 skill。用于开始或接手一个小游戏项目、问“下一步做什么”、判断能否进入下一阶段。
 ---
 
@@ -108,7 +108,8 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 3. 平台能力（存档、分享、广告、隐私）按 `weicoz-cocos-dev` 的 `references/wechat-platform.md` 接入；先接存档，广告在流量主开通前用空实现。
 4. 美术、音效按 `weicoz-game-assets` 替换灰盒表现（出图稳定性与 UI 文字规则见其第 3 节）。
 5. 改动收尾用 `weicoz-code-review`。
-6. 目标平台构建与验证用 `weicoz-cocos-run`，跑它第 4 节的发版回归清单。
+6. 收尾前跑全检（不带 `--quick`），结论为“通过”才算完；只跑过快检不得收尾。
+7. 目标平台构建与验证用 `weicoz-cocos-run`，跑它第 4 节的发版回归清单。
 
 **竖切门**：
 
