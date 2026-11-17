@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-flow
-version: 1.9.1
+version: 1.9.2
 description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）：开项目、先找乐趣再工程化的两段式路线、阶段门与各阶段该用的 skill。用于开始或接手一个小游戏项目、问“下一步做什么”、判断能否进入下一阶段。
 ---
 
@@ -44,8 +44,8 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 | `prototype` | 一次性验证玩法 | 在 `spikes/` 下写一次性脚本或网页，结论写进 `docs/PENDING.md` 后删掉 |
 | `grill-with-docs` / `grilling` | 逐项追问待定项 | 按 `docs/PENDING.md` 逐条问用户，答案写进 `GLOSSARY.md` 与 `docs/adr/` |
 | `to-spec` / `to-tickets` | 规格与票据 | 写 `docs/spec.md`，每票一节：目标、改动范围、验收（对应试玩脚本步骤） |
-| `weicoz-verify` | 通用验证约定：结论行、两档、修复上限、四级状态 | 读 `weicoz-cocos-run` 第 5 节与 `cocos-verify.mjs` 输出的结论行，按“通过 / 不通过 / 未验证”三态判断；同一项连续 2 次修不好即停下报告 |
-| `weicoz-implement-verified` | 带验证闭环的实现 | 逐票实现：先写成功标准，规则核先写失败测试，改完跑项目 `## 验证约定` 的快检，通过后再报完成 |
+| `weicoz-verify` | 通用验证约定：结论行、三档、修复上限、四级状态 | 读 `weicoz-cocos-run` 第 5 节与 `cocos-verify.mjs` 输出的结论行，按“通过 / 不通过 / 未验证”三态判断；失败处理按 `weicoz-verify` 第 4 节 |
+| `weicoz-implement-verified` | 带验证闭环的实现 | 逐票实现：先写成功标准，规则核先写失败测试，每轮跑项目 `## 验证约定` 的快检，收尾跑全检，全检通过后再报完成 |
 | `implement-spec` / `tdd` | 多票实现；规则核测试先行 | 逐票实现；规则核先写失败测试再实现 |
 | `weicoz-code-review` | 改动审查 | 自审 diff：规则核是否有测试、视图层是否重复判胜负、平台调用是否只在 `platform/` |
 | `retro` | 复盘 | 在 `docs/retro.md` 记三项：有用的、卡住的、下次改的 |

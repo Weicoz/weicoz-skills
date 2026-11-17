@@ -5,7 +5,7 @@
 脚本：`scripts/web-verify.mjs`（只用 Node 内置模块）。输出遵守 `SKILL.md` 第 2 节：最后一行是结论行，退出码 0 通过、1 不通过、3 未验证。
 
 ```bash
-node ~/.agents/skills/weicoz-verify/scripts/web-verify.mjs --project <目录> [--quick] [--base-url <URL>] [--script <流程名或路径> ...] [--no-start] [--no-checks] [--env-file <路径>] [--base <ref>]
+node ~/.agents/skills/weicoz-verify/scripts/web-verify.mjs --project <目录> [--quick] [--base-url <URL>] [--script <流程名或路径> ...] [--no-start] [--no-checks] [--env-file <路径>] [--base <基础分支>]
 ```
 
 | 参数 | 作用 |

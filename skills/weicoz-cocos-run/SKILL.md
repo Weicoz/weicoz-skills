@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-run
-version: 1.11.0
+version: 1.11.1
 description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行构建（web-mobile / wechatgame）、给用户可点开的预览、自动试玩验收与分级证据。用于“跑起来看看”“我怎么测试”“在 Cocos 里预览给我看”“构建微信小游戏”“验收 demo”。
 ---
 
@@ -10,7 +10,7 @@ description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行�
 
 ## 速查：要做什么 → 跑哪条命令 → 看哪一行
 
-脚本都在本 skill 的 `scripts/`，`--project` 指向含 `assets/` 的 Cocos 工程目录。通用约定（结论行、两档、修复上限、四级状态）在 `weicoz-verify`，本文件只写 Cocos 游戏特有部分。
+脚本都在本 skill 的 `scripts/`，`--project` 指向含 `assets/` 的 Cocos 工程目录。通用约定（结论行、三档、修复上限、四级状态）在 `weicoz-verify`，本文件只写 Cocos 游戏特有部分。
 
 | 要做什么 | 命令 | 看哪一行 |
 | --- | --- | --- |
@@ -21,7 +21,7 @@ description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行�
 | 只跑某个试玩脚本 | `node cocos-playtest.mjs --project <工程> --script tests/e2e/<名>.mjs` | ✅/❌ 行与“失败步骤” |
 | 查包体 | `node cocos-build.mjs --project <工程> --platform wechatgame --release` | “主包 x MB” |
 
-`cocos-verify.mjs` 是 `weicoz-verify` 第 2 节的适配器：最后一行为唯一结论，退出码 0 通过、1 不通过、3 未验证（缺 CocosCreator 等无法构建的环境，设 `COCOS_CREATOR_BIN` 后重跑）。不通过时的修复规则见 `weicoz-verify` 第 4 节（同一项连续 2 次修不好即停下报告）。多个代理可以同时运行它：试玩端口和浏览器会话按空闲端口自动分配。脚本可以直接执行，不需要先读它依赖的其他 skill。
+`cocos-verify.mjs` 是 `weicoz-verify` 第 2 节的适配器：最后一行为唯一结论，退出码 0 通过、1 不通过、3 未验证（缺 CocosCreator 等无法构建的环境，设 `COCOS_CREATOR_BIN` 后重跑）。不通过时的修复规则见 `weicoz-verify` 第 4 节（停止条件按该节）。多个代理可以同时运行它：试玩端口和浏览器会话按空闲端口自动分配。脚本可以直接执行，不需要先读它依赖的其他 skill。
 
 ## 1. 预检（每个会话第一次碰 Cocos 前）
 
@@ -103,8 +103,8 @@ MCP 连接方式决定写操作怎么调用：
    - 核心循环（被挡、失败、重开、存档等）：按 `references/playtest-hook.md` 的模板写 `tests/e2e/playtest.mjs`。
    - 脚本放 `tests/e2e/`，`cocos-verify.mjs` 会自动全部运行；以 `_` 开头的 `.mjs` 是辅助文件，不运行。一次性排查脚本不放 `tests/e2e/`。
 3. **运行**：跑 `cocos-verify.mjs`。它构建、起预览、用手机尺寸跑全部脚本、采样帧率、输出每关点击数与耗时、拼出联系图 `temp/contact.png`（超过 12 张分页为 `contact-1.png`、`contact-2.png`…，全部路径都会打印，逐张看；桌面图固定在最后一张）。
-4. **两档回归**：日常 `--quick`（只跑 `playtest.mjs`，并给脚本设 `PLAYTEST_FAST=1`；`levels-template.mjs` 读它开钩子快速模式，自写脚本要读它才会加速）；阶段门前不带 `--quick`（全部脚本、真实动画、release 包体，不设 `PLAYTEST_FAST`）。
-5. **档位与未验证**：`npm test` 会收到 `VERIFY_TIER=quick|full`，项目测试据此调规模。`package.json` 没有 `test` 脚本、或用了 `--no-release` / `--script` 缩小范围时，结论为“未验证”（退出码 3），不得写成通过。只有环境高负载且失败全是超时类，单测才重跑 1 次，重跑通过标“不稳定：首轮超时”。
+4. **快检与全检**（`weicoz-verify` 第 3 节）：日常 `--quick`（只跑 `playtest.mjs`，并给脚本设 `PLAYTEST_FAST=1`；`levels-template.mjs` 读它开钩子快速模式，自写脚本要读它才会加速）；阶段门前不带 `--quick`（全部脚本、真实动画、release 包体，不设 `PLAYTEST_FAST`）。
+5. **档位与未验证**：`npm test` 会收到 `VERIFY_TIER=quick|full`，项目测试据此调规模。`package.json` 没有 `test` 脚本、或用了 `--no-release` / `--script` 缩小范围时，结论为“未验证”（退出码 3），不得写成通过。只有环境高负载且失败全是超时类，单测才重跑 1 次，重跑通过标“不稳定：首轮超时”（⚠️，不记 ✅；规则按 `weicoz-verify` 第 4 节）。`--quick` 带 `--script` 也记“部分”。验收时带 `--base <基础分支>`：`AGENTS.md`、`CLAUDE.md`、`package.json` 有改动时结论为未验证；不认识的参数直接报错退出 3。
 
 每条验收按 `weicoz-verify` 第 7 节写成一行。另查一遍浏览器控制台或编辑器日志，有报错就写进缺陷。
 
@@ -122,7 +122,7 @@ MCP 连接方式决定写操作怎么调用：
 
 **桌面横屏适配**：竖屏游戏在桌面浏览器横屏窗口下，用 `ResolutionPolicy.ContainerStrategy.PROPORTION_TO_FRAME` + `SHOW_ALL`。只在非移动端且窗口比设计比例宽时启用；手机尺寸下启用会改变试玩脚本的点击坐标。
 
-**环境负载**：规则见 `weicoz-verify` 第 4 节第 4、6 条。`cocos-verify.mjs` 开跑前读 1 分钟负载，偏高时输出首行“⚠️ 负载高”。单元测试失败全是超时类时自动重跑一次，重跑通过记“✅（首轮负载超时，已重跑通过）”。浏览器自动化用完立即关闭标签页或任务空间。
+**环境负载**：规则见 `weicoz-verify` 第 4 节第 4、6 条。`cocos-verify.mjs` 开跑前读 1 分钟负载，偏高时输出首行“⚠️ 负载高”。单元测试失败全是超时类时自动重跑一次，重跑通过记“不稳定：首轮超时”（⚠️）。浏览器自动化用完立即关闭标签页或任务空间。
 
 体验类问题按 `weicoz-verify` 第 7 节处理：把 `cocos-verify.mjs` 输出的帧率、每关点击数和耗时抄进验收包，交给制作人判断。
 

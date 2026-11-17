@@ -199,12 +199,12 @@ test('归档匹配只认整段目录名：tmpl-guide.md 不跳过，archive/ 与
 });
 
 test('端到端：缺 FEATURES.md 与零断言流程为中；有断言或有功能地图则不报', () => {
-  const bad = repo({ 'AGENTS.md': '# a\n', 'CLAUDE.md': '@AGENTS.md', 'tests/e2e/a.flow.mjs': 'await run();\n', 'tools/playtest-x.mjs': 'console.log(1)\n' });
+  const bad = repo({ 'AGENTS.md': '# a\n', 'CLAUDE.md': '@AGENTS.md', 'tests/e2e/a.flow.mjs': 'await run();\n', 'tests/e2e/c.flow.mjs': "// step('x')\n/* check(1) */\nrun();\n", 'tools/playtest-x.mjs': 'console.log(1)\n', 'src/levels-data.mjs': 'export default [];\n' });
   const a = audit(bad.dir);
   assert.equal(find(a, /缺 FEATURES\.md/).length, 1);
-  assert.deepEqual(find(a, /零断言流程/).map((f) => f.path).sort(), ['tests/e2e/a.flow.mjs:1', 'tools/playtest-x.mjs:1']);
+  assert.deepEqual(find(a, /零断言流程/).map((f) => f.path).sort(), ['tests/e2e/a.flow.mjs:1', 'tests/e2e/c.flow.mjs:1']);
   bad.done();
-  const ok = repo({ 'AGENTS.md': '# a\n', 'CLAUDE.md': '@AGENTS.md', 'tests/e2e/FEATURES.md': '# 功能\n', 'tests/e2e/a.flow.mjs': "step('x', () => {});\n", 'levels-1.mjs': "if (!ok) throw new Error('x');\n" });
+  const ok = repo({ 'AGENTS.md': '# a\n', 'CLAUDE.md': '@AGENTS.md', 'tests/e2e/FEATURES.md': '# 功能\n', 'tests/e2e/a.flow.mjs': "step('x', () => {});\n", 'tests/e2e/levels-1.mjs': "if (!ok) throw new Error('x');\n" });
   const b = audit(ok.dir);
   assert.equal(find(b, /缺 FEATURES\.md|零断言流程/).length, 0);
   ok.done();

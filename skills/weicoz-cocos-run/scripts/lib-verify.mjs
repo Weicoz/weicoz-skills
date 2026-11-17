@@ -19,9 +19,26 @@ export const flakyDetail = (firstOut) => {
 // 没有 test 脚本：未验证，不是通过
 export const noTestScriptRow = () => ({ name: '单元测试', ok: false, unverified: true, missing: 'test 脚本', detail: '未验证（缺：test 脚本）' })
 
-// 缩小范围的开关；快检本身是独立档位，不算缩小
+// 缩小范围的开关；快检本身是独立档位，不算缩小，但快检再限定脚本仍算部分
 export const partialReasons = ({ quick, noRelease, scriptGiven }) =>
-  quick ? [] : [noRelease && '--no-release', scriptGiven && '--script'].filter(Boolean)
+  [!quick && noRelease && '--no-release', scriptGiven && '--script'].filter(Boolean)
+
+// 未知参数、缺值都报错，不静默忽略。返回 { error } 或 { ok: true }
+export const checkArgs = (argv) => {
+  const flags = ['--quick', '--no-release']
+  const withValue = ['--project', '--script', '--port', '--base']
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (flags.includes(a)) continue
+    if (!withValue.includes(a)) return { error: a }
+    const v = argv[++i]
+    if (v === undefined || v.startsWith('--')) return { error: `${a}（缺值）` }
+  }
+  return { ok: true }
+}
+
+// 评分相关文件：改动须交用户确认。changed 为相对 base 变动或新建未跟踪的文件名
+export const SCORING_FILES = ['AGENTS.md', 'CLAUDE.md', 'package.json']
 
 // 返回 { verdict: 0|1|3, line }
 export const finalVerdict = (rows, partial = []) => {

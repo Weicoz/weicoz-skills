@@ -3,10 +3,11 @@
  * Web 端一键验收：把“改完代码要跑的全部检查”串成一条命令，逐项给 ✅/❌，最后一行给唯一结论。
  * 给任何模型用：照抄最后的“结论”与失败项，不需要自己判断。
  *
- * 用法：node cocos-verify.mjs --project <Cocos 工程目录> [--script tests/e2e/playtest.mjs ...] [--quick] [--no-release]
+ * 用法：node cocos-verify.mjs --project <Cocos 工程目录> [--script tests/e2e/playtest.mjs ...] [--quick] [--no-release] [--base <基础分支>]
  *   --script      试玩脚本，可多个；不传时用工程 tests/e2e/ 下全部 .mjs（--quick 时只用 playtest.mjs；以 _ 开头的是辅助文件，不运行）
  *   --quick       日常回归：跳过 release 构建，只跑 playtest.mjs
  *   --no-release  不做 wechatgame release 包体检查（档位标“部分”，结论至多为未验证）
+ *   --base        基础分支；AGENTS.md、CLAUDE.md、package.json 相对它有改动时结论至多为未验证（交用户确认）
  *   --port        试玩预览端口；默认自动取空闲端口，可多个代理并行验收
  * 顺序：类型检查 → 单元测试（package.json 有 test 脚本时）→ 引擎模块 → web-mobile 构建 → 试玩（含联系图）→ release 包体。
  * 任一项失败继续跑完其余项，便于一次看全。输出符合 weicoz-verify 第 2 节：逐项一行以 ✅/❌/⚠️ 开头，
@@ -17,9 +18,14 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { cpus, loadavg } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { finalVerdict, flakyDetail, noTestScriptRow, partialReasons, shouldRerun } from './lib-verify.mjs'
+import { checkArgs, SCORING_FILES, finalVerdict, flakyDetail, noTestScriptRow, partialReasons, shouldRerun } from './lib-verify.mjs'
 
 const args = process.argv.slice(2)
+const argCheck = checkArgs(args)
+if (argCheck.error) {
+  console.log(`⚠️ 无法识别的参数：${argCheck.error}\n结论：未验证（缺：可识别的参数 ${argCheck.error}）`)
+  process.exit(3)
+}
 const all = (name) => args.flatMap((a, i) => (a === name ? [args[i + 1]] : []))
 const project = resolve(all('--project')[0] ?? process.cwd())
 const quick = args.includes('--quick')
@@ -50,6 +56,19 @@ process.on('unhandledRejection', (e) => { throw e })
 if (!existsSync(join(project, 'assets'))) {
   console.log(`⚠️ ${project} 下没有 assets/：--project 要指向 Cocos 工程目录\n结论：未验证（缺：Cocos 工程目录）`)
   process.exit(3)
+}
+
+const base = all('--base')[0]
+if (base) {
+  const git = (a) => spawnSync('git', ['-C', project, ...a], { encoding: 'utf8' })
+  const d = git(['diff', '--name-only', '--relative', base, '--', ...SCORING_FILES])
+  if (d.status !== 0) {
+    rows.push({ name: '评分配置对照', ok: false, unverified: true, missing: `评分配置对照（${base} 不可用）`, detail: `无法对照基线 ${base}：${(d.stderr || '').split('\n')[0]}` })
+  } else {
+    const u = git(['ls-files', '--others', '--exclude-standard', '--', ...SCORING_FILES])
+    const changed = [...d.stdout.split('\n'), ...(u.stdout || '').split('\n')].filter(Boolean)
+    if (changed.length) rows.push({ name: '评分配置', ok: false, unverified: true, missing: '评分配置改动待用户确认', detail: `相对 ${base} 有改动：${changed.join('、')}` })
+  }
 }
 
 run('类型检查', process.execPath, [typecheck, '--project', project], (code, out) =>

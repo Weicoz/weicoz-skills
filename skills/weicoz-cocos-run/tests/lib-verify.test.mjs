@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isTimeoutOnly, shouldRerun, flakyDetail, noTestScriptRow, partialReasons, finalVerdict, judgePlaytest, paginate } from '../scripts/lib-verify.mjs';
+import { isTimeoutOnly, shouldRerun, flakyDetail, noTestScriptRow, partialReasons, checkArgs, finalVerdict, judgePlaytest, paginate } from '../scripts/lib-verify.mjs';
 
 test('C1：无 test 脚本不得为通过，结论未验证', () => {
   const rows = [{ name: '类型检查', ok: true }, noTestScriptRow()];
@@ -30,7 +30,8 @@ test('C2：不稳定明细保留末 5 行', () => {
 test('C3：--no-release 全通过也是未验证；快检不算缩小', () => {
   const ok = [{ name: 'a', ok: true }];
   assert.deepEqual(partialReasons({ quick: false, noRelease: true, scriptGiven: false }), ['--no-release']);
-  assert.deepEqual(partialReasons({ quick: true, noRelease: true, scriptGiven: true }), []);
+  assert.deepEqual(partialReasons({ quick: true, noRelease: true, scriptGiven: true }), ['--script']);
+  assert.deepEqual(partialReasons({ quick: true, noRelease: false, scriptGiven: false }), []);
   const v = finalVerdict(ok, ['--no-release']);
   assert.equal(v.verdict, 3);
   assert.equal(v.line, '结论：未验证（缺：完整全检，本次用了 --no-release）');
@@ -52,4 +53,10 @@ test('C6：超过 12 张分页', () => {
   const f = Array.from({ length: 25 }, (_, i) => i);
   assert.deepEqual(paginate(f).map((p) => p.length), [12, 12, 1]);
   assert.equal(paginate([]).length, 0);
+});
+
+test('checkArgs：未知参数与缺值报错', () => {
+  assert.deepEqual(checkArgs(['--project', 'p', '--quick', '--base', 'main', '--script', 'a.mjs']), { ok: true });
+  assert.equal(checkArgs(['--bsae', 'main']).error, '--bsae');
+  assert.match(checkArgs(['--base']).error, /缺值/);
 });

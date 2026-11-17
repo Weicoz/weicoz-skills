@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseArgs, mergeConfig, matchIgnore, verdict, parseEnvFile, loadLine, safeName, tailLines, failureLines,
-  flowStatus, partialSwitches, partialItem, badIgnorePatterns, cleanIgnore, resolveScript, verifyScriptsChanged, withTimeout } from '../scripts/lib.mjs';
+  flowStatus, checksMissing, unknownConfigKeys, briefMessage, partialSwitches, partialItem, badIgnorePatterns, cleanIgnore, resolveScript, verifyScriptsChanged, withTimeout } from '../scripts/lib.mjs';
 
 test('parseArgs：全部参数', () => {
   const a = parseArgs(['--project', '/p', '--quick', '--base-url', 'http://x:1', '--script', 'a.mjs', '--script', 'b.mjs', '--no-start']);
@@ -84,10 +84,10 @@ test('partialItem：缩小开关降级为未验证，--base-url/--no-start 不�
 
 test('badIgnorePatterns / cleanIgnore：能匹配空串的模式有害', () => {
   const ig = { console: ['.', 'favicon', '.*', ''], requests: ['a|b', '^$'], pageerror: ['[bad'] };
-  assert.deepEqual(badIgnorePatterns({ console: ['.*', 'x'], requests: ['^$'] }), ['console:.*', 'requests:^$']);
-  assert.deepEqual(badIgnorePatterns({ console: ['.', 'favicon'], pageerror: ['[bad'] }), ['console:.']);
-  assert.deepEqual(badIgnorePatterns({ console: ['favicon\\.ico$'], pageerror: ['[bad'] }), []);
-  assert.deepEqual(cleanIgnore({ console: ['.*', 'x'] }), { console: ['x'] });
+  assert.deepEqual(badIgnorePatterns({ console: ['.*', 'xxxx'], requests: ['^$'] }), ['console:.*', 'requests:^$']);
+  assert.deepEqual(badIgnorePatterns({ console: ['.', 'favicon'], pageerror: ['[badx'] }), ['console:.']);
+  assert.deepEqual(badIgnorePatterns({ console: ['favicon\\.ico$'], pageerror: ['[badx'] }), []);
+  assert.deepEqual(cleanIgnore({ console: ['.*', 'xxxx'] }), { console: ['xxxx'] });
 });
 
 test('resolveScript：路径与流程名都可用', () => {
@@ -112,4 +112,32 @@ test('withTimeout：超时 reject，正常返回', async () => {
 
 test('parseArgs：--base', () => {
   assert.equal(parseArgs(['--project', '.', '--base', 'main']).base, 'main');
+});
+
+test('ignore 模式需有连续 4 个字面字符', () => {
+  const bad = (p) => badIgnorePatterns({ console: [p] }).length === 1;
+  assert.ok(bad('.{5,}'));
+  assert.ok(bad('\\w+'));
+  assert.ok(bad('ab.*cd'));
+  assert.ok(!bad('favicon\\.ico'));
+  assert.ok(!bad('ResizeObserver loop'));
+});
+
+test('checksMissing：当前档无命令检查', () => {
+  const c = mergeConfig({ checks: { full: [{ name: 'n', cmd: 'true' }] } }, {});
+  assert.equal(checksMissing(c, 'quick', {}), true);
+  assert.equal(checksMissing(c, 'full', {}), false);
+  assert.equal(checksMissing(c, 'quick', { noChecks: true }), false);
+  assert.equal(checksMissing(mergeConfig({ chekcs: {} }, {}), 'full', {}), true);
+});
+
+test('unknownConfigKeys：顶层拼错字段', () => {
+  assert.deepEqual(unknownConfigKeys({ baseUrl: 'x', chekcs: {} }), ['chekcs']);
+  assert.deepEqual(unknownConfigKeys({ checks: {} }), []);
+});
+
+test('briefMessage：前 4 个非空行，总长 ≤600', () => {
+  const m = 'Error: x\n\n  locator(a)\n  waiting\n  call log\n  extra';
+  assert.equal(briefMessage(m), 'Error: x\nlocator(a)\nwaiting\ncall log');
+  assert.ok(briefMessage('a'.repeat(2000)).length <= 601);
 });

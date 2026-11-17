@@ -140,6 +140,14 @@ export function partialItem(args) {
 // 能匹配空串的 ignore 模式会吞掉一切（"."、".*" 等），视为配置错误。非法正则按子串，仅空串有害。
 // 探针：空串与无意义文本都命中的模式（"."、".*"、"\\w"）会吞掉一切。
 const PROBES = ['', 'zq9~', '#@ !'];
+// 模式里至少要有连续 4 个普通字面字符（去掉转义、字符类、量词后），否则 ".{5,}"、"\\w+" 会吞掉大量消息。
+export function hasLiteralRun(p, n = 4) {
+  const t = String(p)
+    .replace(/\\[A-Za-z0-9]/g, '|') // \w \d \s \b 等
+    .replace(/\\./g, 'x') // \. 等转义的元字符按一个字面字符
+    .replace(/\[[^\]]*\]|\{[^}]*\}/g, '|');
+  return new RegExp(`[^.*+?^$|()\\[\\]{}\\\\]{${n}}`).test(t);
+}
 export function badIgnorePatterns(ignore = {}) {
   const bad = [];
   for (const [kind, list] of Object.entries(ignore)) {
@@ -147,8 +155,8 @@ export function badIgnorePatterns(ignore = {}) {
       let hit;
       try {
         const re = new RegExp(p);
-        hit = PROBES.some((t) => re.test(t));
-      } catch { hit = p === ''; }
+        hit = PROBES.some((t) => re.test(t)) || !hasLiteralRun(p);
+      } catch { hit = !hasLiteralRun(p); }
       if (hit) bad.push(`${kind}:${p}`);
     }
   }
@@ -185,4 +193,20 @@ export function withTimeout(promise, sec, label) {
   let t;
   const timeout = new Promise((_, rej) => { t = setTimeout(() => rej(new Error(`${label}超过 ${sec} 秒未结束`)), sec * 1000); });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
+}
+
+// 当前档没有命令检查（checks 缺失或为空）且未用 --no-checks：结论不得是通过。
+export function checksMissing(cfg, tier, args) {
+  return !args.noChecks && (cfg.checks?.[tier] || []).length === 0;
+}
+
+// config 顶层不认识的字段（多为拼写错误）。
+export function unknownConfigKeys(user = {}) {
+  return Object.keys(user).filter((k) => !(k in DEFAULT_CONFIG));
+}
+
+// 失败信息：去 ANSI，取前 4 个非空行，总长不超过 600 字（保留 Playwright 定位器行）。
+export function briefMessage(msg, lines = 4, max = 600) {
+  const t = String(msg).replace(/\x1b\[[0-9;]*m/g, '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, lines).join('\n');
+  return t.length > max ? t.slice(0, max) + '…' : t;
 }

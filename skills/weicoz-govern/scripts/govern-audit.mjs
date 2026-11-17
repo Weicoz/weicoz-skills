@@ -285,8 +285,10 @@ function checkTests(root, files, add) {
 function checkE2E(root, files, add) {
   if (files.some((f) => /^(.*\/)?tests\/e2e\//.test(f)) && !files.some((f) => /^(.*\/)?tests\/e2e\/FEATURES\.md$/.test(f)))
     add('中', 'tests/e2e:1', '有 tests/e2e 但缺 FEATURES.md（功能地图）', '按 weicoz-verify 的 references/e2e-authoring.md 补功能地图');
-  for (const f of files.filter((x) => /(\.flow\.mjs|(^|\/)playtest[^/]*\.mjs|(^|\/)levels[^/]*\.mjs)$/.test(x))) {
-    if (!/\b(step|check|expect|assert)\s*\(|\bthrow\b/.test(read(join(root, f))))
+  // 只看 tests/e2e/ 下的流程文件；判断前去掉注释
+  for (const f of files.filter((x) => /(^|\/)tests\/e2e\/(.*\/)?[^/]*(\.flow\.mjs|playtest[^/]*\.mjs|levels[^/]*\.mjs)$/.test(x))) {
+    const code = read(join(root, f)).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+    if (!/\b(step|check|expect|assert)\s*\(|\bthrow\b/.test(code))
       add('中', `${f}:1`, '零断言流程：未见 step(/check(/expect(/throw，流程只会跑不会判', '补断言，或确认作废后删除（须先征得确认）');
   }
 }

@@ -27,7 +27,7 @@
 
 ## 试玩脚本模板
 
-存为 `tests/e2e/playtest.mjs`，`cocos-verify.mjs` 会自动运行。逐关通关直接复制 `levels-template.mjs`。本模板覆盖核心循环的特殊场景，按游戏改按钮名和期望值；每步都 `check(步骤名, 条件, 状态)`，返回值格式固定为 `{ pass, log }`；`log` 为空或有任一项 `ok !== true` 都判失败，不信自报的 `pass`。
+存为 `tests/e2e/playtest.mjs`，`cocos-verify.mjs` 会自动运行。逐关通关直接复制 `levels-template.mjs`。本模板覆盖核心循环的特殊场景，按游戏改按钮名和期望值；每步都 `check(步骤名, 条件, 状态)`；条件必须来自钩子状态或页面观测，不得写常量 `true` 或与被测值无关的表达式；返回值格式固定为 `{ pass, log }`；`log` 为空或有任一项 `ok !== true` 都判失败，不信自报的 `pass`。
 
 ```js
 async page => {

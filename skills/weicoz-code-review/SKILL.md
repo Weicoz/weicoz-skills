@@ -1,6 +1,6 @@
 ---
 name: weicoz-code-review
-version: 1.3.0
+version: 1.3.1
 description: 省 token 的本地代码审查：审查某个比较点、提交区间或未提交改动，按规范与需求两条线找问题，再批量打置信分过滤误报。Claude Code 中整体 fork 给 Sonnet 执行，主对话只收最终报告；大改动或高风险改动才加派审查，打分用 Haiku。用于“审查/review 我的改动”“审一下这个分支/这几个提交”“weicoz-code-review”。不用于发布 GitHub PR 评论、安全专项审计（用 /security-review）、高风险最终把关（用 @gatekeeper）。
 argument-hint: "[比较点|A..B] [--repo <路径>] [--incremental] [--deep] [--cheap] [--full] [--spec <路径>]"
 context: fork
@@ -41,7 +41,7 @@ background: false
 `mutex|lock\(|semaphore|race|atomic|thread|goroutine|Promise\.all|concurren|transaction|auth|permission|privilege|sudo|chmod|chown|token|secret|role|migrat|ALTER TABLE|DROP |schema|subagent|orchestrat|dispatch|spawn`
 另外，`package.json` / `requirements*.txt` / `go.mod` / `Cargo.toml` 的依赖变化、`*.sql`、`migrations/` 也算命中。记录命中项。
 
-**高风险目录**：读项目 `AGENTS.md` “验证约定”里的高风险目录与禁改目录。改动触及高风险目录，算风险命中，走大档并加独立审查者（第 2 步）。触及禁改目录，报“高危”发现，不看分数。
+**高风险目录**：按范围的起点读 `git show <基础分支>:AGENTS.md`，取“验证约定”里的高风险目录与禁改目录，不读当前改动里的版本。当前 `AGENTS.md` 与基础分支版本不同时，在报告里单列“AGENTS.md 被改动”。基线、快照、阈值文件的改动同属必看。改动触及高风险目录，算风险命中，走大档并加独立审查者（第 2 步）。触及禁改目录，报“高危”发现，不看分数。
 
 **规范来源**：列出改动目录及其各级上级目录中的 `CLAUDE.md`、`AGENTS.md`、`CONTRIBUTING.md`，以及仓库根的 `CODING_STANDARDS.md`、`REVIEW.md`，只取路径。规范一律按范围的起点（基础分支或起始提交）读取：`git show <起点>:<路径>`，不读当前改动里的版本。本次改动修改了规范文件时，在报告里单独列出“规范文件被改动”，交用户确认；本轮仍按起点版本审查。
 

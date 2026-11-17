@@ -73,10 +73,10 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 
 | Skill | 版本 | 说明 |
 | --- | --- | --- |
-| [`weicoz-game-flow`](skills/weicoz-game-flow/) | 1.9.1 | 总流程：先找乐趣（灰盒）再工程化，人工检查点集中到 4 个节点与验收包，衔接 Matt 流程 |
+| [`weicoz-game-flow`](skills/weicoz-game-flow/) | 1.9.2 | 总流程：先找乐趣（灰盒）再工程化，人工检查点集中到 4 个节点与验收包，衔接 Matt 流程 |
 | [`weicoz-game-design`](skills/weicoz-game-design/) | 1.7.0 | 参考视频抽帧拆解、可量化对标指标、可解关卡生成器、数值、交互、IP 安全 |
 | [`weicoz-cocos-dev`](skills/weicoz-cocos-dev/) | 1.6.0 | 规则核与视图分层、主控组件、Cocos 坑点、离线类型检查脚本、微信与抖音存档/分享/广告/隐私、后台资料次数与上线检查 |
-| [`weicoz-cocos-run`](skills/weicoz-cocos-run/) | 1.11.0 | 预检、一键 web 验收（cocos-verify，缩小范围不出通过、试玩结果由运行器复核）、试玩运行器与联系图、标准测试钩子模板、预览与手机地址自检、验证分级 |
+| [`weicoz-cocos-run`](skills/weicoz-cocos-run/) | 1.11.1 | 预检、一键 web 验收（cocos-verify，缩小范围不出通过、试玩结果由运行器复核）、试玩运行器与联系图、标准测试钩子模板、预览与手机地址自检、验证分级 |
 | [`weicoz-game-assets`](skills/weicoz-game-assets/) | 1.7.0 | 美术方向与风格锚点、素材契约、网格图切分裁边检查、字体授权与字形核对、导入与首包预算 |
 
 #### 飞书与办公自动化
@@ -164,10 +164,10 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-log-driven-ai-development`](skills/weicoz-log-driven-ai-development/) | 1.0.0 | 用日志把关键流程与结果变得可查，便于 AI 排查与验证 |
 | [`weicoz-ai-dev-os`](skills/weicoz-ai-dev-os/) | 1.0.0 | 安装或同步项目级 AI 开发治理、宪法、SDD 与架构护栏 |
 | [`weicoz-codex-context-window-override`](skills/weicoz-codex-context-window-override/) | 1.0.0 | 用 model_catalog_json 修改 Codex 上下文窗口，含备份与回滚 |
-| [`weicoz-code-review`](skills/weicoz-code-review/) | 1.3.0 | 省 token 的本地代码审查：fork 给 Sonnet 执行、Haiku 批量打分过滤误报，主对话只收报告；规范文件从基础分支读，查假测试，审查范围含未提交与未跟踪文件，高风险目录加独立审查（Claude Code 需先运行 `scripts/install-agents.sh`） |
-| [`weicoz-verify`](skills/weicoz-verify/) | 1.3.0 | 通用验证约定：唯一结论行、快检与全检两档、修复上限、评分配置防改、证据留存、接入方式（含先观察后强制的硬门禁）、四级验证状态、证据与防自评；按项目类型选适配器（Cocos、Web、自建）；Web 适配器 web-verify.mjs |
-| [`weicoz-govern`](skills/weicoz-govern/) | 1.2.0 | 长期项目定期体检：AGENTS.md 体积、零断言端到端流程与缺功能地图、文档死链与疑似过期、孤儿测试与假测试、worktree 清理候选；规则严进常删，删除前必须列清单确认（retro 的补充） |
-| [`weicoz-implement-verified`](skills/weicoz-implement-verified/) | 1.2.0 | 照 Matt implement / implement-spec 原文执行，前置测试频率纪律，收尾必跑全检，审查用 weicoz-code-review，收尾跑项目验证命令交证据 |
+| [`weicoz-code-review`](skills/weicoz-code-review/) | 1.3.1 | 省 token 的本地代码审查：fork 给 Sonnet 执行、Haiku 批量打分过滤误报，主对话只收报告；规范文件从基础分支读，查假测试，审查范围含未提交与未跟踪文件，高风险目录加独立审查（Claude Code 需先运行 `scripts/install-agents.sh`） |
+| [`weicoz-verify`](skills/weicoz-verify/) | 1.3.1 | 通用验证约定：唯一结论行、快检与全检两档、修复上限、评分配置防改、证据留存、接入方式（含先观察后强制的硬门禁）、四级验证状态、证据与防自评；按项目类型选适配器（Cocos、Web、自建）；Web 适配器 web-verify.mjs |
+| [`weicoz-govern`](skills/weicoz-govern/) | 1.2.1 | 长期项目定期体检：AGENTS.md 体积、零断言端到端流程与缺功能地图、文档死链与疑似过期、孤儿测试与假测试、worktree 清理候选；规则严进常删，删除前必须列清单确认（retro 的补充） |
+| [`weicoz-implement-verified`](skills/weicoz-implement-verified/) | 1.2.1 | 照 Matt implement / implement-spec 原文执行，前置测试频率纪律，收尾必跑全检，审查用 weicoz-code-review，收尾跑项目验证命令交证据 |
 
 #### 浏览器与信息获取
 

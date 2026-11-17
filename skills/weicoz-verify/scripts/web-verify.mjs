@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Web 适配器：命令检查 + 浏览器流程 + 联系图，输出 weicoz-verify 第 2 节的结论行。
-// 用法：node web-verify.mjs --project <目录> [--quick] [--base-url <URL>] [--script <流程名或路径> ...] [--no-start] [--no-checks] [--env-file <路径>] [--base <ref>]
+// 用法：node web-verify.mjs --project <目录> [--quick] [--base-url <URL>] [--script <流程名或路径> ...] [--no-start] [--no-checks] [--env-file <路径>] [--base <基础分支>]
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import {
   parseArgs, mergeConfig, matchIgnore, verdict, parseEnvFile, expandHome, loadLine, tailLines, failureLines, safeName,
-  flowStatus, partialSwitches, partialItem, badIgnorePatterns, cleanIgnore, resolveScript, verifyScriptsChanged, withTimeout,
+  flowStatus, partialSwitches, partialItem, badIgnorePatterns, cleanIgnore, resolveScript, verifyScriptsChanged, withTimeout, checksMissing, unknownConfigKeys, briefMessage,
 } from './lib.mjs';
 
 const items = [];
@@ -54,8 +54,9 @@ async function main() {
   try {
     args = parseArgs(process.argv.slice(2));
   } catch (e) {
-    console.error(`参数错误：${e.message}\n用法：node web-verify.mjs --project <目录> [--quick] [--base-url <URL>] [--script <流程名或路径> ...] [--no-start] [--no-checks] [--env-file <路径>] [--base <ref>]`);
-    console.log('结论：未验证（缺：有效参数）');
+    console.error(`参数错误：${e.message}\n用法：node web-verify.mjs --project <目录> [--quick] [--base-url <URL>] [--script <流程名或路径> ...] [--no-start] [--no-checks] [--env-file <路径>] [--base <基础分支>]`);
+    const unk = e.message.match(/^未知参数：(.+)$/);
+    console.log(`结论：未验证（缺：${unk ? `可识别的参数 ${unk[1]}` : '有效参数'}）`);
     process.exit(3);
   }
 
@@ -71,10 +72,12 @@ async function main() {
       finish();
     }
   }
+  const unknownKeys = unknownConfigKeys(userCfg);
+  if (unknownKeys.length) say(`⚠️ 配置有未知字段（可能拼错，已忽略）：${unknownKeys.join('、')}`);
   const cfg = mergeConfig(userCfg, args);
   const badIgnore = badIgnorePatterns(cfg.ignore);
   if (badIgnore.length) {
-    say(`❌ ignore 配置无效（能匹配空串，会吞掉所有项）：${badIgnore.join('、')}`);
+    say(`❌ ignore 配置无效（能匹配空串/任意文本，或缺连续 4 个字面字符）：${badIgnore.join('、')}`);
     items.push({ status: 'unverified', name: 'ignore 配置', missing: '有效 ignore 配置' });
     cfg.ignore = cleanIgnore(cfg.ignore);
   }
@@ -98,14 +101,15 @@ async function main() {
   // 0. 评分配置相对基线是否改动：改动须交用户确认，本次不得判通过。
   if (args.base) {
     const git = (a) => spawnSync('git', ['-C', project, ...a], { encoding: 'utf8' });
-    const d = git(['diff', '--name-only', args.base, '--', ...SCORING_FILES]);
+    const d = git(['diff', '--name-only', '--relative', args.base, '--', ...SCORING_FILES]);
+    const untracked = git(['ls-files', '--others', '--exclude-standard', '--', ...SCORING_FILES]); // 新建未跟踪的配置
     if (d.status !== 0) {
       say(`⚠️ 无法对照基线 ${args.base}：${(d.stderr || '').split('\n')[0]}`);
       items.push({ status: 'unverified', name: '评分配置对照', missing: `评分配置对照（${args.base} 不可用）` });
     } else {
       const old = git(['show', `${args.base}:./package.json`]);
       const cur = fs.existsSync(path.join(project, 'package.json')) ? fs.readFileSync(path.join(project, 'package.json'), 'utf8') : '';
-      const changed = [...d.stdout.split('\n').filter(Boolean), ...verifyScriptsChanged(old.status === 0 ? old.stdout : '', cur).map((k) => `package.json scripts.${k}`)];
+      const changed = [...d.stdout.split('\n').filter(Boolean), ...(untracked.stdout || '').split('\n').filter(Boolean), ...verifyScriptsChanged(old.status === 0 ? old.stdout : '', cur).map((k) => `package.json scripts.${k}`)];
       if (changed.length) {
         say(`⚠️ 评分配置相对 ${args.base} 有改动：\n${changed.map((f) => `    ${f}`).join('\n')}`);
         items.push({ status: 'unverified', name: '评分配置', missing: '评分配置改动待用户确认' });
@@ -116,6 +120,7 @@ async function main() {
   // 1. 命令检查
   // --no-checks：写流程时反复试跑用，只跑流程；此时不能当作快检或全检的结论。
   if (args.noChecks) say('⚠️ 已跳过命令检查（--no-checks），本次结论只代表所选流程');
+  if (checksMissing(cfg, tier, args)) record('unverified', '命令检查', `⚠️ 命令检查：未配置（${tier === 'quick' ? '快检' : '全检'}）`, { missing: `命令检查（${tier} 档 checks 未配置）` });
   for (const c of args.noChecks ? [] : cfg.checks[tier] || []) {
     const r = spawnSync(c.cmd, {
       shell: true, cwd: project, encoding: 'utf8', timeout: (c.timeoutSec || 600) * 1000, maxBuffer: 64 << 20,
@@ -299,7 +304,7 @@ async function main() {
             throw e;
           }
           stepFailed = true;
-          stepLines.push(`    ❌ ${name}：${String(e.message).split('\n')[0].slice(0, 200)}`);
+          stepLines.push(`    ❌ ${name}：${briefMessage(e.message).replace(/\n/g, '\n        ')}`);
           throw e;
         }
       };
@@ -313,7 +318,7 @@ async function main() {
         if (e.unverified) unverifiedWhy = e.unverified;
         else {
           flowError = true;
-          if (!stepFailed) stepLines.push(`    ❌ 流程异常：${String(e.message).split('\n')[0].slice(0, 200)}`);
+          if (!stepFailed) stepLines.push(`    ❌ 流程异常：${briefMessage(e.message).replace(/\n/g, '\n        ')}`);
         }
       }
       try { await shot('end'); } catch { /* 页面已关闭 */ }
