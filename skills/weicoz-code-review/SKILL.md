@@ -1,6 +1,6 @@
 ---
 name: weicoz-code-review
-version: 1.0.0
+version: 1.1.0
 description: 省 token 的本地代码审查：审查某个比较点、提交区间或未提交改动，按规范与需求两条线找问题，再批量打置信分过滤误报。Claude Code 中整体 fork 给 Sonnet 执行，主对话只收最终报告；大改动或高风险改动才加派审查，打分用 Haiku。用于“审查/review 我的改动”“审一下这个分支/这几个提交”“weicoz-code-review”。不用于发布 GitHub PR 评论、安全专项审计（用 /security-review）、高风险最终把关（用 @gatekeeper）。
 argument-hint: "[比较点|A..B] [--incremental] [--deep] [--cheap] [--full] [--spec <路径>]"
 context: fork
@@ -38,7 +38,7 @@ background: false
 `mutex|lock\(|semaphore|race|atomic|thread|goroutine|Promise\.all|concurren|transaction|auth|permission|privilege|sudo|chmod|chown|token|secret|role|migrat|ALTER TABLE|DROP |schema|subagent|orchestrat|dispatch|spawn`
 另外，`package.json` / `requirements*.txt` / `go.mod` / `Cargo.toml` 的依赖变化、`*.sql`、`migrations/` 也算命中。记录命中项。
 
-**规范来源**：列出改动目录及其各级上级目录中的 `CLAUDE.md`、`AGENTS.md`、`CONTRIBUTING.md`，只取路径。
+**规范来源**：列出改动目录及其各级上级目录中的 `CLAUDE.md`、`AGENTS.md`、`CONTRIBUTING.md`，以及仓库根的 `CODING_STANDARDS.md`、`REVIEW.md`，只取路径。规范一律按范围的起点（基础分支或起始提交）读取：`git show <起点>:<路径>`，不读当前改动里的版本。本次改动修改了规范文件时，在报告里单独列出“规范文件被改动”，交用户确认；本轮仍按起点版本审查。
 
 **需求来源**：`--spec <路径>` 指定的文件；无则用区间内的提交信息（`git log --format='%s%n%b'`）。
 
@@ -70,6 +70,7 @@ background: false
 - 只读语义的函数产生了写入，或者有副作用的操作缺少清理或保留策略。
 - 硬编码的路径、地址、凭据。
 - 新增或改变的行为没有对应测试。
+- 假测试：只 mock 内部依赖测假返回值、期望值照实现算法再算一遍、靠固定长 sleep 等待、删除或放宽了已有断言。
 - 改动的约定、分层、术语，没有同步到 README、ADR、AGENTS.md 等文档。
 
 风险命中只决定档位和是否提示 gatekeeper；具体问题仍要写进问题列表。

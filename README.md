@@ -164,7 +164,9 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-log-driven-ai-development`](skills/weicoz-log-driven-ai-development/) | 1.0.0 | 用日志把关键流程与结果变得可查，便于 AI 排查与验证 |
 | [`weicoz-ai-dev-os`](skills/weicoz-ai-dev-os/) | 1.0.0 | 安装或同步项目级 AI 开发治理、宪法、SDD 与架构护栏 |
 | [`weicoz-codex-context-window-override`](skills/weicoz-codex-context-window-override/) | 1.0.0 | 用 model_catalog_json 修改 Codex 上下文窗口，含备份与回滚 |
-| [`weicoz-code-review`](skills/weicoz-code-review/) | 1.0.0 | 省 token 的本地代码审查：fork 给 Sonnet 执行、Haiku 批量打分过滤误报，主对话只收报告（Claude Code 需先运行 `scripts/install-agents.sh`） |
+| [`weicoz-code-review`](skills/weicoz-code-review/) | 1.1.0 | 省 token 的本地代码审查：fork 给 Sonnet 执行、Haiku 批量打分过滤误报，主对话只收报告；规范文件从基础分支读，查假测试（Claude Code 需先运行 `scripts/install-agents.sh`） |
+| [`weicoz-verify`](skills/weicoz-verify/) | 1.0.0 | 通用验证约定：唯一结论行、快检与全检两档、修复上限 2 次、四级验证状态、证据与防自评；按项目类型选适配器（Cocos、Web、自建） |
+| [`weicoz-implement-verified`](skills/weicoz-implement-verified/) | 1.0.0 | 照 Matt implement 原文执行，前置测试频率纪律，审查用 weicoz-code-review，收尾跑项目验证命令交证据 |
 
 #### 浏览器与信息获取
 
