@@ -66,7 +66,7 @@ MCP 连接方式决定写操作怎么调用：
 
 ## 2. 构建
 
-`cocos-build.mjs --platform web-mobile|wechatgame [--release] [--config <json>]`。
+`cocos-build.mjs --platform web-mobile|wechatgame [--release] [--game <前缀>] [--config <json>]`。`--help` 只打印用法（旧版没有帮助分支，会直接开始构建）。
 
 - Creator CLI 成功也返回退出码 **36**；32 = 参数无效，34 = 构建异常。脚本以“本次构建生成的产物文件”为成功判据。
 - 编辑器正开着同一工程时不跑命令行构建，避免两个进程争用 `library/`。funplay 没有“执行构建”的工具，代理无法替用户点编辑器内构建：编辑器是你打开的且场景已保存，就关掉它再构建；是用户开的，请用户关闭或在编辑器内构建。
@@ -74,7 +74,9 @@ MCP 连接方式决定写操作怎么调用：
 - 插画、关卡这类随内容增长的资源，从设为 Asset Bundle 起就配成“小游戏分包”，不要等主包超限再改。实测：10 张占位插画进主包后主包从 1.86 MB 涨到 3.05 MB。
 - 主包超限：把后续关卡、皮肤等放进 Asset Bundle，压缩类型选“小游戏分包”（输出到 `subpackages/`，只能本地）或配成远程包（`remote/` 上传到资源服务器）；可勾选“初始场景分包”。微信不允许下载远程脚本。
 - 构建脚本会调用 `cocos-modules.mjs`，列出已启用但工程里找不到使用痕迹的重型模块（Spine、DragonBones、TiledMap、2D 物理、Video、WebView 等）。在“项目设置 → 功能裁剪”关闭后重建；不开编辑器时按脚本提示改 `engine.json` 的 `cache` 分组键（只删 `includeModules` 会在构建时被还原）。实测一个只用 Graphics 的解谜 demo：debug 5.92 MB → 裁掉 7 个模块 4.21 MB → 再加 `--release` 1.86 MB。
-- 真实 appid 只在测试微信 API（登录、分享、广告、支付）时需要。纯玩法用测试号即可。
+- AppID：Cocos 构建产物的 `project.config.json` 里是 Cocos 默认 appid，开发者工具与上传都不认。`--game <前缀>`（或 `GAME_ENV_PREFIX`）让脚本按 `<前缀>_WECHAT_APPID` 写入；多个游戏各用各的前缀，别共用无前缀变量。
+- 纯玩法用测试号即可，测试 API（登录、分享、广告、支付）才要真实 appid。测试号用完从 `~/.zsh_secrets` 删掉，不与正式变量并存。
+- 上传微信：`miniprogram-ci` 要代码上传密钥与 IP 白名单（见 `weicoz-cocos-dev/references/wechat-platform.md` “凭据与代码上传”）。报 `-10008 invalid ip` 是出口 IP 不在白名单，换网络后会变。
 
 完成标准：脚本输出“构建已验证”，并记录产物大小与最大文件。
 
@@ -145,6 +147,14 @@ MCP 连接方式决定写操作怎么调用：
 4. `--release` wechatgame 构建：主包与总包在限额内，`cocos-modules.mjs` 无可裁剪项或已说明原因。
 5. 切后台再回来（`Game.EVENT_HIDE/SHOW`）：计时和音乐暂停与恢复。
 6. 存档：通关后刷新页面，进度仍在。
+
+### 需要用户或真机的步骤
+
+- 平台后台（微信、抖音）的登录、扫码、人脸、验证码、付款、协议与最终提交只能用户做。自动化遇到就停下，把页面留在可操作处，写清“做什么、在哪页、做完回什么”。二维码有时效，不要留着弹窗等人。
+- 抖音图标上传页面刷新即丢，需真人选文件并立刻保存草稿。
+- 长按、手势等有时间或压力的交互，自动化里可能触发不了：验收清单标“需真机”，截图图注如实写“待补”。
+- 微信提审截图必须在微信里截（带胶囊与游戏名），不能用网页或开发者工具图代替。
+- 桌面宽屏截图用非移动上下文（`cocos-playtest.mjs` 已生成 `temp/playtest-zz-desktop.png`），手机视口截图不能代表桌面。
 
 ## 5. 汇报分级
 

@@ -15,7 +15,7 @@ description: Cocos Creator 3.8 小游戏代码实现约定：规则核与视图�
 | 规则核 | 默认 `assets/scripts/core/`；项目 `AGENTS.md` 另有规定时从其规定 | 纯 TS，不 `import 'cc'`，不读时间和随机数全局（由调用方传入 seed、dt）。Node 直接跑测试。 |
 | 关卡数据 | 规则核旁的 `levels/` 或 `assets/resources/levels/*.json` | 生成器离线产出并写入；运行时只读。 |
 | 视图 | `assets/scripts/view/` | 主控组件 + 渲染辅助。只调用规则核，不自己判胜负。 |
-| 平台 | `assets/scripts/platform/` | 微信、抖音等 API 的唯一出口。其他层不直接碰 `wx`、`tt`。接存档、分享、广告、隐私前读 `references/wechat-platform.md` 与 `references/douyin-platform.md`。 |
+| 平台 | `assets/scripts/platform/` | 微信、抖音等 API 的唯一出口。其他层不直接碰 `wx`、`tt`。接存档、分享、广告、隐私前读 `references/wechat-platform.md` 与 `references/douyin-platform.md`；抖音必传软著，流程见 `references/soft-copyright.md`。 |
 
 起名、写简介、准备提审材料前，先读这两份 reference：名称与简介的字数上限、改名次数、软著与备案顺序都在里面。两平台口径不同（微信介绍 120 字符、抖音简介 60 字符，汉字都算 2），各读各的。
 

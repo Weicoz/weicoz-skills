@@ -18,6 +18,10 @@ const TOTAL_LIMIT_MB = 30
 const COCOS_DEFAULT_APPID = 'wx6ac3f5090a6b99c5'
 
 const args = process.argv.slice(2)
+if (args.includes('-h') || args.includes('--help')) {
+  console.log('用法：node cocos-build.mjs [--project <工程根>] [--platform web-mobile|wechatgame] [--release] [--game <前缀>] [--config <构建配置.json>]\n--game：凭据变量前缀，读 <前缀>_WECHAT_APPID（也可设 GAME_ENV_PREFIX）')
+  process.exit(0)
+}
 const flag = (name, fallback) => {
   const i = args.indexOf(name)
   return i >= 0 ? args[i + 1] : fallback
