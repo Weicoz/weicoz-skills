@@ -1,8 +1,8 @@
 ---
 name: weicoz-code-review
-version: 1.1.0
+version: 1.2.0
 description: 省 token 的本地代码审查：审查某个比较点、提交区间或未提交改动，按规范与需求两条线找问题，再批量打置信分过滤误报。Claude Code 中整体 fork 给 Sonnet 执行，主对话只收最终报告；大改动或高风险改动才加派审查，打分用 Haiku。用于“审查/review 我的改动”“审一下这个分支/这几个提交”“weicoz-code-review”。不用于发布 GitHub PR 评论、安全专项审计（用 /security-review）、高风险最终把关（用 @gatekeeper）。
-argument-hint: "[比较点|A..B] [--incremental] [--deep] [--cheap] [--full] [--spec <路径>]"
+argument-hint: "[比较点|A..B] [--repo <路径>] [--incremental] [--deep] [--cheap] [--full] [--spec <路径>]"
 context: fork
 agent: weicoz-cr-orchestrator
 background: false
@@ -17,6 +17,8 @@ background: false
 当前环境没有 Agent 工具、或不支持按调用指定 model 时：第 3、4 步自己完成，其余照做。
 
 ## 1. 准备（尽量合并成一两次 Bash）
+
+**仓库位置**：有 `--repo <路径>` 时，之后所有命令都在该路径执行（每条命令前 `cd <路径> &&`，或 `git -C <路径>`）；派出的审查 agent 也传同一路径。fork 出来的会话工作目录是发起会话的目录，审查别的仓库或 worktree 时必须传 `--repo`。没有该参数时用当前目录。
 
 **解析范围**
 - 参数里的 `A..B`：直接使用。

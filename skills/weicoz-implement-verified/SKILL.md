@@ -1,6 +1,6 @@
 ---
 name: weicoz-implement-verified
-version: 1.0.0
+version: 1.1.0
 description: 带验证闭环的实现：照 Matt 的 implement（或 implement-spec）原文执行，动手前锁定测试频率纪律，审查统一用 weicoz-code-review，收尾按 weicoz-verify 跑项目验证命令并交付证据。不修改 Matt 原 skill。用于按票据或规格实现功能、“实现并验证”、weicoz-game-flow 阶段 3 的实现步骤。
 ---
 
@@ -24,24 +24,29 @@ description: 带验证闭环的实现：照 Matt 的 implement（或 implement-s
 
 ## 1. 执行 Matt implement
 
-单票读 `implement`，整份规格读 `implement-spec`。先按宿主常规方式调用；调用被拒（Matt 的这两个 skill 只允许用户手动调用）或找不到时，读 `~/.agents/skill-tiers/library/<名>/SKILL.md`，没有就读 `~/.agents/skills/<名>/SKILL.md`，然后照原文执行。
+单票读 `implement`，整份规格读 `implement-spec`。先按宿主常规方式调用；调用被拒（Matt 的这两个 skill 只允许用户手动调用）或找不到时，依次找 `~/.agents/skill-tiers/library/<名>/SKILL.md`、`~/.agents/skills/<名>/SKILL.md`，读第一个存在的，然后照原文执行。本文引用的其他 skill 同样按这个顺序找。
 
 执行时叠加下面的覆盖项；与原文冲突时以本节为准：
 
 | 原文 | 覆盖为 |
 | --- | --- |
 | 定期跑类型检查和单个测试文件，最后跑一次全量 | 编码途中只跑秒级检查；一轮写完跑快检；全检留到第 3 步（`weicoz-verify` 第 3 节） |
-| 调用 `code-review` 审查 | 改用 `weicoz-code-review`；它读审查标准时按 `weicoz-verify` 第 6 节从基础分支读 |
-| 提交到当前分支 | 按项目 `AGENTS.md` 的提交与分支约定；项目没写时照原文 |
+| 调用 `code-review` 审查 | 改用 `weicoz-code-review <基础分支> --repo <worktree 绝对路径>`，见第 2 步 |
+| 调用 `tdd` | 改产品行为时照原文；只修测试本身（如 mock 漂移）时不需要 |
+| 提交到当前分支 | 移到第 3 步全检通过之后；提交约定按项目 `AGENTS.md`，项目没写时照原文 |
 
 另外遵守：
 
 - 测试失败的处理按 `weicoz-verify` 第 4 节：同一项连续 2 次修不好就停，不得删测、跳测或放宽断言。
 - 需要改动票据“可写范围”以外的文件，或发现代码与票据描述严重不符时，停下报告。
 
-## 2. 审查
+## 2. 审查（提交前，对未提交改动）
 
-`weicoz-code-review` 的阻塞问题修完后，重跑快检。
+顺序：一轮写完 → 快检通过 → 审查 → 全检 → 提交。
+
+1. 调用 `weicoz-code-review <基础分支> --repo <worktree 绝对路径>`。它会 fork 到发起会话的目录运行，不传 `--repo` 就会审错仓库或报“ref 无法解析”。
+2. 调用被拒或当前环境不能调用 skill 时，读它的 `SKILL.md`，在 worktree 里自己照做；规范文件按 `git show <基础分支>:<路径>` 读。
+3. 阻塞问题修完后，重跑快检。
 
 ## 3. 验证
 
