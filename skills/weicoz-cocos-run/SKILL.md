@@ -66,7 +66,7 @@ MCP 连接方式决定写操作怎么调用：
 
 ## 2. 构建
 
-`cocos-build.mjs --platform web-mobile|wechatgame [--release] [--game <前缀>] [--config <json>]`。`--help` 只打印用法（旧版没有帮助分支，会直接开始构建）。
+`cocos-build.mjs --platform web-mobile|wechatgame [--release] [--game <前缀>] [--config <json>]`。`--help` 只打印用法，不启动构建。
 
 - Creator CLI 成功也返回退出码 **36**；32 = 参数无效，34 = 构建异常。脚本以“本次构建生成的产物文件”为成功判据。
 - 编辑器正开着同一工程时不跑命令行构建，避免两个进程争用 `library/`。funplay 没有“执行构建”的工具，代理无法替用户点编辑器内构建：编辑器是你打开的且场景已保存，就关掉它再构建；是用户开的，请用户关闭或在编辑器内构建。

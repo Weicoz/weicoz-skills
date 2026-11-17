@@ -81,7 +81,7 @@ const wx = WECHAT ? (globalThis as any).wx : undefined
 - 报错 `errCode -10008 invalid ip: <ip>`：运行上传的机器出口 IP 不在白名单。换网络、手机热点、代理都会让出口 IP 变；出口 IP 用国内查询服务取，别信境外服务（代理会给出境外出口）。不要图省事选“不限制 IP”；出口常变就固定用一台出口稳定的机器上传。
 - miniprogram-ci 失败时会把压缩后的源码堆栈整段打印，上传脚本应 catch 后只输出 `errMsg`。
 - Cocos 构建出的 `project.config.json` 里 appid 是 Cocos 默认值，开发者工具和上传都不认。构建脚本 `cocos-build.mjs --game <前缀>` 按 `<GAME>_WECHAT_APPID` 写入。
-- 包体以 `--release` 为准：主包 ≤ 4 MB（实测 3.25 MB），大图放分包（subpackage）。
+- 包体以 `--release` 为准：主包 ≤ 4 MB，大图放分包（subpackage）。
 - 提审截图必须在微信里截（含右上角胶囊与游戏名）；网页端、开发者工具截图不行，体验版出来后用真机补拍。
 - 商店文案和审核材料里不写关卡总数：关卡可无限扩展，写“逐关变难”，需要数字时与实际一致。
 
