@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // 只读：读当前仓库状态，判断所处节点，给出下一步该用的 skill。
 // 用法：node where.mjs [--repo <目录>] [--base <基础分支>] [--json]
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -99,4 +100,5 @@ function main() {
   console.log('\n节点是按文件状态推断的，和你实际在做的事不符时以你为准。');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+// 经软链（分层桩、library）调用时 argv[1] 是链接路径，要比真实路径
+if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) main();

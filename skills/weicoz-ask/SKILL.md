@@ -1,6 +1,6 @@
 ---
 name: weicoz-ask
-version: 1.0.1
+version: 1.0.2
 description: 这套开发 skill 的导航：先读当前仓库状态判断所处节点，再说明这一步该用哪个 skill、为什么、下一步去哪。覆盖 Matt 主流程与 weicoz 外挂（实现、审查、验证、体检）、Web 与小游戏两条分支、委派与 worktree。用于用户问“现在该干什么”“下一步用哪个 skill”“这种情况用什么”“这套 skill 怎么用”，或接手一个不熟的项目时。
 ---
 
