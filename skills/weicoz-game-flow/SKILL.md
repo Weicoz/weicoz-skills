@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-flow
-version: 1.8.2
+version: 1.9.0
 description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）：开项目、先找乐趣再工程化的两段式路线、阶段门与各阶段该用的 skill。用于开始或接手一个小游戏项目、问“下一步做什么”、判断能否进入下一阶段。
 ---
 
@@ -32,7 +32,8 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 | `weicoz-game-flow`（本文件） | 阶段、阶段门、衔接 |
 | `weicoz-game-design` | 玩法拆解、参考对标、关卡与生成器、数值、IP 安全 |
 | `weicoz-cocos-dev` | 代码架构、规则核与视图分层、Cocos 3.8 坑点、类型检查 |
-| `weicoz-cocos-run` | 预检、构建、给用户预览、自动试玩、验证分级 |
+| `weicoz-cocos-run` | 预检、构建、给用户预览、自动试玩、Cocos 验证适配器 |
+| `weicoz-verify` | 通用验证约定（本套件的验证状态、档位、失败规则都引用它） |
 | `weicoz-game-assets` | 美术方向、素材生成与导入、素材审查 |
 | 工程内 `funplay-cocos-mcp-workflow` / `funplay-cocos-ui-composition` | 编辑器内的场景、节点、Prefab、资源、UI 操作（由 funplay-cocos-mcp 安装） |
 
@@ -43,7 +44,9 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 | `prototype` | 一次性验证玩法 | 在 `spikes/` 下写一次性脚本或网页，结论写进 `docs/PENDING.md` 后删掉 |
 | `grill-with-docs` / `grilling` | 逐项追问待定项 | 按 `docs/PENDING.md` 逐条问用户，答案写进 `GLOSSARY.md` 与 `docs/adr/` |
 | `to-spec` / `to-tickets` | 规格与票据 | 写 `docs/spec.md`，每票一节：目标、改动范围、验收（对应试玩脚本步骤） |
-| `implement` / `implement-spec` / `tdd` | 按票实现 | 逐票实现；规则核先写失败测试再实现 |
+| `weicoz-verify` | 通用验证约定：结论行、两档、修复上限、四级状态 | 读 `weicoz-cocos-run` 第 5 节与 `cocos-verify.mjs` 输出的结论行，按“通过 / 不通过 / 未验证”三态判断；同一项连续 2 次修不好即停下报告 |
+| `weicoz-implement-verified` | 带验证闭环的实现 | 逐票实现：先写成功标准，规则核先写失败测试，改完跑项目 `## 验证约定` 的快检，通过后再报完成 |
+| `implement-spec` / `tdd` | 多票实现；规则核测试先行 | 逐票实现；规则核先写失败测试再实现 |
 | `weicoz-code-review` | 改动审查 | 自审 diff：规则核是否有测试、视图层是否重复判胜负、平台调用是否只在 `platform/` |
 | `retro` | 复盘 | 在 `docs/retro.md` 记三项：有用的、卡住的、下次改的 |
 | `playwright-cli` | 浏览器截图与试玩 | 任何能打开页面、执行脚本、截图的浏览器自动化工具 |
@@ -101,7 +104,7 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 ## 阶段 3：生产（竖切）
 
 1. 先做界面风格：按 `weicoz-game-assets` 第 1.5 节出锚点图，制作人选定后写 `docs/ui-style.md`；没有它不派功能界面票。界面锚点可以和 H2 验收包一起发，选择题合并。
-2. `implement`（多票用 `implement-spec`）。规则核改动走 `tdd`。
+2. `weicoz-implement-verified`（多票用 `implement-spec`）。规则核改动走 `tdd`。验证约定见 `weicoz-verify`，项目命令写在 `AGENTS.md` 的 `## 验证约定`。
 3. 平台能力（存档、分享、广告、隐私）按 `weicoz-cocos-dev` 的 `references/wechat-platform.md` 接入；先接存档，广告在流量主开通前用空实现。
 4. 美术、音效按 `weicoz-game-assets` 替换灰盒表现（出图稳定性与 UI 文字规则见其第 3 节）。
 5. 改动收尾用 `weicoz-code-review`。

@@ -73,10 +73,10 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 
 | Skill | 版本 | 说明 |
 | --- | --- | --- |
-| [`weicoz-game-flow`](skills/weicoz-game-flow/) | 1.7.1 | 总流程：先找乐趣（灰盒）再工程化，人工检查点集中到 4 个节点与验收包，衔接 Matt 流程 |
-| [`weicoz-game-design`](skills/weicoz-game-design/) | 1.2.0 | 参考视频抽帧拆解、可量化对标指标、可解关卡生成器、数值、交互、IP 安全 |
+| [`weicoz-game-flow`](skills/weicoz-game-flow/) | 1.9.0 | 总流程：先找乐趣（灰盒）再工程化，人工检查点集中到 4 个节点与验收包，衔接 Matt 流程 |
+| [`weicoz-game-design`](skills/weicoz-game-design/) | 1.6.0 | 参考视频抽帧拆解、可量化对标指标、可解关卡生成器、数值、交互、IP 安全 |
 | [`weicoz-cocos-dev`](skills/weicoz-cocos-dev/) | 1.6.0 | 规则核与视图分层、主控组件、Cocos 坑点、离线类型检查脚本、微信与抖音存档/分享/广告/隐私、后台资料次数与上线检查 |
-| [`weicoz-cocos-run`](skills/weicoz-cocos-run/) | 1.9.2 | 预检、一键 web 验收（cocos-verify）、试玩运行器与联系图、标准测试钩子模板、预览与手机地址自检、验证分级 |
+| [`weicoz-cocos-run`](skills/weicoz-cocos-run/) | 1.10.0 | 预检、一键 web 验收（cocos-verify）、试玩运行器与联系图、标准测试钩子模板、预览与手机地址自检、验证分级 |
 | [`weicoz-game-assets`](skills/weicoz-game-assets/) | 1.7.0 | 美术方向与风格锚点、素材契约、网格图切分裁边检查、字体授权与字形核对、导入与首包预算 |
 
 #### 飞书与办公自动化

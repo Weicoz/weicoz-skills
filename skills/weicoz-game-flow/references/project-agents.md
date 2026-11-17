@@ -30,4 +30,16 @@
 - 改完 `.ts` 跑 `weicoz-cocos-dev` 的类型检查；每轮结束用 `weicoz-cocos-run` 给出预览 URL。
 - 平台 API（`wx` 等）只在 `assets/scripts/platform/` 里调用。
 - funplay MCP 的 `funplay-cocos-mcp.config.json` 已开预览与搭场景工具（预检无工具缺口），一次只开本工程的编辑器。
+
+## 验证约定
+
+通用规则见 `weicoz-verify`；本项目的命令如下。
+
+- 适配器：`cocos`（`weicoz-cocos-run`）。
+- 快检（改完一轮后）：`node <weicoz-cocos-run>/scripts/cocos-verify.mjs --project <Cocos 工程目录> --quick`
+- 全检（阶段门、合并前）：`node <weicoz-cocos-run>/scripts/cocos-verify.mjs --project <Cocos 工程目录>`
+- 结论行：最后一行；退出码 0 通过、1 不通过、3 未验证。
+- 门禁项：release 主包 ≤ 4 MB（全检已含）；发版回归清单见 `weicoz-cocos-run` 第 4 节，竖切门与每次提审前全部跑一遍。
+- 目标环境：微信开发者工具或真机（需用户开服务端口或提供真机）。
+- 高风险目录：<规则核、存档格式、平台接入；无则写“无”>
 ```

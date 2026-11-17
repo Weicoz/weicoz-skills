@@ -9,7 +9,8 @@
  *   --no-release  不做 wechatgame release 包体检查
  *   --port        试玩预览端口；默认自动取空闲端口，可多个代理并行验收
  * 顺序：类型检查 → 单元测试（package.json 有 test 脚本时）→ 引擎模块 → web-mobile 构建 → 试玩（含联系图）→ release 包体。
- * 任一项失败继续跑完其余项，便于一次看全；退出码 0 = 通过，1 = 不通过。
+ * 任一项失败继续跑完其余项，便于一次看全。输出符合 weicoz-verify 第 2 节：逐项一行以 ✅/❌/⚠️ 开头，
+ * 最后一行是唯一结论；退出码 0 = 通过，1 = 不通过，3 = 未验证（缺 CocosCreator 等环境，无法构建）。
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
@@ -32,7 +33,8 @@ const run = (name, cmd, cmdArgs, judge) => {
   const r = spawnSync(cmd, cmdArgs, { cwd: project, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
   const out = `${r.stdout ?? ''}\n${r.stderr ?? ''}`
   const { ok, detail } = judge(r.status, out)
-  rows.push({ name, ok, detail })
+  const unverified = !ok && /找不到 CocosCreator/.test(out)
+  rows.push({ name, ok, detail: unverified ? '缺 CocosCreator：设 COCOS_CREATOR_BIN' : detail, unverified })
   return out
 }
 const lastLine = (out, re) => out.split('\n').filter((l) => re.test(l)).pop()?.trim() ?? ''
@@ -46,8 +48,8 @@ const isTimeoutOnly = (out) => {
 }
 
 if (!existsSync(join(project, 'assets'))) {
-  console.error(`错误：${project} 下没有 assets/。--project 要指向 Cocos 工程目录`)
-  process.exit(2)
+  console.log(`⚠️ ${project} 下没有 assets/：--project 要指向 Cocos 工程目录\n结论：未验证（缺：Cocos 工程目录）`)
+  process.exit(3)
 }
 
 run('类型检查', process.execPath, [typecheck, '--project', project], (code, out) =>
@@ -93,11 +95,12 @@ if (!scripts.length) {
     return { ok: code === 0, detail: lines.join('；') || '无输出' }
   })
   const metricLines = out.split('\n').filter((l) => /^\s*指标：/.test(l)).map((l) => l.trim().replace(/^指标：/, ''))
-  if (metricLines.length) rows.push({ name: '体验指标', ok: true, detail: metricLines.join('；').slice(0, 600) })
+  if (metricLines.length) rows.push({ name: '体验指标', ok: true, info: true, detail: metricLines.join('；').slice(0, 600) })
   const contact = out.match(/联系图（视觉巡检看这张）：(\S+)/)?.[1]
-  rows.push({ name: '视觉巡检', ok: true, detail: contact ? `待人工或看图模型检查：${contact}（清单见 SKILL.md 第 4 节；不能看图时用 modlens）` : '无截图' })
+  rows.push({ name: '视觉巡检', ok: true, info: true, detail: contact ? `待人工或看图模型检查：${contact}（清单见 weicoz-verify references/visual-checklist.md 与 SKILL.md 第 4 节；不能看图时用 modlens）` : '无截图' })
 } else {
-  rows.push({ name: '浏览器试玩', ok: false, detail: '跳过：构建失败' })
+  const bu = rows.find((r) => r.name === 'web-mobile 构建')?.unverified
+  rows.push({ name: '浏览器试玩', ok: false, unverified: bu, detail: bu ? '缺可构建环境：web-mobile 构建未验证' : '跳过：构建失败' })
 }
 
 if (!quick && !args.includes('--no-release')) {
@@ -108,9 +111,13 @@ if (!quick && !args.includes('--no-release')) {
   })
 }
 
-if (loadHigh) console.log(`负载高（1 分钟负载 ${load.toFixed(1)}，${cpus().length} 核），超时可能是环境导致\n`)
-console.log('\n| 检查 | 结果 | 说明 |\n| --- | --- | --- |')
-for (const r of rows) console.log(`| ${r.name} | ${r.ok ? '✅' : '❌'} | ${r.detail.replace(/\|/g, '/')} |`)
-const pass = rows.every((r) => r.ok)
-console.log(`\n结论：${pass ? '通过' : '不通过'}${pass ? '（web 端验证等级：核心循环已验证；视觉巡检项需看联系图）' : `（失败：${rows.filter((r) => !r.ok).map((r) => r.name).join('、')}）`}`)
-process.exit(pass ? 0 : 1)
+if (loadHigh) console.log(`⚠️ 负载高（1 分钟负载 ${load.toFixed(1)}，${cpus().length} 核），超时可能是环境导致`)
+console.log('')
+const mark = (r) => (r.info ? '⚠️' : r.ok ? '✅' : r.unverified ? '⚠️' : '❌')
+for (const r of rows) console.log(`${mark(r)} ${r.name}：${r.detail}`)
+const failed = rows.filter((r) => !r.ok && !r.unverified && !r.info)
+const missing = rows.filter((r) => r.unverified)
+const verdict = failed.length ? 1 : missing.length ? 3 : 0
+console.log(verdict === 1 ? `结论：不通过（失败：${failed.map((r) => r.name).join('、')}）`
+  : verdict === 3 ? `结论：未验证（缺：${missing.map((r) => r.detail).join('；')}）` : '结论：通过')
+process.exit(verdict)
