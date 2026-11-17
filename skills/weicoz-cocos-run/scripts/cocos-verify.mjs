@@ -58,7 +58,7 @@ run('类型检查', process.execPath, [typecheck, '--project', project], (code, 
 const pkg = existsSync(join(project, 'package.json')) ? JSON.parse(readFileSync(join(project, 'package.json'), 'utf8')) : {}
 if (pkg.scripts?.test) {
   const judgeUnit = (code, out) =>
-    ({ ok: code === 0, detail: lastLine(out, /Tests\s+\d+|passed|failed/) || (code === 0 ? '通过' : '失败') })
+    ({ ok: code === 0, detail: lastLine(out, /^\s*FAIL\s/) || lastLine(out, /Tests\s+\d+|passed/) || (code === 0 ? '通过' : '失败') })
   const out = run('单元测试', 'npm', ['test', '--silent'], judgeUnit)
   // 失败全是超时类（无其他断言失败）：多半是负载导致，重跑一次
   if (!rows.at(-1).ok && isTimeoutOnly(out)) {
