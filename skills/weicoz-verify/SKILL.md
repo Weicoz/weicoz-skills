@@ -1,6 +1,6 @@
 ---
 name: weicoz-verify
-version: 1.0.0
+version: 1.1.0
 description: 通用验证约定：把“代码写完”变成“有证据地证明能用”。规定项目验证命令的唯一结论行、快检与全检两档、修复上限、四级验证状态、证据格式与防自评规则，并按项目类型选适配器（Cocos 游戏、Web、其他）。用于改完代码要验收、“验证一下”“跑验收”“证明它能用”、给项目建立验证约定，或被 weicoz-implement-verified、weicoz-game-flow 调用。
 ---
 
