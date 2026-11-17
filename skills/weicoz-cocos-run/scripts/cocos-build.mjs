@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 命令行构建 Cocos Creator 3.8 工程（不需要打开编辑器 UI）。
- * 用法：node cocos-build.mjs [--project <工程根>] [--platform web-mobile|wechatgame] [--release] [--config <构建配置.json>]
+ * 用法：node cocos-build.mjs [--project <工程根>] [--platform web-mobile|wechatgame] [--release] [--game <前缀>] [--config <构建配置.json>]
  *
  * Creator CLI 构建成功也返回退出码 36（32 = 参数错误，34 = 构建异常）。
  * 成功判据：产物关键文件存在且为本次构建生成，而不是退出码。
@@ -25,6 +25,9 @@ const flag = (name, fallback) => {
 const project = resolve(flag('--project', process.cwd()))
 const config = flag('--config')
 const release = args.includes('--release')
+// 凭据按游戏加前缀：--game ARROW_ESCAPE → 读 ARROW_ESCAPE_WECHAT_APPID；也可设环境变量 GAME_ENV_PREFIX
+const game = flag('--game', process.env.GAME_ENV_PREFIX ?? '')
+const appidVar = game ? `${game}_WECHAT_APPID` : 'WECHAT_APPID'
 // --config 时以配置文件里的平台与输出目录为准
 const cfg = config ? JSON.parse(readFileSync(resolve(config), 'utf8')) : {}
 const platform = cfg.platform ?? flag('--platform', 'web-mobile')
@@ -75,12 +78,12 @@ if (platform === 'wechatgame') {
   // AppID：Cocos 构建面板默认值不是有效 AppID，开发者工具命令行导入会报“不存在此 AppID”
   const pcPath = join(outDir, 'project.config.json')
   const pc = JSON.parse(readFileSync(pcPath, 'utf8'))
-  if (process.env.WECHAT_APPID && pc.appid !== process.env.WECHAT_APPID) {
-    pc.appid = process.env.WECHAT_APPID
+  if (process.env[appidVar] && pc.appid !== process.env[appidVar]) {
+    pc.appid = process.env[appidVar]
     writeFileSync(pcPath, JSON.stringify(pc, null, 2))
-    console.log(`AppID：已写入 WECHAT_APPID（${pc.appid}）`)
+    console.log(`AppID：已写入 ${appidVar}（${pc.appid}）`)
   } else if (pc.appid === COCOS_DEFAULT_APPID) {
-    console.warn(`⚠️ AppID 仍是 Cocos 默认值 ${COCOS_DEFAULT_APPID}，开发者工具无法导入。设 WECHAT_APPID（小游戏测试号即可），或在构建面板填写`)
+    console.warn(`⚠️ AppID 仍是 Cocos 默认值 ${COCOS_DEFAULT_APPID}，开发者工具无法导入。设 ${appidVar}（小游戏测试号即可），或在构建面板填写`)
   }
   // 主包 = 上传目录 - game.json 声明的分包；remote/ 是远程包，不上传
   const MB4 = 4 * 1024 * 1024

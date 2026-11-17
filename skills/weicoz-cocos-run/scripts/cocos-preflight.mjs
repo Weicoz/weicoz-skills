@@ -154,8 +154,10 @@ if (!existsSync('/Applications/wechatwebdevtools.app')) {
   if (!ideOn) add('warn', '微信开发者工具', '服务端口未开启', '用户在开发者工具“设置 → 安全设置”打开服务端口（一次性）')
   else if (login === false) add('warn', '微信开发者工具', `服务端口 ${idePort} 已开，未登录`, '用户扫码登录开发者工具')
   else add('ok', '微信开发者工具', `服务端口 ${idePort} 已开${login ? '，已登录' : '（工具未运行，登录状态未知）'}`)
-  if (process.env.WECHAT_APPID) add('ok', '微信 AppID', `WECHAT_APPID=${process.env.WECHAT_APPID}`)
-  else add('warn', '微信 AppID', '未设置 WECHAT_APPID；Cocos 默认 AppID 无法导入开发者工具', '用户申请小游戏测试号（一次性），把 AppID 写进 ~/.zsh_secrets 的 WECHAT_APPID')
+  // 凭据按游戏加前缀（GAME_ENV_PREFIX，如 MY_GAME → MY_GAME_WECHAT_APPID）；未设前缀时读 WECHAT_APPID
+  const appidVar = process.env.GAME_ENV_PREFIX ? `${process.env.GAME_ENV_PREFIX}_WECHAT_APPID` : 'WECHAT_APPID'
+  if (process.env[appidVar]) add('ok', '微信 AppID', `${appidVar} 已设置`)
+  else add('warn', '微信 AppID', `未设置 ${appidVar}；Cocos 默认 AppID 无法导入开发者工具`, `把 AppID 写进 ~/.zsh_secrets 的 ${appidVar}（多个游戏各用各的前缀，不要共用无前缀变量）`)
 }
 
 // 6. 编辑器浏览器预览端口
