@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude 网页注册"
+  short_description: "BitBrowser 指纹窗口、出口与分流核验、cf_clearance、邮箱与人机验证的 Claude 注册流程"
+  default_prompt: "Use $weicoz-claude-signup-ops to set up the fingerprint window, verify routing and exit IP, handle Cloudflare, and finish Claude web signup with evidence."
