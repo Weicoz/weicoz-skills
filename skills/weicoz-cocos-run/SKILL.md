@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-run
-version: 1.11.1
+version: 1.11.2
 description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行构建（web-mobile / wechatgame）、给用户可点开的预览、自动试玩验收与分级证据。用于“跑起来看看”“我怎么测试”“在 Cocos 里预览给我看”“构建微信小游戏”“验收 demo”。
 ---
 
@@ -147,11 +147,22 @@ MCP 连接方式决定写操作怎么调用：
 - 微信提审截图在微信真机里截（带胶囊与游戏名），要求见 `weicoz-cocos-dev/references/wechat-platform.md` “上线前检查”。
 - 桌面宽屏截图用非移动上下文（`cocos-playtest.mjs` 已生成 `temp/playtest-zz-desktop.png`），桌面画面以它为准。
 
+### 微信开发者工具能验什么
+
+- 开发者工具的自动化不支持小游戏：`miniprogram-automator` 只有小程序接口，`App.callFunction`（`evaluate` 底层）超时报 `timeout waiting for automator response`，调试端口也不提供 CDP。改 MCP 或工程配置修不了。玩法、界面、跳转的自动验收一律走 web-mobile 加测试钩子（`cocos-verify.mjs`）。
+- 开发者工具只用来证明三件事：
+  - 能启动：`launch` 后截图。
+  - 包体：`cli preview` 与 `--release` 构建的体积。
+  - 存储与生命周期：`cli close` 后读模拟器存储文件，确认 `onHide` 写入了存档或埋点。
+- 一定要在模拟器里点击时：系统级合成点击按屏幕坐标，窗口一动就偏，固定补偿无效。每次点击前重读开发者工具窗口和模拟器画布的位置，换算成画布坐标；点完截图确认到了预期页面，不对就停，不得连续盲点。点之前确认开发者工具在前台；用户正在用电脑时不做系统级点击。
+- 沙箱里跑 `cli` 报 `EPERM`、退出码 255：`cli` 每次都要写 `~/Library/Application Support/微信开发者工具/<hash>/Default/.cli`。把 `~/Library/Application Support/微信开发者工具/` 加进沙箱可写目录，或经用户同意让这条命令在沙箱外跑。
+- 广告、分享、胶囊按钮、真机手感列进“需真机”清单：用 `weicoz-pinky-phone` 操作真机，或请用户点。
+
 ## 5. 汇报分级
 
 四级状态的定义、证据要求与汇报格式见 `weicoz-verify` 第 5、10 节。游戏侧的具体含义：
 
 - **核心流程**：首次操作、得分或进度变化、胜负与重开都有证据。
-- **目标环境**：微信开发者工具或真机。
+- **目标环境**：真机；或微信开发者工具，但只能证明启动、包体、存储与生命周期（见第 4 节“微信开发者工具能验什么”）。
 
 阶段要求的级别见 `weicoz-game-flow` 的阶段门。
