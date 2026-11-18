@@ -19,7 +19,6 @@ allowed-tools: Read, Write, Edit, Bash
 | 思维导图 | `weicoz-demand-mindmap-organizer` | 项目目录、文件名、交付对象、已确认参数表 |
 | 报价 | `weicoz-project-quote-estimator` | 项目目录、文件名、已归档范围 |
 | 需求文档 | `weicoz-pm-requirements-from-docs` | 项目目录、文件名、交付对象、已确认参数表 |
-| 讲解稿（内部） | `weicoz-briefing-script` | 项目目录、文件名、沟通记录与已确认参数表位置 |
 | 玩法规则（客户版） | `weicoz-gameplay-rules` | 项目目录、文件名、已确认参数表位置 |
 
 - 同轮命中多个 skill 时，先加载专项 skill，再按本 skill 落盘。不得因为本文件提过某交付物就跳过专项 skill。
@@ -181,10 +180,6 @@ python3 "$WEICOZ_SKILLS_ROOT/weicoz-jy-design-demand-archive/scripts/check_clien
 
 ### 功能清单
 按 `weicoz-custom-feature-checklist` 执行，落同项目目录。调用时明确告诉它交付对象（客户版/内部版）和参数表位置。
-
-### 讲解稿
-- 用户要给产品/开发讲清玩法与分工时，按 `weicoz-briefing-script` 执行，落 `项目名-讲解稿-YYYYMMDD.md`；调用时告诉它沟通记录与已确认参数表位置。
-- 讲解稿同样先跑第 4 节前置确认；用户获准保留的未知项按共享例外处理，已知规则与建议分开写。不跑客户版禁词门禁。
 
 ### 报价
 仅用户明确要求时调用 `weicoz-project-quote-estimator`。先完成原文归档和范围收口，再生成报价；报价内部规则以该 skill 为准。

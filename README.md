@@ -96,7 +96,6 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | --- | --- | --- |
 | [`weicoz-pm-requirements-from-docs`](skills/weicoz-pm-requirements-from-docs/) | 1.0.0 | 把客户需求材料整理成 PM 可读的需求文档：业务模型、流程、身份、奖励、报价 |
 | [`weicoz-custom-feature-checklist`](skills/weicoz-custom-feature-checklist/) | 1.0.0 | 把沟通记录整理成可交付功能清单初稿，只留定制部分并区分待确认项 |
-| [`weicoz-briefing-script`](skills/weicoz-briefing-script/) | 1.0.0 | 把已定玩法资料整理成给产品/开发的内部讲解稿：例子讲规则、分工与难点、未定点 |
 | [`weicoz-gameplay-rules`](skills/weicoz-gameplay-rules/) | 1.0.0 | 把已定案的客户玩法写成条款式规则说明，可直接发给客户逐条核对签字 |
 | [`weicoz-client-model-explainer`](skills/weicoz-client-model-explainer/) | 1.0.0 | 用费曼技巧与 ASCII 图向零背景读者完整解释客户模式，保留功能、奖励、限制及冲突 |
 | [`weicoz-demand-mindmap-organizer`](skills/weicoz-demand-mindmap-organizer/) | 1.0.0 | 把沟通记录整理成客户可读需求导图，直接产出可打开的 .xmind 文件 |

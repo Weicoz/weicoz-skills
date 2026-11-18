@@ -81,6 +81,6 @@ description: 把客户文档、表格和沟通记录中的商业模式或建设�
 - 分期额度不写成保证返还；新资金流入不写成经营利润；文档内截图不写成已验证上线。只有执行了真实业务核验，才报告运行或兑付结果。
 - 当资料无法读全、规则冲突或实发计算缺条件时，准确标出边界。交付完整解释与最小待确认清单，不因这些局部缺口丢弃其余内容。
 
-确认后的交接：用户要给开发讲解、功能清单、需求规格或报价时，交给 `weicoz-briefing-script`、`weicoz-custom-feature-checklist`、`weicoz-requirement-spec-writer`、`weicoz-project-quote-estimator`；本技能只负责把事情讲清楚并列出缺口。
+确认后的交接：用户要给开发讲解、功能清单、需求规格或报价时，交给 `weicoz-gameplay-rules`、`weicoz-custom-feature-checklist`、`weicoz-requirement-spec-writer`、`weicoz-project-quote-estimator`；本技能只负责把事情讲清楚并列出缺口。
 
 维护本技能时，用 [references/acceptance-cases.md](references/acceptance-cases.md) 的虚构场景检查完整性、算例和冲突处理；客户附件、名称、私有路径和真实业务参数不进入技能仓库。
