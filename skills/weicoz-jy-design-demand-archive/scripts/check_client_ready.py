@@ -22,10 +22,14 @@ CLIENT_ALLOWED = ["待确认收货", "待确认付款", "待确认订单", "参�
 
 # 与 weicoz-demand-mindmap-organizer/scripts/validate_xmind.py 的确认页规则保持一致
 CONFIRM_TITLE = "方案确认项"
-CONFIRM_HEAD_RE = re.compile(rf"^{CONFIRM_TITLE}(?!\s*第\s*\d)")
+# 允许「十六、方案确认项」这类带序号的标题；正文里「方案确认项第N条」仍不算标题。
+CONFIRM_HEAD_RE = re.compile(
+    rf"^(?:[一二三四五六七八九十百零〇0-9]+[、.．]\s*)?{CONFIRM_TITLE}(?!\s*第\s*\d)"
+)
 ITEM_RE = re.compile(r"^第\s*(\d+)\s*条")
 REF_RE = re.compile(rf"{CONFIRM_TITLE}第\s*(\d+)\s*条")
 MARKERS = " \t│├└─|*+->•"
+HEADING_RE = re.compile(r"^#{1,6}\s")
 
 EXTENSIONS = {".md", ".txt", ".csv", ".xlsx", ".xmind"}
 BLOCKER_RE = re.compile(CLIENT_BLOCKERS)
@@ -197,7 +201,7 @@ def xmind_units(path: Path) -> Iterator[tuple[str, str, bool]]:
                     yield f"text#{number}", node.text.strip(), False
 
 
-def confirm_problems(units: list[tuple[str, str, bool]]) -> list[str]:
+def confirm_problems(units: list[tuple[str, str, bool]], allow_unreferenced: bool = False) -> list[str]:
     """Body refs 方案确认项第N条 and section items 第N条 must match one to one."""
     has_section = False
     items: dict[int, str] = {}
@@ -219,8 +223,73 @@ def confirm_problems(units: list[tuple[str, str, bool]]) -> list[str]:
         problems.append("方案确认项没有任何“第N条”条目")
     for number in sorted(set(refs) - set(items)):
         problems.append(f"{refs[number]}: 引用方案确认项第{number}条，但确认页没有该条")
-    for number in sorted(set(items) - set(refs)):
-        problems.append(f"{items[number]}: 方案确认项第{number}条未在正文引用")
+    if not allow_unreferenced:
+        for number in sorted(set(items) - set(refs)):
+            problems.append(f"{items[number]}: 方案确认项第{number}条未在正文引用")
+    return problems
+
+
+RULE_NAME_RE = re.compile(r"^###\s+(.+?)\s*$")
+RULE_HIT_RE = re.compile(r"^(?:命中|trigger)\s*[:：]\s*(.+)$")
+RULE_NEED_RE = re.compile(r"^(?:同段必须|must)\s*[:：]\s*(.+)$")
+RULE_BAN_RE = re.compile(r"^(?:同段禁止|ban)\s*[:：]\s*(.+)$")
+
+
+def load_consistency_rules(path: Path) -> list[dict[str, object]]:
+    """每条形如：### 名称 / 命中: 正则 / 同段必须: 正则 / 同段禁止: 正则。"""
+    rules: list[dict[str, object]] = []
+    current: dict[str, object] | None = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        name = RULE_NAME_RE.match(stripped)
+        if name:
+            current = {"name": name.group(1), "hit": None, "need": None, "ban": None}
+            rules.append(current)
+            continue
+        if current is None:
+            continue
+        for key, regex in (("hit", RULE_HIT_RE), ("need", RULE_NEED_RE), ("ban", RULE_BAN_RE)):
+            match = regex.match(stripped)
+            if match:
+                current[key] = re.compile(match.group(1))
+    return [rule for rule in rules if rule["hit"]]
+
+
+def paragraph_at(lines: list[str], index: int) -> str:
+    """命中行所在段落：向两侧扩到空行或标题为止。"""
+    start = index
+    while start > 0 and lines[start - 1].strip() and not HEADING_RE.match(lines[start - 1]):
+        start -= 1
+    end = index
+    while end + 1 < len(lines) and lines[end + 1].strip() and not HEADING_RE.match(lines[end + 1]):
+        end += 1
+    return "\n".join(lines[start:end + 1])
+
+
+def consistency_problems(path: Path, rules: list[dict[str, object]]) -> list[str]:
+    if path.suffix.lower() not in {".md", ".txt", ".csv"}:
+        return []
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    problems: list[str] = []
+    section_open = False
+    for number, line in enumerate(lines, 1):
+        if CONFIRM_HEAD_RE.match(line_content(line)):
+            section_open = True
+        elif section_open and HEADING_RE.match(line):
+            section_open = False
+        if section_open or HEADING_RE.match(line):
+            continue
+        for rule in rules:
+            hit = rule["hit"]
+            if not hit.search(line):
+                continue
+            paragraph = paragraph_at(lines, number - 1)
+            need = rule["need"]
+            ban = rule["ban"]
+            if need is not None and not need.search(paragraph):
+                problems.append(f"L{number}: 口径「{rule['name']}」缺配套表述")
+            if ban is not None and ban.search(paragraph):
+                problems.append(f"L{number}: 口径「{rule['name']}」出现禁止表述")
     return problems
 
 
@@ -241,7 +310,25 @@ def main() -> int:
     parser.add_argument("paths", nargs="+", type=Path, help="files or directories (.md .txt .csv .xlsx .xmind)")
     parser.add_argument("--old-term", action="append", default=[], help="old wording that must have 0 hits")
     parser.add_argument("--external", action="store_true", help="另查对外文件名、标题和工作表名称，拒绝内部版本标记")
+    parser.add_argument(
+        "--consistency",
+        type=Path,
+        default=None,
+        help="已裁定口径文件；正文命中规定模式时，同段必须有配套表述",
+    )
+    parser.add_argument(
+        "--allow-unreferenced-items",
+        action="store_true",
+        help="允许确认项不被正文引用；用于功能清单等只有文档级确认项的产物",
+    )
     args = parser.parse_args()
+
+    rules: list[dict[str, object]] = []
+    if args.consistency is not None:
+        if not args.consistency.is_file():
+            print(f"missing consistency file: {args.consistency}", file=sys.stderr)
+            return 1
+        rules = load_consistency_rules(args.consistency)
 
     files = collect(args.paths)
     if not files:
@@ -264,7 +351,10 @@ def main() -> int:
             for word, snippet in find_hits(text, args.old_term):
                 total += 1
                 print(f"{file}:{loc}: {word} | {snippet}")
-        for message in confirm_problems(units):
+        for message in confirm_problems(units, allow_unreferenced=args.allow_unreferenced_items):
+            total += 1
+            print(f"{file}: {message}")
+        for message in consistency_problems(file, rules):
             total += 1
             print(f"{file}: {message}")
     if total:

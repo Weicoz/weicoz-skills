@@ -38,7 +38,11 @@ def extract_sections(text: str) -> list[str]:
         if match:
             level = len(match.group(1))
             title = match.group(2)
-            if current is not None and level <= current_level:
+            # 拼接进来的源文件自带二级标题（如「## 一、需求边界」），不能把它当成区段结束。
+            # 只有一级标题、或标题含摘要类词时才关闭当前原文区段。
+            if current is not None and level <= current_level and (
+                level == 1 or any(word in title for word in SUMMARY_WORDS)
+            ):
                 sections.append(current)
                 current = None
             if (

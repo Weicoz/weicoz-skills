@@ -138,18 +138,28 @@ def main() -> int:
 
     count, depth, titles = inspect(root)
     first_level = [topic.get("title", "") for topic in children(root)]
+
+    # 方案确认项是格式固定的附录，每条 4—5 行，会挤占正文的可读性配额。
+    # 正文主题数与确认项主题数分开统计，上限只约束正文。
+    CONFIRM_BRANCH = "方案确认项"
+    confirm_count = sum(
+        inspect(topic)[0]
+        for topic in children(root)
+        if isinstance(topic.get("title"), str) and topic["title"].strip() == CONFIRM_BRANCH
+    )
+    content_count = count - confirm_count
     limits = PROFILES[args.profile]
     failures = []
     if len(first_level) < limits["first_level"]:
         failures.append(f"first-level branches {len(first_level)} < {limits['first_level']}")
     if args.max_first_level and len(first_level) > args.max_first_level:
         failures.append(f"first-level branches {len(first_level)} > {args.max_first_level} ceiling")
-    if count < limits["nodes"]:
-        failures.append(f"topics {count} < {limits['nodes']}")
+    if content_count < limits["nodes"]:
+        failures.append(f"topics {content_count} < {limits['nodes']}")
     ceiling = args.max_topics if args.max_topics is not None else limits["max_nodes"]
-    if ceiling and count > ceiling:
+    if ceiling and content_count > ceiling:
         failures.append(
-            f"topics {count} > {ceiling} ceiling; move detail into the requirements doc instead of merging rows"
+            f"topics {content_count} > {ceiling} ceiling; move detail into the requirements doc instead of merging rows"
         )
     if depth < limits["depth"]:
         failures.append(f"depth {depth} < {limits['depth']}")
@@ -170,7 +180,8 @@ def main() -> int:
     print(json.dumps({
         "root": root["title"],
         "first_level": len(first_level),
-        "topics": count,
+        "topics": content_count,
+        "confirm_topics": confirm_count,
         "depth": depth,
         "ceiling": args.max_topics if args.max_topics is not None else limits["max_nodes"],
         "branches": first_level,
