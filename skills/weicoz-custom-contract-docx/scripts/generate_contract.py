@@ -25,6 +25,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--template", required=True, help="Absolute path to the source DOCX template.")
     parser.add_argument("--config", required=True, help="Absolute path to the JSON config file.")
     parser.add_argument("--output", required=True, help="Absolute path to the generated DOCX.")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Run post-generation checks (placeholder residue, empty brackets, image count) and fail on findings.",
+    )
     return parser.parse_args()
 
 
@@ -212,6 +217,121 @@ def draw_wrapped_text(
         draw.text((inner_left, start_y + index * line_height), line, font=font, fill=fill)
 
 
+def _normalize_feature_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Fill 类型描述 down so merged-column sources (xlsx exports) render once per group."""
+    normalized: list[dict[str, str]] = []
+    current_desc = ""
+    for row in rows:
+        desc = to_text(row.get("type_desc"))
+        if desc:
+            current_desc = desc
+        normalized.append(
+            {
+                "type": to_text(row.get("type")),
+                "type_desc": current_desc,
+                "module_name": to_text(row.get("module_name")),
+                "feature_desc": to_text(row.get("feature_desc")),
+            }
+        )
+    return normalized
+
+
+def _group_runs(rows: list[dict[str, str]], key: str) -> list[tuple[int, int, str]]:
+    runs: list[tuple[int, int, str]] = []
+    start = 0
+    for index in range(1, len(rows) + 1):
+        if index == len(rows) or rows[index][key] != rows[start][key]:
+            runs.append((start, index, rows[start][key]))
+            start = index
+    return runs
+
+
+def _chunk_rows(rows: list[dict[str, str]], per_image: Any) -> list[list[dict[str, str]]]:
+    try:
+        size = int(to_text(per_image))
+    except ValueError:
+        size = 0
+    if size <= 0 or size >= len(rows):
+        return [rows]
+    return [rows[index : index + size] for index in range(0, len(rows), size)]
+
+
+def render_feature_image(
+    rows: list[dict[str, str]],
+    title: str,
+    image_path: Path,
+    headers: list[str],
+    width: int = 1600,
+) -> Path:
+    scale = width / 1600
+    title_height = round(96 * scale)
+    header_height = round(104 * scale)
+    border = max(2, round(3 * scale))
+    blue = "#A5B7E1"
+    green_left = "#E6F4ED"
+    green_right = "#BFE4D3"
+    line = "#2E2E2E"
+    text = "#111111"
+
+    col_widths = [round(186 * scale), round(250 * scale), round(340 * scale)]
+    col_widths.append(width - sum(col_widths))
+
+    title_font = load_font(round(38 * scale))
+    header_font = load_font(round(30 * scale))
+    body_font = load_font(round(29 * scale))
+
+    probe = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+    row_heights: list[int] = []
+    for row in rows:
+        wrapped = wrap_text(probe, row["feature_desc"], body_font, col_widths[3] - 60)
+        row_heights.append(max(round(120 * scale), round((42 * len(wrapped) + 40) * scale)))
+
+    height = title_height + header_height + sum(row_heights) + border * 3
+    image = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(image)
+
+    xs = [0]
+    for column_width in col_widths:
+        xs.append(xs[-1] + column_width)
+
+    draw.rectangle((0, 0, width - 1, title_height), fill=blue, outline=line, width=border)
+    draw_centered_text(draw, (0, 0, width, title_height), title, title_font, text)
+
+    draw.rectangle((0, title_height, width - 1, title_height + header_height), fill=blue, outline=line, width=border)
+    for index, label in enumerate(headers):
+        draw.rectangle((xs[index], title_height, xs[index + 1], title_height + header_height), outline=line, width=border)
+        draw_centered_text(
+            draw, (xs[index], title_height, xs[index + 1], title_height + header_height), label, header_font, text
+        )
+
+    tops: list[int] = []
+    y = title_height + header_height
+    for row_height in row_heights:
+        tops.append(y)
+        y += row_height
+    body_bottom = y
+
+    for index, row in enumerate(rows):
+        top = tops[index]
+        bottom = top + row_heights[index]
+        draw.rectangle((xs[2], top, xs[3], bottom), fill=green_left, outline=line, width=border)
+        draw.rectangle((xs[3], top, xs[4], bottom), fill=green_right, outline=line, width=border)
+        draw_centered_text(draw, (xs[2], top, xs[3], bottom), row["module_name"], header_font, text)
+        draw_wrapped_text(draw, (xs[3], top, xs[4], bottom), row["feature_desc"], body_font, text, round(30 * scale))
+
+    for column_index, key in ((0, "type"), (1, "type_desc")):
+        for start, stop, label in _group_runs(rows, key):
+            top = tops[start]
+            bottom = tops[stop - 1] + row_heights[stop - 1]
+            draw.rectangle((xs[column_index], top, xs[column_index + 1], bottom), fill=green_left, outline=line, width=border)
+            draw_centered_text(draw, (xs[column_index], top, xs[column_index + 1], bottom), label, header_font, text)
+
+    draw.rectangle((0, 0, width - 1, body_bottom), outline=line, width=border)
+    image_path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(image_path)
+    return image_path
+
+
 def build_feature_images(config: dict[str, Any], output_docx: Path) -> list[Path]:
     image_paths: list[Path] = []
     paths_raw = config.get("feature_image_paths") or []
@@ -230,97 +350,28 @@ def build_feature_images(config: dict[str, Any], output_docx: Path) -> list[Path
     if image_paths:
         return image_paths
 
-    rows = config.get("feature_rows") or []
+    rows = _normalize_feature_rows(config.get("feature_rows") or [])
     if not rows:
         raise ValueError("Provide feature_image_path or feature_rows in the contract config.")
 
-    feature_output = to_text(config.get("feature_image_output"))
-    image_path = Path(feature_output).expanduser().resolve() if feature_output else output_docx.with_name(
-        f"{output_docx.stem}-功能清单.png"
-    )
-    image_path.parent.mkdir(parents=True, exist_ok=True)
-
-    width = 2200
-    title_height = 90
-    header_height = 110
-    border = 3
-    blue = "#A5B7E1"
-    green_left = "#E6F4ED"
-    green_right = "#BFE4D3"
-    line = "#2E2E2E"
-    text = "#111111"
+    chunks = _chunk_rows(rows, config.get("feature_rows_per_image"))
     headers = config.get("feature_headers") or ["类型", "类型描述", "模块名称", "功能描述"]
-    col_widths = [240, 340, 420, width - 240 - 340 - 420]
+    title = to_text(config.get("feature_title")) or "需求功能清单"
+    width_raw = to_text(config.get("feature_image_width"))
+    width = int(width_raw) if width_raw.isdigit() and int(width_raw) >= 1200 else 1600
 
-    title_font = load_font(36)
-    header_font = load_font(28)
-    body_font = load_font(26)
-
-    canvas = Image.new("RGB", (width, 2000), "white")
-    draw = ImageDraw.Draw(canvas)
-    row_heights: list[int] = []
-    for row in rows:
-        wrapped = wrap_text(draw, to_text(row.get("feature_desc")), body_font, col_widths[3] - 60)
-        row_heights.append(max(140, 44 * len(wrapped) + 42))
-
-    total_body_height = sum(row_heights)
-    height = title_height + header_height + total_body_height + border
-    image = Image.new("RGB", (width, height), "white")
-    draw = ImageDraw.Draw(image)
-
-    xs = [0]
-    for column_width in col_widths:
-        xs.append(xs[-1] + column_width)
-
-    draw.rectangle((0, 0, width - 1, title_height), fill=blue, outline=line, width=border)
-    draw_centered_text(draw, (0, 0, width, title_height), to_text(config.get("feature_title")), title_font, text)
-
-    top = title_height
-    draw.rectangle((0, top, width - 1, top + header_height), fill=blue, outline=line, width=border)
-    for index, label in enumerate(headers):
-        draw.rectangle((xs[index], top, xs[index + 1], top + header_height), outline=line, width=border)
-        draw_centered_text(draw, (xs[index], top, xs[index + 1], top + header_height), label, header_font, text)
-
-    y = top + header_height
-    group_start = y
-    current_type = None
-    current_group_rows: list[tuple[int, int]] = []
-
-    def flush_type_group(group_type: str | None, group_rows: list[tuple[int, int]]) -> None:
-        if not group_type or not group_rows:
-            return
-        start = group_rows[0][0]
-        end = group_rows[-1][1]
-        draw.rectangle((xs[0], start, xs[1], end), fill=green_left, outline=line, width=border)
-        draw_centered_text(draw, (xs[0], start, xs[1], end), group_type, header_font, text)
-
-    for row, row_height in zip(rows, row_heights):
-        type_label = to_text(row.get("type"))
-        if current_type is None:
-            current_type = type_label
-            current_group_rows = []
-            group_start = y
-        elif type_label != current_type:
-            flush_type_group(current_type, current_group_rows)
-            current_type = type_label
-            current_group_rows = []
-            group_start = y
-
-        row_top = y
-        row_bottom = y + row_height
-        current_group_rows.append((row_top, row_bottom))
-
-        draw.rectangle((xs[1], row_top, xs[2], row_bottom), fill=green_left, outline=line, width=border)
-        draw.rectangle((xs[2], row_top, xs[3], row_bottom), fill=green_left, outline=line, width=border)
-        draw.rectangle((xs[3], row_top, xs[4], row_bottom), fill=green_right, outline=line, width=border)
-        draw_centered_text(draw, (xs[1], row_top, xs[2], row_bottom), row.get("type_desc", ""), header_font, text)
-        draw_centered_text(draw, (xs[2], row_top, xs[3], row_bottom), row.get("module_name", ""), header_font, text)
-        draw_wrapped_text(draw, (xs[3], row_top, xs[4], row_bottom), row.get("feature_desc", ""), body_font, text, 30)
-        y = row_bottom
-
-    flush_type_group(current_type, current_group_rows)
-    image.save(image_path)
-    return [image_path]
+    feature_output = to_text(config.get("feature_image_output"))
+    generated: list[Path] = []
+    for index, chunk in enumerate(chunks):
+        suffix = "" if len(chunks) == 1 else f"-{index + 1:02d}"
+        chunk_title = title if index == 0 else f"{title}（续）"
+        if feature_output:
+            base = Path(feature_output).expanduser().resolve()
+            image_path = base.with_name(f"{base.stem}{suffix}{base.suffix}")
+        else:
+            image_path = output_docx.with_name(f"{output_docx.stem}-功能清单{suffix}.png")
+        generated.append(render_feature_image(chunk, chunk_title, image_path, headers, width))
+    return generated
 
 
 def replace_paragraph(paragraph, text: str) -> None:
@@ -432,17 +483,29 @@ def fill_contract(template: Path, config: dict[str, Any], output_docx: Path, fea
             continue
 
         if stripped.startswith("甲方指定联系人："):
-            replace_paragraph(
-                paragraph,
-                f"甲方指定联系人：【{to_text(config['customer_contact'])}】，指定联系邮箱：【{to_text(config['customer_email'])}】；",
-            )
+            contact = to_text(config["customer_contact"])
+            email = to_text(config["customer_email"])
+            if contact or email:
+                replace_paragraph(
+                    paragraph,
+                    f"甲方指定联系人：【{contact}】，指定联系邮箱：【{email}】；",
+                )
+            else:
+                replace_paragraph(
+                    paragraph,
+                    "甲方指定联系人：【\u3000\u3000\u3000\u3000\u3000\u3000】，"
+                    "指定联系邮箱：【\u3000\u3000\u3000\u3000\u3000\u3000\u3000\u3000】；",
+                )
             continue
 
         if stripped.startswith("乙方指定联系人："):
-            replace_paragraph(
-                paragraph,
-                f"乙方指定联系人：【{to_text(config['vendor_contact'])}】，指定联系邮箱：【{to_text(config['vendor_email'])}】。",
-            )
+            vendor_contact = to_text(config["vendor_contact"])
+            vendor_email = to_text(config["vendor_email"])
+            if vendor_contact or vendor_email:
+                replace_paragraph(
+                    paragraph,
+                    f"乙方指定联系人：【{vendor_contact}】，指定联系邮箱：【{vendor_email}】。",
+                )
             continue
 
     if not image_inserted:
@@ -450,9 +513,41 @@ def fill_contract(template: Path, config: dict[str, Any], output_docx: Path, fea
     if not feature_image_paths:
         raise ValueError("No feature images were inserted.")
 
+    for paragraph in doc.paragraphs:
+        paragraph.paragraph_format.widow_control = True
+
     output_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(output_docx))
     return output_docx
+
+
+def _all_paragraphs(doc):
+    for paragraph in doc.paragraphs:
+        yield paragraph
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    yield paragraph
+
+
+def check_output(docx_path: Path, expected_images: int) -> list[str]:
+    doc = Document(str(docx_path))
+    findings: list[str] = []
+
+    for paragraph in _all_paragraphs(doc):
+        content = paragraph.text
+        if "{{" in content or "}}" in content:
+            findings.append(f"placeholder residue: {content.strip()[:60]}")
+        if "【】" in content or "【 】" in content:
+            findings.append(f"empty bracket: {content.strip()[:60]}")
+
+    actual_images = len(doc.inline_shapes)
+    if expected_images and actual_images != expected_images:
+        findings.append(f"image count {actual_images} != expected {expected_images}")
+    if actual_images == 0:
+        findings.append("no inline images found")
+    return findings
 
 
 def main() -> None:
@@ -473,6 +568,15 @@ def main() -> None:
     print(f"Generated DOCX: {generated_docx}")
     for path in feature_image_paths:
         print(f"Feature image: {path}")
+
+    if args.check:
+        findings = check_output(generated_docx, len(feature_image_paths))
+        if findings:
+            print("CHECK FAILED:")
+            for item in findings:
+                print(f"  - {item}")
+            raise SystemExit(1)
+        print(f"CHECK PASSED: {len(feature_image_paths)} image(s), no placeholder residue, no empty brackets")
 
 
 if __name__ == "__main__":

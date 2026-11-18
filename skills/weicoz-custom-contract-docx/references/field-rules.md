@@ -1,5 +1,17 @@
 # Field Rules
 
+## Canonical Template
+
+标准模板只有一份，必须用这个绝对路径：
+
+```
+${WEICOZ_CONTRACT_TEMPLATE:-$HOME/Desktop/定制开发合同--通用（非标准功能售卖）.docx}
+```
+
+同目录曾有三份同名副本（`_副本.docx`、`_副本2.docx`），md5 与主模板一致，已移入废纸篓。模板正文留有错字占位符 `{{[price}}`、`{{[price_zh}}`，以及把 `{{customer_name}}`/`{{customer_email}}` 放在乙方联系人位的写法；脚本按段落前缀整段重写这些位置，错字不会进入成品，`--check` 兜底。
+
+模板关键占位：`{{title:功能名称}}`、`{{image:需求清单}}`、`{{price}}`、`{{price_zh}}`、`{{price_after}}`、`{{year}}/{{month}}/{{day}}`。
+
 ## Config JSON Schema
 
 最小可用结构：
@@ -56,8 +68,11 @@
 - `vendor_email`
 - `feature_title`
 - `feature_image_path`
+- `feature_image_paths`
 - `feature_headers`
 - `feature_rows`
+- `feature_rows_per_image`
+- `feature_image_width`
 - `feature_image_output`
 
 ## Business Rules
@@ -67,17 +82,40 @@
 - `price_after` 为空但提供了 `price_after_percent` 时，脚本按 `price * percent / 100` 自动计算。
 - `price_zh` 为空时，脚本只对整数金额自动生成中文大写金额主体，例如 `7000 -> 柒仟`。
 - 如果金额带小数，优先让用户显式提供 `price_zh`，避免模板尾部的 `圆整` 与真实金额冲突。
+- 用户没给续费比例时，默认按开发费的 20%/年计（历史合同惯例：360000 -> 72000）。写入后提示用户复核。
+- 甲方联系人/邮箱全空时，脚本写入全角空位供手填，不留 `【】`。
 
 ## Feature Image Rules
 
-- 优先使用 `feature_image_path` 指向的原图。
-- 如果没有原图但提供了 `feature_rows`，脚本会生成标准化功能清单图。
+- 优先级：`feature_image_paths` > `feature_image_path` > `feature_rows`。
+- 用户已给出整页截图时用 `feature_image_paths`，按页顺序传入，脚本按满版心宽度逐张插入。
+- 只有行数据时脚本渲染标准化功能清单图。默认宽度 1600px，按 155.9mm 版心插入后约 7.5pt，可读。
 - `feature_rows` 的单行字段：
   - `type`
   - `type_desc`
   - `module_name`
   - `feature_desc`
-- 连续相同的 `type` 会在图片里合并为第一列的大单元格。
+- 连续相同的 `type` 合并为第一列大单元格，连续相同的 `type_desc` 合并为第二列大单元格。
+- `feature_rows_per_image` 控制每张图的行数。不设置时只出一张长图，A4 版心放不下；超过 12 行必须分块，建议 8–12 行。第 2 张起标题自动加“（续）”。
+
+## Reading Rows From XLSX
+
+功能清单 xlsx 常见结构：A 列使用端、B 列一级分类、C 列模块名称、D 列功能描述，A/B 列用合并单元格。取行时对 A、B 列做向下填充，再整理成 `feature_rows`：
+
+```python
+import openpyxl
+
+ws = openpyxl.load_workbook(path)["功能清单"]
+rows, cur_type, cur_desc = [], "", ""
+for r in ws.iter_rows(min_row=3, max_row=ws.max_row, values_only=True):
+    if r[0]: cur_type = str(r[0]).strip()
+    if r[1]: cur_desc = str(r[1]).strip()
+    if not r[2]: continue
+    rows.append({"type": cur_type, "type_desc": cur_desc,
+                 "module_name": str(r[2]).strip(), "feature_desc": str(r[3]).strip()})
+```
+
+不要直接把 xlsx 转 PDF 再截图：默认打印版式会把 A–C 列和 D 列拆到不同页，合同里无法使用。
 
 ## Template Mapping Rules
 
