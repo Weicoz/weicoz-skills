@@ -2,11 +2,23 @@
 
 ## Canonical Template
 
-标准模板只有一份，必须用这个绝对路径：
+标准模板只有一份，放在 skill 目录的 `assets/`，**不入 git**（模板含银行卡号与手机号，公开仓库会泄露）：
 
 ```
-${WEICOZ_CONTRACT_TEMPLATE:-$HOME/Desktop/定制开发合同--通用（非标准功能售卖）.docx}
+$SKILL_DIR/assets/定制开发合同-通用模板.docx
 ```
+
+新设备拉下仓库后 `assets/` 是空的，需要从桌面副本或备份复制一次，或设置 `$WEICOZ_CONTRACT_TEMPLATE` 指向任一可读副本。模板被移动或删除时先找这两个位置，不要另造模板。
+
+先解析 `SKILL_DIR`，取第一个存在模板的目录：
+
+1. `$WEICOZ_CONTRACT_SKILL_DIR`（显式指定时优先）
+2. `$HOME/.agents/skill-tiers/library/weicoz-custom-contract-docx`（L3 分层副本）
+3. `${WEICOZ_SKILLS_REPO:-$HOME/File/git/weicoz-skills}/skills/weicoz-custom-contract-docx`（主仓）
+
+不要用 `$WEICOZ_SKILLS_ROOT/weicoz-custom-contract-docx`：该软链指向 L3 生成桩，桩里只有 `SKILL.md`，没有 `scripts/` 和 `assets/`。
+
+`$HOME/Desktop/定制开发合同--通用（非标准功能售卖）.docx` 是同一份文件的桌面副本，md5 一致。桌面文件被移动、改名或删除时，用 skill 内这份，不要另找模板。
 
 同目录曾有三份同名副本（`_副本.docx`、`_副本2.docx`），md5 与主模板一致，已移入废纸篓。模板正文留有错字占位符 `{{[price}}`、`{{[price_zh}}`，以及把 `{{customer_name}}`/`{{customer_email}}` 放在乙方联系人位的写法；脚本按段落前缀整段重写这些位置，错字不会进入成品，`--check` 兜底。
 

@@ -10,11 +10,11 @@ description: "基于现有 .docx 合同模板、客户信息、金额规则和�
 
 ## Workflow
 
-1. 读取合同模板，识别待填字段、金额位、联系人位、工期位、需求清单图片占位。
+1. 读取仓库内模板 `assets/定制开发合同-通用模板.docx`，识别待填字段、金额位、联系人位、工期位、需求清单图片占位。
 2. 汇总用户已提供的信息，先输出一版“预想内容”给用户核对。只问最少的缺失信息。
 3. 缺失的甲方信息保持留空，不要脑补。
 4. 用户确认后，在 `${WEICOZ_OUTPUT_ROOT:-$PWD}` 写一份 JSON 配置文件。字段规则和示例见 `references/field-rules.md`。
-5. 用带 python-docx 的解释器运行 `scripts/generate_contract.py`。本机没有就建一个：`python3 -m venv /tmp/contract-env && /tmp/contract-env/bin/pip install python-docx pillow`。
+5. 用带 python-docx 的解释器运行 `scripts/generate_contract.py`（路径用 `$SKILL_DIR`，解析规则见 `references/field-rules.md`）。本机没有就建一个：`python3 -m venv /tmp/contract-env && /tmp/contract-env/bin/pip install python-docx pillow`。
 6. 用 genoffice 渲染输出的 `.docx`，逐页检查后再交付。本机 LibreOffice 已失效，不再使用。
 
 只给功能清单或截图页级信息、没有可排版行数据时，先确认能否直接复用截图。行数据可从 xlsx 读出，见 `references/field-rules.md`。
@@ -33,8 +33,9 @@ description: "基于现有 .docx 合同模板、客户信息、金额规则和�
 先写配置 JSON，再运行：
 
 ```bash
-$PYTHON "$WEICOZ_SKILLS_ROOT/weicoz-custom-contract-docx/scripts/generate_contract.py" \
-  --template /abs/path/template.docx \
+# SKILL_DIR 解析顺序见 references/field-rules.md，L3 分层下不要用 $WEICOZ_SKILLS_ROOT
+$PYTHON "$SKILL_DIR/scripts/generate_contract.py" \
+  --template "$SKILL_DIR/assets/定制开发合同-通用模板.docx" \
   --config /abs/path/contract.json \
   --output /abs/path/output.docx \
   --check
@@ -68,5 +69,6 @@ genoffice 不可用时改用 `WEICOZ_DOCUMENTS_RENDERER` 指向的 Codex 渲染�
 
 ## Resources
 
-- `references/field-rules.md`：配置字段、模板绝对路径、默认规则、金额规则、xlsx 取行方法
+- `references/field-rules.md`：配置字段、模板位置、默认规则、金额规则、xlsx 取行方法
+- `assets/定制开发合同-通用模板.docx`：合同模板正本，随 skill 一起分发
 - `scripts/generate_contract.py`：根据模板和 JSON 配置生成最终合同

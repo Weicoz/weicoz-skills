@@ -16,3 +16,6 @@
 **/test_output.*
 
 /skills/.skills-manager/
+
+# 合同模板含银行卡号与手机号，不进公开仓库
+skills/weicoz-custom-contract-docx/assets/*.docx
