@@ -76,7 +76,7 @@ description: 带验证闭环的实现：照 Matt 的 implement（或 implement-s
 摘要只回：改动文件、命令与结论行原文、未完成项与风险。
 ```
 
-收回后：主会话在最终提交上亲自重跑全检（不是子代理跑的那次），合并与上传前运行项目的门（Cocos 项目为 `cocos-gate.mjs`）。
+收回后：主会话在最终提交上亲自重跑全检（不是子代理跑的那次），合并与上传前运行 `weicoz-verify` 的 `scripts/verify-gate.mjs`（Cocos 项目也可用 `cocos-gate.mjs` 封装）。需要对抗式审查时，只在命中 `weicoz-code-review` 的触发条件时派，派单先说明命中哪一条；不命中就不派。
 
 ## 整份规格（implement-spec）
 

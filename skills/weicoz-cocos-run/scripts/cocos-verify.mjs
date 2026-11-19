@@ -14,10 +14,11 @@
  * 最后一行是唯一结论；退出码 0 = 通过，1 = 不通过，3 = 未验证（缺 CocosCreator 等环境，无法构建）。
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { cpus, loadavg } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { start as stampStart, finish as stampFinish } from '../../weicoz-verify/scripts/stamp.mjs'
 import { checkArgs, SCORING_FILES, finalVerdict, flakyDetail, noTestScriptRow, partialReasons, shouldRerun } from './lib-verify.mjs'
 
 const args = process.argv.slice(2)
@@ -59,11 +60,7 @@ if (!existsSync(join(project, 'assets'))) {
 }
 
 const base = all('--base')[0]
-const gitOut = (a) => {
-  const r = spawnSync('git', ['-C', project, ...a], { encoding: 'utf8' })
-  return r.status === 0 ? r.stdout.trim() : null
-}
-const dirtyAtStart = gitOut(['status', '--porcelain']) // null = 不是 git 仓库
+stampStart(project) // 记开始时的 HEAD 与工作区状态，并删旧戳记
 if (base) {
   const git = (a) => spawnSync('git', ['-C', project, ...a], { encoding: 'utf8' })
   const d = git(['diff', '--name-only', '--relative', base, '--', ...SCORING_FILES])
@@ -150,23 +147,7 @@ console.log('')
 const mark = (r) => (r.info || r.warn ? '⚠️' : r.ok ? '✅' : r.unverified ? '⚠️' : '❌')
 for (const r of rows) console.log(`${mark(r)} ${r.name}：${r.detail}`)
 const { verdict, line } = finalVerdict(rows, partial)
-// 合并与上传门的戳记：只有全检通过且首尾工作区都干净才写；其他结果一律删旧戳记
-const gitDir = gitOut(['rev-parse', '--absolute-git-dir'])
-const head = gitOut(['rev-parse', 'HEAD'])
-const dirtyAtEnd = gitOut(['status', '--porcelain'])
-const narrowed = quick || args.includes('--no-release') || all('--script').length > 0
-const stampWhy = !gitDir || !head ? '不是 git 仓库或没有提交'
-  : verdict !== 0 ? `结论不是通过（退出码 ${verdict}）`
-  : narrowed ? '不是完整全检（快检、--no-release 或 --script 缩小了范围）'
-  : dirtyAtStart !== '' || dirtyAtEnd !== '' ? '工作区有改动（运行开始或结束时 git status 非空）'
-  : ''
-const stampFile = gitDir ? join(gitDir, 'verify-stamp.json') : ''
-if (stampFile) rmSync(stampFile, { force: true })
-if (!stampWhy) {
-  writeFileSync(stampFile, JSON.stringify({ commit: head, tier: 'full', base: base ?? null, clean: true, verdict: '通过', at: new Date().toISOString() }, null, 2))
-  console.log(`戳记：已写 ${stampFile}（commit ${head.slice(0, 8)}）`)
-} else {
-  console.log(`戳记：未写（${stampWhy}），已清除旧戳记`)
-}
+// 合并与上传门的戳记：条件见 weicoz-verify/scripts/stamp.mjs
+stampFinish({ project, tier, code: verdict, base, narrowed: quick || args.includes('--no-release') || all('--script').length > 0 })
 console.log(line)
 process.exit(verdict)

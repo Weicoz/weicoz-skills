@@ -169,10 +169,9 @@ MCP 连接方式决定写操作怎么调用：
 
 ## 6. 合并与上传门
 
-只在“合并到主分支”和“上传”两点拦截，日常提交不受影响。
+通用规则见 `weicoz-verify` SKILL.md 第 12 节。本 Skill 只做接入：
 
-- 戳记：`cocos-verify.mjs` 全检（非 `--quick`，无 `--script`、`--no-release`）结论为“通过”，且运行开始与结束时 `git status --porcelain` 都为空，才写 `$(git rev-parse --git-dir)/verify-stamp.json`（按 worktree 区分，含 commit、tier、base、clean、verdict、at）。其他任何结果都删除旧戳记；结论行之前一行会写明戳记状态。
-- 构建：`cocos-build.mjs` 成功后在产物目录写 `.build-commit.json`（commit、dirty、platform、release）。`--platform bytedance-mini-game` 的 AppID 读 `<前缀>_DOUYIN_APPID`，没有就读 `--config` json 的 `appid`；release 仍是 `testappId` 则报错退出。
-- 检查：`node <本目录>/scripts/cocos-gate.mjs --project <工程> [--build <产物目录>]...`。逐项 ✅/❌：戳记等于 HEAD、工作区干净、每个产物的提交号等于 HEAD 且 dirty 为 false。最后一行“结论：通过/不通过”，退出码 0/1；失败项附下一步命令。
-- 规则：合并前与上传前必须先运行 cocos-gate，开发者工具 `cli upload` 也一样。结论不是“通过”就不合并、不上传。
-- 自测：`node <本目录>/scripts/cocos-gate.test.mjs`。
+- `cocos-verify.mjs` 调 `stamp.mjs` 的 start/finish 写全检戳记；`cocos-build.mjs` 调 build-start/build 写 `.build-commit.json`（`--platform bytedance-mini-game` 的 AppID 读 `<前缀>_DOUYIN_APPID`，没有就读 `--config` json 的 `appid`；release 仍是 `testappId` 则报错退出）。
+- 检查：`node <本目录>/scripts/cocos-gate.mjs ...`，转调 `weicoz-verify/scripts/verify-gate.mjs`，参数相同。
+- 规则：合并前与上传前必须先过门，开发者工具 `cli upload` 也一样。
+- 自测：`node <weicoz-verify>/scripts/gate.test.mjs`；`node <本目录>/scripts/cocos-gate.test.mjs`。

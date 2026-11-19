@@ -7,6 +7,8 @@
 # scripts/verify.sh：逐项检查，末行结论，退出码 0 通过 / 1 不通过 / 3 未验证
 set -o pipefail
 fails=(); missing=()
+STAMP=<weicoz-verify 目录>/scripts/stamp.mjs
+node "$STAMP" start   # 记开始状态，删旧戳记
 
 check() { # check <名称> <命令...>
   local name=$1; shift
@@ -23,10 +25,13 @@ check 构建 npm run build
 # 健康检查、关键接口真实调用：check 健康检查 curl -fsS http://127.0.0.1:3000/health
 
 if [ ${#fails[@]} -gt 0 ]; then
+  node "$STAMP" finish --tier "${VERIFY_TIER:-full}" --code 1 --base "${BASE:-main}"
   echo "结论：不通过（失败：$(IFS=、; echo "${fails[*]}")）"; exit 1
 elif [ ${#missing[@]} -gt 0 ]; then
+  node "$STAMP" finish --tier "${VERIFY_TIER:-full}" --code 3 --base "${BASE:-main}"
   echo "结论：未验证（缺：$(IFS=、; echo "${missing[*]}")）"; exit 3
 fi
+node "$STAMP" finish --tier "${VERIFY_TIER:-full}" --code 0 --base "${BASE:-main}"   # 全检通过才写戳记
 echo "结论：通过"
 ```
 

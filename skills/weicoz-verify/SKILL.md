@@ -1,6 +1,6 @@
 ---
 name: weicoz-verify
-version: 1.3.1
+version: 1.4.0
 description: 通用验证约定：把“代码写完”变成“有证据地证明能用”。规定项目验证命令的唯一结论行、秒级、快检、全检三档、修复上限、四级验证状态、证据格式与防自评规则，并按项目类型选适配器（Cocos 游戏、Web、其他）。用于改完代码要验收、“验证一下”“跑验收”“证明它能用”、给项目建立验证约定，或被 weicoz-implement-verified、weicoz-game-flow 调用。
 ---
 
@@ -159,3 +159,15 @@ if [ "$code" -ne 0 ]; then
   exit 1
 fi
 ```
+
+## 12. 合并与上传门（通用）
+
+- 何时生效：仓库 `AGENTS.md` 有“## 验证约定”。没有就不拦。只在“合并到主分支”和“上传”两点拦，日常提交不受影响。
+- 戳记：适配器全检结束时调用 `scripts/stamp.mjs`（开始 `start`，结束 `finish --tier full --code <退出码> --base <分支> [--narrowed]`；shell 自建适配器见 `references/custom-adapter.md`）。同时满足才写 `git-dir/verify-stamp.json`（含 commit、tier、base、clean、verdict、at）：tier=full、退出码 0、范围未缩小、base 非空、开始与结束时 `git status --porcelain` 都为空、HEAD 前后一致。否则删除旧戳记，结论行前一行写明原因。
+- 构建：构建脚本前调 `stamp.mjs build-start --dir <产物>`，成功后调 `stamp.mjs build --dir <产物> --platform <名> [--release]`，写 `.build-commit.json`（commit、dirty、platform、release）。
+- 门：`node scripts/verify-gate.mjs --project <目录> [--base <分支>] [--build <产物目录>[:<平台>]]... [--allow-debug]`。检查：戳记存在、commit 等于 HEAD、tier=full、verdict=通过、戳记 base 等于 `--base`（缺省按 develop、main、master 取第一个存在的）、工作区干净；每个产物 commit 等于 HEAD、dirty 为 false、release 为 true（`--allow-debug` 放宽）、平台一致。最后一行“结论：通过/不通过（缺：…）”，退出码 0/1。
+- 用户级安装（装不装由用户决定）：`~/.config/worktrunk/config.toml` 的 `[pre-merge]` 引用 `bash <本目录>/scripts/wt-pre-merge.sh {{ target }}`（`target` 是 wt 在 merge 时提供的合并目标分支）；Claude Code 的 SessionStart 钩子引用 `scripts/session-reminder.sh`。不支持钩子的 harness 靠本节规则自觉执行。
+- 合并用 `wt merge --no-squash --no-ff`；rebase 之后必须重跑全检，旧戳记的 commit 已不等于 HEAD。
+- 上传：任何方式（上传脚本、开发者工具 CLI、`tmg upload`）之前都先运行 `verify-gate --build <产物>`，结论“通过”才上传，回报里贴戳记提交号。
+- 已知绕过：手写戳记、`--no-hooks`、直接 `git merge`、`skip-worktree`、构建后改产物。门拦不住这些，靠审查与回报里的戳记提交号发现。
+- 对抗式审查（定义见 `weicoz-code-review`）不是每次都做，只在触发条件命中时做：①改动触及验证约定里的高风险目录，或存档与数据格式、鉴权、支付、并发、对外接口契约；②发版或上传给用户之前，每个发版批次一次；③改的是验证或门本身（评分配置、验证脚本、钩子）；④用户明确要求。文档、文案、数值调参、样式、高风险目录以外且快检能覆盖的小修、纯测试补充不做，走常规审查或只跑快检。

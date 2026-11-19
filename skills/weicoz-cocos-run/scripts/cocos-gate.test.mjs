@@ -13,14 +13,14 @@ let fail = 0
 
 const mkRepo = () => {
   const d = mkdtempSync(join(root, 'repo-'))
-  git(d, 'init', '-q')
+  git(d, 'init', '-q', '-b', 'main')
   git(d, 'config', 'user.email', 't@example.com'); git(d, 'config', 'user.name', 't')
   writeFileSync(join(d, 'a.txt'), '1')
   git(d, 'add', '.'); git(d, 'commit', '-qm', 'init')
   return d
 }
 const head = (d) => git(d, 'rev-parse', 'HEAD').stdout.trim()
-const stamp = (d, commit) => writeFileSync(join(d, '.git', 'verify-stamp.json'), JSON.stringify({ commit, tier: 'full', base: null, clean: true, verdict: '通过', at: 'x' }))
+const stamp = (d, commit) => writeFileSync(join(d, '.git', 'verify-stamp.json'), JSON.stringify({ commit, tier: 'full', base: 'main', clean: true, verdict: '通过', at: 'x' }))
 const build = (d, name, o) => { const b = join(root, `${name}-${Math.random()}`); mkdirSync(b); writeFileSync(join(b, '.build-commit.json'), JSON.stringify({ platform: 'wechatgame', release: true, ...o })); return b }
 const check = (name, d, builds, want) => {
   const r = spawnSync(process.execPath, [gate, '--project', d, ...builds.flatMap((b) => ['--build', b])], { encoding: 'utf8' })

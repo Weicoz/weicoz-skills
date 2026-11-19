@@ -7,6 +7,7 @@ import os from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { start as stampStart, finish as stampFinish } from './stamp.mjs';
 import {
   parseArgs, mergeConfig, matchIgnore, verdict, parseEnvFile, expandHome, loadLine, tailLines, failureLines, safeName,
   flowStatus, partialSwitches, partialItem, badIgnorePatterns, cleanIgnore, resolveScript, verifyScriptsChanged, withTimeout, checksMissing, unknownConfigKeys, briefMessage,
@@ -24,6 +25,10 @@ const finish = () => {
   const p = args && partialItem(args);
   if (p) items.push(p);
   const v = verdict(items);
+  if (args && args.project) {
+    const narrowed = args.noChecks || (args.scripts && args.scripts.length > 0) || !!p;
+    stampFinish({ project: path.resolve(expandHome(args.project)), tier: args.quick ? 'quick' : 'full', code: v.code, base: args.base, narrowed });
+  }
   say(v.line);
   process.exit(v.code);
 };
@@ -61,6 +66,7 @@ async function main() {
   }
 
   const project = path.resolve(expandHome(args.project));
+  stampStart(project); // 记开始状态并删旧戳记
   const cfgPath = path.join(project, 'tests/e2e/web-verify.config.json');
   let userCfg = {};
   if (fs.existsSync(cfgPath)) {

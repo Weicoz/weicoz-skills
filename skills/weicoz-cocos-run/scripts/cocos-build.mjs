@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from '
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { unusedModules } from './cocos-modules.mjs'
+import { build as stampBuild, buildStart } from '../../weicoz-verify/scripts/stamp.mjs'
 
 // 微信官方（2026-04 版文档）：主包 ≤ 4 MB，主包 + 全部分包 ≤ 30 MB，普通分包不限，独立分包 ≤ 4 MB
 // https://developers.weixin.qq.com/minigame/dev/guide/base-ability/subPackage/useSubPackage.html
@@ -56,6 +57,7 @@ const buildArg = config ? `configPath=${resolve(config)}` : `platform=${platform
 const logFile = join(tmpdir(), `cocos-build-${platform}-${Date.now()}.log`)
 console.log(`构建 ${platform}（${buildArg}）\n日志：${logFile}`)
 
+buildStart(outDir) // 构建前删旧来源戳，失败时不残留
 const startedAt = Date.now()
 const run = spawnSync(creator, ['--project', project, '--build', buildArg], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
 writeFileSync(logFile, `${run.stdout ?? ''}\n${run.stderr ?? ''}`)
@@ -132,13 +134,8 @@ if (platform === 'wechatgame') {
   console.log('最大文件：')
   for (const [size, file] of largest.slice(0, 5)) console.log(`  ${mb(size)} MB  ${file}`)
 }
-// 构建来源戳：cocos-gate 用它核对产物是否出自当前提交
-{
-  const g = (a) => spawnSync('git', ['-C', project, ...a], { encoding: 'utf8' })
-  const h = g(['rev-parse', 'HEAD'])
-  const st = g(['status', '--porcelain'])
-  writeFileSync(join(outDir, '.build-commit.json'), JSON.stringify({ commit: h.status === 0 ? h.stdout.trim() : null, dirty: st.status !== 0 || st.stdout.trim() !== '', platform, release }, null, 2))
-}
+// 构建来源戳：verify-gate 用它核对产物是否出自当前提交
+stampBuild({ dir: outDir, project, platform, release })
 const { unused } = unusedModules(project)
 if (unused.length) console.warn(`⚠️ 引擎已启用但工程未使用：${unused.join(', ')}（项目设置 → 功能裁剪中关闭可减小包体）`)
 console.log('状态：构建已验证；运行时未验证。')
