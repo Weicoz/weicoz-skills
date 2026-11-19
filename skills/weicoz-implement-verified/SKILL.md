@@ -1,6 +1,6 @@
 ---
 name: weicoz-implement-verified
-version: 1.2.1
+version: 1.3.0
 description: 带验证闭环的实现：照 Matt 的 implement（或 implement-spec）原文执行，动手前锁定测试频率纪律，审查统一用 weicoz-code-review，收尾按 weicoz-verify 跑项目验证命令并交付证据。不修改 Matt 原 skill。用于按票据或规格实现功能、“实现并验证”、weicoz-game-flow 阶段 3 的实现步骤。
 ---
 
@@ -60,6 +60,23 @@ description: 带验证闭环的实现：照 Matt 的 implement（或 implement-s
 5. 按 `weicoz-verify` 第 5 节标验证状态，按第 10 节格式汇报。
 
 由子代理执行时，主会话验收必须自己重跑同一条命令，看结论行；子代理自述不算通过。
+
+## 派单模板（派 implementer 等子代理时原样使用）
+
+子代理不继承 skill，流程只能靠派单带过去。派单必须包含以下各项，缺一项不得派出：
+
+```text
+工作目录（worktree 绝对路径）与分支；只在这里改动并提交，不推送，不合并。
+可写目录：<列出>；越界改动只记录不修改。
+先读：AGENTS.md 的“验证约定”，以及与任务相关的规格或文档章节。
+任务与完成判据：<可执行的检查，不写“功能正常”>。
+新写或改写端到端流程：按 weicoz-verify 的 references/e2e-authoring.md 执行，含“证明能抓错”一步。
+每轮写完跑快检：<命令>；回报结论行原文。
+同一项连续两次修不好就停下报告。
+摘要只回：改动文件、命令与结论行原文、未完成项与风险。
+```
+
+收回后：主会话在最终提交上亲自重跑全检（不是子代理跑的那次），合并与上传前运行项目的门（Cocos 项目为 `cocos-gate.mjs`）。
 
 ## 整份规格（implement-spec）
 

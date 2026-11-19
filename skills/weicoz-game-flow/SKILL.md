@@ -1,6 +1,6 @@
 ---
 name: weicoz-game-flow
-version: 1.10.0
+version: 1.11.0
 description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）：开项目、先找乐趣再工程化的两段式路线、阶段门与各阶段该用的 skill。用于开始或接手一个小游戏项目、问“下一步做什么”、判断能否进入下一阶段。
 ---
 
@@ -135,7 +135,7 @@ description: 小游戏开发总流程（Cocos Creator 3.8 + 微信小游戏）�
 
 阶段门通过或项目暂停时，用 `retro` 记录哪些 skill 帮上忙、哪些步骤卡住。
 
-准备上线时，按 `weicoz-cocos-dev` 的 `references/wechat-platform.md` “上线前检查”整理清单和材料。认证与备案耗时长，阶段 2 就提醒用户开始办。上传可以由代理用开发者工具命令行完成；类目与资质、备案、“提交审核”“发布”由用户在 MP 后台亲自操作。
+准备上线时，按 `weicoz-cocos-dev` 的 `references/wechat-platform.md` “上线前检查”整理清单和材料。认证与备案耗时长，阶段 2 就提醒用户开始办。上传可以由代理用开发者工具命令行完成，但任何上传方式（上传脚本、开发者工具 `cli upload`、`tmg upload`）之前都必须先运行 `weicoz-cocos-run` 的 `cocos-gate.mjs --project . --build <产物目录>`，结论“通过”才上传，并在回报里贴出戳记提交号；合并到主分支前同样先跑 `cocos-gate`（可配成项目 wt 的 pre-merge 钩子）。抖音产物若不经 `cocos-build.mjs` 构建，AppID 补写属人工项，须在回报中写明；类目与资质、备案、“提交审核”“发布”由用户在 MP 后台亲自操作。
 
 上线后进入数据循环：按 `wechat-platform.md` “关卡统计”埋点；每批关卡上线一周后，对比各关通过率、平均尝试次数、流失关与上线前机器人估算，偏差大的关进下一轮调参票。新游种子等留存过关后再开。
 
