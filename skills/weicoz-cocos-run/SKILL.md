@@ -1,6 +1,6 @@
 ---
 name: weicoz-cocos-run
-version: 1.11.2
+version: 1.12.0
 description: Cocos Creator 3.8 工程的运行闭环：开工预检、命令行构建（web-mobile / wechatgame）、给用户可点开的预览、自动试玩验收与分级证据。用于“跑起来看看”“我怎么测试”“在 Cocos 里预览给我看”“构建微信小游戏”“验收 demo”。
 ---
 
@@ -166,3 +166,13 @@ MCP 连接方式决定写操作怎么调用：
 - **目标环境**：真机；或微信开发者工具，但只能证明启动、包体、存储与生命周期（见第 4 节“微信开发者工具能验什么”）。
 
 阶段要求的级别见 `weicoz-game-flow` 的阶段门。
+
+## 6. 合并与上传门
+
+只在“合并到主分支”和“上传”两点拦截，日常提交不受影响。
+
+- 戳记：`cocos-verify.mjs` 全检（非 `--quick`，无 `--script`、`--no-release`）结论为“通过”，且运行开始与结束时 `git status --porcelain` 都为空，才写 `$(git rev-parse --git-dir)/verify-stamp.json`（按 worktree 区分，含 commit、tier、base、clean、verdict、at）。其他任何结果都删除旧戳记；结论行之前一行会写明戳记状态。
+- 构建：`cocos-build.mjs` 成功后在产物目录写 `.build-commit.json`（commit、dirty、platform、release）。`--platform bytedance-mini-game` 的 AppID 读 `<前缀>_DOUYIN_APPID`，没有就读 `--config` json 的 `appid`；release 仍是 `testappId` 则报错退出。
+- 检查：`node <本目录>/scripts/cocos-gate.mjs --project <工程> [--build <产物目录>]...`。逐项 ✅/❌：戳记等于 HEAD、工作区干净、每个产物的提交号等于 HEAD 且 dirty 为 false。最后一行“结论：通过/不通过”，退出码 0/1；失败项附下一步命令。
+- 规则：合并前与上传前必须先运行 cocos-gate，开发者工具 `cli upload` 也一样。结论不是“通过”就不合并、不上传。
+- 自测：`node <本目录>/scripts/cocos-gate.test.mjs`。

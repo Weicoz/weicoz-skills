@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 命令行构建 Cocos Creator 3.8 工程（不需要打开编辑器 UI）。
- * 用法：node cocos-build.mjs [--project <工程根>] [--platform web-mobile|wechatgame] [--release] [--game <前缀>] [--config <构建配置.json>]
+ * 用法：node cocos-build.mjs [--project <工程根>] [--platform web-mobile|wechatgame|bytedance-mini-game] [--release] [--game <前缀>] [--config <构建配置.json>]
  *
  * Creator CLI 构建成功也返回退出码 36（32 = 参数错误，34 = 构建异常）。
  * 成功判据：产物关键文件存在且为本次构建生成，而不是退出码。
@@ -19,7 +19,7 @@ const COCOS_DEFAULT_APPID = 'wx6ac3f5090a6b99c5'
 
 const args = process.argv.slice(2)
 if (args.includes('-h') || args.includes('--help')) {
-  console.log('用法：node cocos-build.mjs [--project <工程根>] [--platform web-mobile|wechatgame] [--release] [--game <前缀>] [--config <构建配置.json>]\n--game：凭据变量前缀，读 <前缀>_WECHAT_APPID（也可设 GAME_ENV_PREFIX）')
+  console.log('用法：node cocos-build.mjs [--project <工程根>] [--platform web-mobile|wechatgame|bytedance-mini-game] [--release] [--game <前缀>] [--config <构建配置.json>]\n--game：凭据变量前缀，微信读 <前缀>_WECHAT_APPID，抖音读 <前缀>_DOUYIN_APPID（也可设 GAME_ENV_PREFIX）')
   process.exit(0)
 }
 const flag = (name, fallback) => {
@@ -34,6 +34,7 @@ const game = flag('--game', process.env.GAME_ENV_PREFIX ?? '')
 const appidVar = game ? `${game}_WECHAT_APPID` : 'WECHAT_APPID'
 // --config 时以配置文件里的平台与输出目录为准
 const cfg = config ? JSON.parse(readFileSync(resolve(config), 'utf8')) : {}
+const douyinVar = game ? `${game}_DOUYIN_APPID` : 'DOUYIN_APPID'
 const platform = cfg.platform ?? flag('--platform', 'web-mobile')
 const buildRoot = cfg.buildPath ? resolve(project, cfg.buildPath.replace(/^project:\/\//, '')) : join(project, 'build')
 const outDir = join(buildRoot, cfg.outputName ?? platform)
@@ -61,7 +62,7 @@ writeFileSync(logFile, `${run.stdout ?? ''}\n${run.stderr ?? ''}`)
 const meaning = { 0: '成功', 36: '成功（Creator CLI 惯例）', 32: '构建参数无效', 34: '构建异常，查日志' }
 console.log(`退出码 ${run.status}：${meaning[run.status] ?? '未知，查日志'}`)
 
-const required = platform === 'wechatgame' ? ['game.json', 'project.config.json'] : ['index.html']
+const required = platform === 'wechatgame' || platform === 'bytedance-mini-game' ? ['game.json', 'project.config.json'] : ['index.html']
 // 旧产物可能残留：只认本次构建后更新过的文件
 const missing = required.filter((f) => !existsSync(join(outDir, f)) || statSync(join(outDir, f)).mtimeMs < startedAt - 1000)
 if (missing.length) {
@@ -78,6 +79,22 @@ const mb = (n) => (n / 1024 / 1024).toFixed(2)
 const total = sizeOf(outDir)
 console.log(`产物：${outDir}（${mb(total)} MB）`)
 
+if (platform === 'bytedance-mini-game') {
+  // Cocos 不读 profile 里的 appid，产物默认是 testappId；AppID 来自环境变量或配置 json 的 appid 字段
+  const pcPath = join(outDir, 'project.config.json')
+  const pc = JSON.parse(readFileSync(pcPath, 'utf8'))
+  const want = process.env[douyinVar] || cfg.appid
+  if (want && pc.appid !== want) {
+    pc.appid = want
+    writeFileSync(pcPath, JSON.stringify(pc, null, 2))
+    console.log(`AppID：已写入 ${process.env[douyinVar] ? douyinVar : '配置 appid'}（${want}）`)
+  }
+  if (pc.appid === 'testappId' || !pc.appid) {
+    const msg = `AppID 仍是 ${pc.appid || '空'}（Cocos 默认）。设 ${douyinVar}，或在 --config 的 json 里写 appid 字段`
+    if (release) { console.error(`❌ ${msg}`); process.exit(1) }
+    console.warn(`⚠️ ${msg}`)
+  }
+}
 if (platform === 'wechatgame') {
   // AppID：Cocos 构建面板默认值不是有效 AppID，开发者工具命令行导入会报“不存在此 AppID”
   const pcPath = join(outDir, 'project.config.json')
@@ -114,6 +131,13 @@ if (platform === 'wechatgame') {
   largest.sort((a, b) => b[0] - a[0])
   console.log('最大文件：')
   for (const [size, file] of largest.slice(0, 5)) console.log(`  ${mb(size)} MB  ${file}`)
+}
+// 构建来源戳：cocos-gate 用它核对产物是否出自当前提交
+{
+  const g = (a) => spawnSync('git', ['-C', project, ...a], { encoding: 'utf8' })
+  const h = g(['rev-parse', 'HEAD'])
+  const st = g(['status', '--porcelain'])
+  writeFileSync(join(outDir, '.build-commit.json'), JSON.stringify({ commit: h.status === 0 ? h.stdout.trim() : null, dirty: st.status !== 0 || st.stdout.trim() !== '', platform, release }, null, 2))
 }
 const { unused } = unusedModules(project)
 if (unused.length) console.warn(`⚠️ 引擎已启用但工程未使用：${unused.join(', ')}（项目设置 → 功能裁剪中关闭可减小包体）`)
