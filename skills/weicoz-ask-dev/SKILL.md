@@ -1,5 +1,5 @@
 ---
-name: weicoz-ask
+name: weicoz-ask-dev
 version: 1.2.0
 description: 这套开发 skill 的导航：先读当前仓库状态判断所处节点，再说明这一步该用哪个 skill、为什么、下一步去哪。覆盖 Matt 主流程与 weicoz 外挂（实现、审查、验证、体检）、Web 与小游戏两条分支、委派与 worktree。用于用户问“现在该干什么”“下一步用哪个 skill”“这种情况用什么”“这套 skill 怎么用”，或接手一个不熟的项目时。
 ---
@@ -27,7 +27,7 @@ Matt 原版 skill（`grill-with-docs`、`to-spec`、`retro` 等）装在 `~/.age
 node <skill 目录>/scripts/where.mjs [--repo <目录>] [--base <基础分支>]
 ```
 
-`<skill 目录>` 是本文件所在目录；用了分层工具时是 `~/.agents/skill-tiers/library/weicoz-ask`。
+`<skill 目录>` 是本文件所在目录；用了分层工具时是 `~/.agents/skill-tiers/library/weicoz-ask-dev`。
 
 脚本先用 `git rev-parse --show-toplevel` 找仓库根，输出里写“仓库根”和“当前子目录”。再看 git 状态、AGENTS.md 的“## 验证约定”、`tests/e2e`、功能地图、`.scratch` 里未关闭的票据，判断下表除“只有想法”外的 6 个节点之一，并列出下一步。`.scratch/<目录>/` 下有 `map.md` 的是 wayfinder 地图，它的票不计入票据，另报“未决决策票”。基础分支默认按 develop → main → master 找；项目集成分支不同就传 `--base`。`--repo` 路径不存在、`--base` 缺值或指向不存在的分支，脚本报错退出 2。
 
