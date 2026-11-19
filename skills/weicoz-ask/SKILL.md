@@ -1,6 +1,6 @@
 ---
 name: weicoz-ask
-version: 1.1.0
+version: 1.2.0
 description: 这套开发 skill 的导航：先读当前仓库状态判断所处节点，再说明这一步该用哪个 skill、为什么、下一步去哪。覆盖 Matt 主流程与 weicoz 外挂（实现、审查、验证、体检）、Web 与小游戏两条分支、委派与 worktree。用于用户问“现在该干什么”“下一步用哪个 skill”“这种情况用什么”“这套 skill 怎么用”，或接手一个不熟的项目时。
 ---
 
@@ -86,7 +86,7 @@ Matt 的主流程照用，只在实现、审查、验证三处换成 weicoz 的�
 
 | 项目 | 总控 | 验证适配器 | 端到端流程怎么写 |
 | --- | --- | --- | --- |
-| 小游戏（Cocos 3.8 / 微信小游戏） | `weicoz-game-flow`：阶段 0 到 4（开项目、找乐趣、锁定决策、生产、复盘）；人工检查点 H0 到 H3（H0 环境：账号与开发者工具就绪；H1 立项：答立项问题；H2 灰盒门：阶段 1 结束，手机玩 3 分钟给方向结论；H3 竖切门：阶段 3 结束，真机试玩并选美术方向）。设计用 `weicoz-game-design`，代码用 `weicoz-cocos-dev`，素材用 `weicoz-game-assets` | `weicoz-cocos-run` 的 `cocos-verify.mjs` | 测试钩子 + 试玩脚本，见 `weicoz-cocos-run` 的 `references/playtest-hook.md` |
+| 小游戏（Cocos 3.8 / 微信小游戏） | `weicoz-game-flow`：阶段 0 到 4（开项目、找乐趣、锁定决策、生产、复盘）；人工检查点 H0 到 H3（H0 环境：账号与开发者工具就绪；H1 立项：答一轮立项问卷（`weicoz-game-design` 第 0 节）；H2 灰盒门：阶段 1 结束，手机玩 3 分钟给方向结论；H3 竖切门：阶段 3 结束，真机试玩并选美术方向）。设计用 `weicoz-game-design`，代码用 `weicoz-cocos-dev`，素材用 `weicoz-game-assets` | `weicoz-cocos-run` 的 `cocos-verify.mjs` | 测试钩子 + 试玩脚本，见 `weicoz-cocos-run` 的 `references/playtest-hook.md` |
 | Web | 第 2 节主线 | `weicoz-verify` 的 `web-verify.mjs`（`references/adapter-web.md`） | `weicoz-verify` 的 `references/e2e-authoring.md` |
 | 其他 | 第 2 节主线 | 自建一条命令，骨架见 `weicoz-verify` 的 `references/custom-adapter.md` | 同上，按项目能观测的结果写 |
 
@@ -109,6 +109,7 @@ Matt 的主流程照用，只在实现、审查、验证三处换成 weicoz 的�
 | --- | --- | --- |
 | 接手已有项目 | 跑 `where.mjs` 看节点；小游戏先读 `weicoz-game-flow` | 缺“## 验证约定”先补；不熟的 skill 找 `weicoz-hub-*` |
 | 前端界面设计、改版 | `weicoz-ui-studio`（或 `oil-ui-pro`） | 只管设计与体验；无界面变化的业务实现走主线 |
+| 小游戏试玩后要改（调手感、加内容、回到上一版、换方向） | `weicoz-game-flow` 阶段 1 的“改动检查点”“止损”；改数值和“太简单”看 `weicoz-game-design` 第 3 节 | 改动前对照简报 Keep / Avoid；接受一次提交一次 `iteration <N>`；同一概念第 3 次换方向必须请制作人做去留决定 |
 | 发版上线 | 独立站：`standalone-site-launch`；小游戏：`weicoz-game-flow` 阶段 4 | 小游戏提审、发布由用户在 MP 后台操作；生产变更先取得授权 |
 | 多会话总控 | `weicoz-session-hub` | 总控派任务、收汇报、验收；单次委派不用它 |
 | 多 worktree 并行开发 | `weicoz-multi-worktree-dev-v3` | 用户明确要求才用；建删 worktree 用 `weicoz-worktrunk` |
