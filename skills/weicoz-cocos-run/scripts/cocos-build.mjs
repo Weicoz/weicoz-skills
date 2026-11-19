@@ -59,8 +59,16 @@ console.log(`构建 ${platform}（${buildArg}）\n日志：${logFile}`)
 
 buildStart(outDir) // 构建前删旧来源戳，失败时不残留
 const startedAt = Date.now()
-const run = spawnSync(creator, ['--project', project, '--build', buildArg], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-writeFileSync(logFile, `${run.stdout ?? ''}\n${run.stderr ?? ''}`)
+const build = () => spawnSync(creator, ['--project', project, '--build', buildArg], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+let run = build()
+let out = `${run.stdout ?? ''}\n${run.stderr ?? ''}`
+// 资源库刚重新导入（如全检后）时，首次构建常报“初始场景不存在”并留下改到一半的 .meta；重试一次即可（实测第二次成功并还原 .meta）。
+if (out.includes('当前初始场景不存在')) {
+  console.log('首次构建报“初始场景不存在”（资源库未就绪），重试一次')
+  run = build()
+  out += `\n--- 重试 ---\n${run.stdout ?? ''}\n${run.stderr ?? ''}`
+}
+writeFileSync(logFile, out)
 const meaning = { 0: '成功', 36: '成功（Creator CLI 惯例）', 32: '构建参数无效', 34: '构建异常，查日志' }
 console.log(`退出码 ${run.status}：${meaning[run.status] ?? '未知，查日志'}`)
 
