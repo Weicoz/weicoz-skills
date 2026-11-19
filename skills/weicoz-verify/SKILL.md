@@ -169,5 +169,6 @@ fi
 - 用户级安装（装不装由用户决定）：`~/.config/worktrunk/config.toml` 的 `[pre-merge]` 引用 `bash <本目录>/scripts/wt-pre-merge.sh {{ target }}`（`target` 是 wt 在 merge 时提供的合并目标分支）；Claude Code 的 SessionStart 钩子引用 `scripts/session-reminder.sh`。不支持钩子的 harness 靠本节规则自觉执行。
 - 合并用 `wt merge --no-squash --no-ff`；rebase 之后必须重跑全检，旧戳记的 commit 已不等于 HEAD。
 - 上传：任何方式（上传脚本、开发者工具 CLI、`tmg upload`）之前都先运行 `verify-gate --build <产物>`，结论“通过”才上传，回报里贴戳记提交号。
-- 已知绕过：手写戳记、`--no-hooks`、直接 `git merge`、`skip-worktree`、构建后改产物。门拦不住这些，靠审查与回报里的戳记提交号发现。
+- 已知绕过：手写戳记、`--no-hooks`、直接 `git merge`、`skip-worktree`、构建后改产物、本机没装用户级 wt 钩子。门只防遗漏，不防有意作弊；靠审查与回报里的戳记提交号发现。
+- 评分配置改动（`AGENTS.md`、验证脚本配置等）：带 `--base` 的全检必为“未验证”，拿不到戳记。先把改动单独列给用户；用户在对话里明确确认后，才可用 `wt merge --no-squash --no-ff --no-hooks` 合并，并在回报里贴用户确认原文与提交号。用户没有确认时不得用 `--no-hooks`。
 - 对抗式审查（定义见 `weicoz-code-review`）不是每次都做，只在触发条件命中时做：①改动触及验证约定里的高风险目录，或存档与数据格式、鉴权、支付、并发、对外接口契约；②发版或上传给用户之前，每个发版批次一次；③改的是验证或门本身（评分配置、验证脚本、钩子）；④用户明确要求。文档、文案、数值调参、样式、高风险目录以外且快检能覆盖的小修、纯测试补充不做，走常规审查或只跑快检。
