@@ -1,7 +1,7 @@
 ---
 name: weicoz-agent-implement
-version: 1.5.0
-description: 把一张票据或明确限定的单个工作项委派给编码代理，按当前 implement 技能实现，由派单方监控和验收。用于“让代理实现这张票”“agent-implement”“codex-implement”等单票委派；整份规格及其依赖票据的编排使用 weicoz-agent-implement-spec。
+version: 1.6.0
+description: 把一张票据或明确限定的单个工作项委派给编码代理（默认经 T3 Code 派给 DSH 等 harness，备选本机 Codex CLI 或 rdispatch），按当前 implement 技能实现，由派单方监控和验收。用于“让代理实现这张票”“agent-implement”“codex-implement”等单票委派；整份规格及其依赖票据的编排使用 weicoz-agent-implement-spec。
 ---
 
 # 单票委派实现
@@ -31,6 +31,24 @@ description: 把一张票据或明确限定的单个工作项委派给编码代�
 
 ## 启动与运行环境
 
+### 默认：经 T3 Code 派单
+
+未指定执行方式时，按 `weicoz-t3-dispatch` 派单：每票一个 T3 会话，用户可在 T3 界面旁观与插话。命令、脚本与参数以该技能为准，本节只写单票委派的衔接：
+
+1. **前置**：`t3 --version` 成功、T3 服务端在运行、`weicoz-t3-dispatch` 的 `scripts/t3-models.sh` 能列出目标 provider。任一不满足且按该技能重试一次仍失败时，改用下文备选方式，并在回报写明原因。
+2. **确认卡**：新任务首派前按 `weicoz-t3-dispatch`「授权」展示确认卡。整规格委派由 `weicoz-agent-implement-spec` 一次确认全部票。
+3. **worktree**：`wt switch --create ticket/<票名> --no-cd`，位置为 `<仓库根>/.worktrees/<分支>`。依赖按项目安装命令准备；需要锁文件安装与磁盘准入时，可沿用 `prepare-worktrees.sh`。
+4. **提示词**：仍用 `render-prompt.py` 渲染 [ticket-prompt.md](templates/ticket-prompt.md)，渲染结果作为 `t3-start.sh` 的任务文件。`t3-start.sh` 自动拼分支守卫；首次派单先用 `--dry-run` 核对。
+5. **起会话并挂监测**：`t3-start.sh <worktree> "<票名> <标题>" <提示词文件>`，随即把其末行的 `t3-wait.sh` 命令放进后台作业。provider、模型与 effort 未指定时取 `weicoz-t3-dispatch` 的 DSH 默认值；用户指定的 provider／模型原样传 `T3_PROVIDER`／`T3_MODEL`。
+6. **验收与返修**：唤醒后用 `t3-last.sh` 读回报，按本技能「检查与验收」在 worktree 里自己重跑检查。返修用 `t3-send.sh` 或 `t3-ask.sh` 发回同一线程。
+7. **提交落点**：T3 会话在本票分支提交，不合并、不推送。提交因权限失败时，改由编排方提交（同下文 Codex 的 Git 分工）。验收前后各跑一次 `t3-audit.sh <worktree>`；有落错分支的提交，先处理再合入。
+
+记录 provider、模型、threadId、worktree 与 T3 项目 id，作为执行方式证据。
+
+### 备选：本机 Codex CLI
+
+用户点名 Codex CLI，或 T3 不可用时，使用本节脚本。
+
 本机 Codex 使用本技能四个脚本：`prepare-worktrees.sh` 建票据分支与 worktree、按锁文件准备依赖；`render-prompt.py` 渲染固定模板；`launch-local.sh` 做负载与磁盘准入并启动会话；`cleanup-merged.sh` 合入后按票名前缀移除已合入的 worktree。参数与默认值以各脚本 `--help` 为准。最短调用示例（仓库、路径和基线变量由编排方填写）：
 
 ```bash
@@ -49,11 +67,13 @@ worktree 统一放在各仓库根目录的 `.worktrees/<票名>`：所有工具�
 
 Git 分工（本机）：worktree 的 Git 目录在主仓库 `.git/worktrees/` 下，不在沙箱可写根内，实现会话 `git add` 报 `index.lock: Operation not permitted`；追加 `--add-dir <git 公共目录>` 实测时好时坏（2026-10-21），不作依赖。实现会话只改工作区；编排方审查后在本票分支提交，需要时先合入 integration 最新提交并按影响重检，再串行合入 integration。远端 rdispatch 会话按 rdispatch 流程在执行机提交。完成判据：本票提交由编排方生成，验收证据对应该提交。
 
-保留用户指定的代理和模型；未指定时可默认 Codex，并使用该环境当前配置，不硬编码模型、上下文窗口或推理强度。先看本次宿主工具及 CLI 帮助再选启动方式：原生子代理能满足模型、目录、权限与隔离要求时可直接委派；否则使用实际可用的 CLI。原生代理不能满足明确模型要求时不得静默降级，查可用 CLI；都不支持就说明缺口。
+### 通用
+
+保留用户指定的代理和模型；未指定时默认经 T3 派给 DSH（取值见 `weicoz-t3-dispatch`），用户点名 Codex CLI 或 T3 不可用时用本机 Codex 并使用该环境当前配置；不在本技能硬编码模型、上下文窗口或推理强度。先看本次宿主工具及 CLI 帮助再选启动方式：原生子代理能满足模型、目录、权限与隔离要求时可直接委派；否则使用实际可用的 CLI。原生代理不能满足明确模型要求时不得静默降级，查可用 CLI；都不支持就说明缺口。
 
 原生子代理 ID 不是 CLI 会话 ID，启动子代理不等于执行过 `codex exec`。CLI 参数、恢复方式以现场帮助为准，不沿用未经验证的跨工具命令。记录实际方式、模型、工作目录、会话／进程／job ID、日志位置；日志与提示词放仓库外临时目录，不带凭据。
 
-默认本机；用户明确指定或已授权远端（包括 M4）时，按 `weicoz-remote-dispatch` 处理同步、资源、续跑和取回。复用已有授权，不因阶段变化再问。远端授权不自动允许 origin push；核对 direct／origin 同步及脚本自动推送行为。用户禁止提交时，派单前确认脚本不会自动 commit／push，不能照抄依赖提交的默认 fetch 流程；用已有且已授权的传输方式取回未提交 diff 和新增文件，核对文件清单与内容完整性，取回前不清理 worktree，不另造同步工具。不要在本技能固化机器地址或最高权限参数。
+默认本机。用户明确指定或已授权远端（包括 M4）时，默认用 `weicoz-t3-dispatch`「跨机器派单」；用户点名 rdispatch 或 T3 跨机器不可用时，按 `weicoz-remote-dispatch` 处理同步、资源、续跑和取回。复用已有授权，不因阶段变化再问。远端授权不自动允许 origin push；核对 direct／origin 同步及脚本自动推送行为。用户禁止提交时，派单前确认脚本不会自动 commit／push，不能照抄依赖提交的默认 fetch 流程；用已有且已授权的传输方式取回未提交 diff 和新增文件，核对文件清单与内容完整性，取回前不清理 worktree，不另造同步工具。不要在本技能固化机器地址或最高权限参数。
 
 用宿主后台任务机制运行启动脚本；脚本自身等待 Codex 结束，完成通知即收尾信号，随后读取结果与日志验收。需长期 shell／SSH 时遵守 Herdr 规则。启动脚本在日志出现 session id 后打印工作目录、模型、沙箱和会话 ID；300秒未出现则报错退出。核对日志中的票据和 implement 已读取、目录正确且确实在执行，才计为启动成功。依赖准备以安装日志与各仓结果为准；失败项修复后再派单。
 
@@ -65,6 +85,7 @@ Git 分工（本机）：worktree 的 Git 目录在主仓库 `.git/worktrees/` �
 
 巡检必须有具体载体，不得只靠「下次想起再查」。开工先记录本宿主的两项能力：任务完成通知、定时唤醒（后台作业或等价机制）。
 
+- **T3 派单**：派单后立即后台挂 `t3-wait.sh`（`weicoz-t3-dispatch` 派单流程第 4 步），它即完成通知载体；退出 1（等待输入或失败）、2（超时）都向用户报告。用户问进度时用 `t3 thread show --messages 3 <threadId>`。
 - **有定时唤醒能力时**：派单后立即把一次 `rdispatch watch <job>` 放进后台作业。它默认 900 秒返回一次，退出码 0＝完成、1＝告警、2＝该报进度（可用 `--timeout` 或 `RD_REPORT_INTERVAL_SECONDS` 调整周期）。退出码 2 时读 `rdispatch status --details` 与 `rdispatch logs` 尾部，向用户报一行真实进展（阶段、文件数、提交、阻塞、执行机资源），然后重新挂下一次 `rdispatch watch`；0／1 时取回结果并进入验收。任务结束后终结对应巡检作业，避免重复监控。
 - **只有完成通知、没有定时唤醒时**：用后台作业承载完成通知，并另挂一个「超时兜底」作业（如 `sleep <周期>` 后查一次 `rdispatch status`，无进展则打印状态并以非零退出），让卡死也能触发一次唤醒。启动时如实说明「卡死只能靠兜底周期发现」这一边界。
 - **两者都没有时**：在派单回报里写明无法定时巡检，只能靠用户发起或下一次操作时检查；不得声称已按周期监控。

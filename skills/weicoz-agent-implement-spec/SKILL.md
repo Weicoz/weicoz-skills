@@ -1,7 +1,7 @@
 ---
 name: weicoz-agent-implement-spec
-version: 1.4.1
-description: 将整份规格及其关联票据委派给编码代理实现，默认由本机发起会话担任编排器，按当前 implement-spec 技能编排依赖图、就绪票据、独立 worktree 和 integration 分支，每票派一个实现会话（本机或经 weicoz-remote-dispatch 派到远端），由发起方合并、审查与验收。用于“让代理实现整份 spec”“把规格的所有票做完”等整规格委派；单票实现使用 weicoz-agent-implement。
+version: 1.5.0
+description: 将整份规格及其关联票据委派给编码代理实现，默认由本机发起会话担任编排器，按当前 implement-spec 技能编排依赖图、就绪票据、独立 worktree 和 integration 分支，每票派一个实现会话（默认经 T3 Code 派给 DSH 等 harness，备选本机 Codex CLI 或 weicoz-remote-dispatch），整份规格只出一张确认卡，由发起方合并、审查与验收。用于“让代理实现整份 spec”“把规格的所有票做完”等整规格委派；单票实现使用 weicoz-agent-implement。
 ---
 
 # 整规格委派实现
@@ -10,14 +10,16 @@ description: 将整份规格及其关联票据委派给编码代理实现，默�
 
 ## 编排者：默认由本机发起会话担任
 
-默认编排器是本机当前的发起会话（用户正在对话的宿主代理），不是另派一个编排代理。发起方自己维护任务 DAG 与 frontier、本机 integration worktree、票据状态和进度记录，是 integration 的唯一写入者；每张就绪票单独派一个实现会话（默认 Codex，按 `weicoz-agent-implement` 的提示词与验收要求）：
+默认编排器是本机当前的发起会话（用户正在对话的宿主代理），不是另派一个编排代理。发起方自己维护任务 DAG 与 frontier、本机 integration worktree、票据状态和进度记录，是 integration 的唯一写入者；每张就绪票单独派一个实现会话（默认经 T3 Code 派给 DSH，按 `weicoz-agent-implement` 的「默认：经 T3 Code 派单」、提示词与验收要求）：
 
-- 本机执行：每票一个独立 worktree／分支和一次 CLI 会话，按[单票启动与 Git 分工](../weicoz-agent-implement/SKILL.md#启动与运行环境)准备并启动；发起方在本票分支提交并独占 integration。
-- 用户授权远端时：每票一次 `rdispatch run`，`--ref <integration 分支>`、`--branch <票据分支>`，随单 `--include` 规格外的必要文件（如技能原文副本、清单）；完成后 `rdispatch fetch`，在本机审查、合入 integration，再从合并后的提交派下一批。
+- **T3 执行（默认）**：整份规格只出一张确认卡，格式沿用 `weicoz-t3-dispatch`「授权」，另列票数、并行上限和各票可写范围。确认后，同一规格内各票首派免确认。换 provider 或模型、扩大范围、触及真机／生产／共享环境、同一票连续两轮验收不通过时，重新确认。每张就绪票按单票技能建 worktree、用 `t3-start.sh` 起会话，并立即后台挂该票的 `t3-wait.sh`。任一票唤醒后：验收、合入 integration、刷新 frontier、派新就绪票。并行上限默认 2（`WEICOZ_MAX_LOCAL_SESSIONS` 可改），按执行机负载收缩。跨机器用 `weicoz-t3-dispatch`「跨机器派单」。
+
+- 本机 Codex CLI（备选，用户点名或 T3 不可用时）：每票一个独立 worktree／分支和一次 CLI 会话，按[单票启动与 Git 分工](../weicoz-agent-implement/SKILL.md#启动与运行环境)准备并启动；发起方在本票分支提交并独占 integration。
+- rdispatch 远端（备选，用户点名或 T3 跨机器不可用时）：每票一次 `rdispatch run`，`--ref <integration 分支>`、`--branch <票据分支>`，随单 `--include` 规格外的必要文件（如技能原文副本、清单）；完成后 `rdispatch fetch`，在本机审查、合入 integration，再从合并后的提交派下一批。
 - 远端执行时的分工：票据实现提交在执行机完成；合入 integration 在发起方本机做（无冲突的 `git merge` 不触发提交钩子、几乎不占资源，integration 只保留一份）；有冲突时交回原票实现会话，在执行机合入 integration 最新提交并重跑钩子后再取回；发起方验收与阶段节点的测试用 `rdispatch run --cmd`／`--test` 在执行机按 `rd-heavy` 排队运行，本机只读改动、核对验收项。
 - 用户沟通层归编排层：页面与交互设计、信息怎样呈现给用户、面向用户的文案措辞（提示、错误说明、通知、横幅等），由编排层（发起会话）决定并实现或定稿；实现会话只做背后的逻辑与不涉及展示的接线（接口封装、类型、数据 hooks 等），需要文案时可先建键与占位文字，并在回报中列出待定稿的文案。派单前按此拆分票据范围，在提示词中写明哪些归实现会话、哪些留给编排层。
-- 登记工作项：用 `weicoz-remote-dispatch` 的 `rdispatch plan add <工作项> --depends <工作项>` 先把规格里的票登记成工作项及依赖，再按 frontier 派单（`rdispatch run --plan-item <工作项>`，依赖的前序派单用 `--context-from` 带上下文包）。看板用 `rdispatch board` 查待派与阻塞。
-- 要用工作线时，把会话派单模式设为 `line`（`rdispatch session-default <会话> --dispatch-mode line` 或 `run --dispatch-mode line`）。默认的 `suggest` 模式下，派单前由 `weicoz-remote-dispatch` 的规则调 `rdispatch suggest` 并转告用户；rdispatch 不能强制代理先调 `suggest`，编排方自己执行。
+- 登记工作项（rdispatch 模式）：用 `weicoz-remote-dispatch` 的 `rdispatch plan add <工作项> --depends <工作项>` 先把规格里的票登记成工作项及依赖，再按 frontier 派单（`rdispatch run --plan-item <工作项>`，依赖的前序派单用 `--context-from` 带上下文包）。看板用 `rdispatch board` 查待派与阻塞。
+- rdispatch 模式要用工作线时，把会话派单模式设为 `line`（`rdispatch session-default <会话> --dispatch-mode line` 或 `run --dispatch-mode line`）。默认的 `suggest` 模式下，派单前由 `weicoz-remote-dispatch` 的规则调 `rdispatch suggest` 并转告用户；rdispatch 不能强制代理先调 `suggest`，编排方自己执行。
 - 并行度按执行机实测负载与用户指定上限；并行票先分配迁移编号、共享文件等归属，写进各自提示词。
 
 原因（2026-10-16 实测）：远端员工配置的沙箱只放行任务 worktree 等目录，任务内的编排代理无法写继承的 `CODEX_HOME`，嵌套 `codex exec` 报 `failed to initialize in-process app-server client: Operation not permitted`，无法启动实现会话。由发起方编排还能把派单、合并与验收放在同一处，额度上编排与验收用发起方宿主，写代码用实现代理。
@@ -71,11 +73,13 @@ $implement-spec 实现规格 `<规格路径>`，关联票据位于 `<票据目�
 
 ## 执行、资源与恢复
 
-实际启动和监控复用 [单票委派的运行约定](../weicoz-agent-implement/SKILL.md) 中“启动与运行环境”“资源、监控与恢复”的通用部分；各实现会话共用[实现会话检查约定](../weicoz-agent-implement/SKILL.md#实现会话检查约定)，整体检查安排见下节。未指定代理时可用 Codex，模型用执行环境当前配置；指定模型、设备和范围原样保留。原生子代理与 CLI 都按本次实际可用能力选，不将原生代理 ID 当 CLI 执行证据。
+实际启动和监控复用 [单票委派的运行约定](../weicoz-agent-implement/SKILL.md) 中“启动与运行环境”“资源、监控与恢复”的通用部分；各实现会话共用[实现会话检查约定](../weicoz-agent-implement/SKILL.md#实现会话检查约定)，整体检查安排见下节。未指定代理时经 T3 派给 DSH（默认值见 `weicoz-t3-dispatch`）；用户点名 Codex CLI 时，模型用执行环境当前配置；指定模型、设备和范围原样保留。原生子代理与 CLI 都按本次实际可用能力选，不将原生代理 ID 当 CLI 执行证据。
 
 网络、Git 可写根、日志和完成通知统一执行[单票启动约定](../weicoz-agent-implement/SKILL.md#启动与运行环境)。
 
 用户明确授权远端（例如 M4）才使用 `weicoz-remote-dispatch`；每次派票、续跑和重检查前核对实际执行机资源。遵守宿主并发上限；负载／内存压力／磁盘不足时收缩 frontier 的并发度或排队重检查，不改变 DAG，不擅自迁机、删数据、杀他人进程或绕过检查。远端脚本自动 push 也要纳入授权判断。
+
+经 T3 派出的票，编排循环靠各票后台 `t3-wait.sh` 唤醒后推进：读 `t3-last.sh`、验收、合入、重挂下一票的监测。
 
 经 `weicoz-remote-dispatch` 派出的票，编排循环靠宿主后台 `rdispatch inbox --wait` 被唤醒后推进：读结果、签收、再重挂；汇报不写入会话输入框，不能后台唤醒的宿主每轮先跑 `rdispatch inbox`。
 

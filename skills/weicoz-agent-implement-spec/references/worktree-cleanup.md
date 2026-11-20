@@ -5,7 +5,7 @@
 **安全条件**
 
 1. **归属**：只清理本次派单创建的对象——本机 worktree 按本次票名前缀识别，rdispatch 任务按当前员工 ID 与本次任务名识别。同仓库其他会话的 worktree、其他员工 ID 或其他项目的任务一律不碰，即使它们已合入。
-2. **无存活进程**：没有实现、审查、测试会话仍在使用该目录。
+2. **无存活进程**：没有实现、审查、测试会话仍在使用该目录；T3 派单时 `t3 --log-level none thread list --project <worktree> --json` 无 running 线程。
 3. **工作区干净**：没有未提交或未跟踪的改动。有改动时保留并汇报，不用 `--force` 丢弃；只有用户明确说“半成品不要了”时才强制清理。
 4. **成果已持久化**：提交已合入目标分支（本地合入即可，不要求已推送）；票据证据已保存（rdispatch 默认在清理前把报告备份到本机；本次需要在票据里引用的远端证据，先复制到持久目录）。
 
@@ -14,6 +14,7 @@
 **做法**
 
 - 本机 worktree：`bash "$skill/scripts/cleanup-merged.sh" --repo <仓库> --into <目标分支> --prefix <本次票名前缀> [--dry-run]`。只移除前缀匹配、干净、已合入且无 codex 占用的 worktree，分支保留。
+- T3 会话：`wt remove <分支>` 前按上条核对线程；不再续派时按 `weicoz-t3-dispatch` 派单流程第 7 步移除 T3 项目，项目仍含会话删不掉时保留并在汇报中列出。
 - 远端 rdispatch 任务：先 `rdispatch result` 收取回执并 `rdispatch ack`，再 `rdispatch clean --merged --into <目标分支> --project <项目> --dry-run` 核对计划，确认只含本次任务后去掉 `--dry-run` 执行。rdispatch 提示“未取回”但本地 `rd/<分支>` 已确认合入时，可对该任务单独 `--force`。
 - 汇报释放量用实际可用空间差（`df`），不用 `du`：pnpm 在 APFS 上克隆依赖，`du` 会把共享块按每个 worktree 重复计数。
 

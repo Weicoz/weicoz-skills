@@ -157,8 +157,8 @@ chmod 600 ~/.config/weicoz-feishu-task-tracker/config.yaml
 | [`weicoz-remote-dispatch`](skills/weicoz-remote-dispatch/) | 1.0.1 | 把代理会话、测试与构建经 SSH 派到另一台机器执行 |
 | [`weicoz-t3-dispatch`](skills/weicoz-t3-dispatch/) | 1.3.0 | 经 T3 Code CLI 把任务派给本机其他 harness：起会话、等状态、取回复、一步问话；含经 MCP 跨机器派单 |
 | [`weicoz-claude-account-ops`](skills/weicoz-claude-account-ops/) | 1.0.0 | Claude Code 多账号切换运维：固定顺序、三项前置检查、槽位凭据修复 |
-| [`weicoz-agent-implement`](skills/weicoz-agent-implement/) | 1.2.0 | 把单张票据委派给编码代理实现，派单方监控与验收 |
-| [`weicoz-agent-implement-spec`](skills/weicoz-agent-implement-spec/) | 1.3.0 | 按依赖图编排整份规格，每票一个实现会话并统一合并验收 |
+| [`weicoz-agent-implement`](skills/weicoz-agent-implement/) | 1.6.0 | 把单张票据委派给编码代理实现（默认经 T3 派单），派单方监控与验收 |
+| [`weicoz-agent-implement-spec`](skills/weicoz-agent-implement-spec/) | 1.5.0 | 按依赖图编排整份规格，每票一个 T3 会话（默认）并统一合并验收 |
 | [`weicoz-multi-worktree-dev-v3`](skills/weicoz-multi-worktree-dev-v3/) | 1.0.0 | 多 worktree 隔离开发与精确集成，按风险分级验证（当前版本） |
 | [`weicoz-worktrunk`](skills/weicoz-worktrunk/) | 1.1.0 | 优先用 worktrunk（wt）替代 git worktree，写时复制复用构建缓存；发现旧用法主动建议迁移并给出切换流程 |
 | [`weicoz-log-driven-ai-development`](skills/weicoz-log-driven-ai-development/) | 1.0.0 | 用日志把关键流程与结果变得可查，便于 AI 排查与验证 |

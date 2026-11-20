@@ -1,10 +1,12 @@
 ---
 name: weicoz-t3-dispatch
-version: 1.3.2
+version: 1.3.3
 description: 经本机 T3 Code（`t3` CLI）把编码任务派给其他 harness（DSH、Kimi Code、Antigravity 等），在独立 worktree 里执行，并巡检、续派、验收。用户说“用 T3 派”“通过 t3 code 分发任务”“让 DSH/Kimi 在 T3 里做”时使用。跨机器派单见本文“跨机器派单”一节（也可用 weicoz-remote-dispatch）；当前会话自己的子代理不需要本技能。
 ---
 
 # T3 Code 任务分发
+
+单票与整份规格的委派流程（确认卡粒度、验收、合入 integration）见 `weicoz-agent-implement` 与 `weicoz-agent-implement-spec`，它们默认用本技能派每张票。
 
 T3 Code 是本机的多 harness 图形客户端。它的 `t3` CLI 可以新开会话、给会话发消息、读会话状态。用它派单的好处：每个任务在 T3 界面里是一个可见会话，用户能旁观和插话。
 
