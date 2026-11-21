@@ -2,15 +2,15 @@
 name: weicoz-gameplay-rules
 version: 1.0.0
 description: >
-  把已定案的客户玩法整理成一份可以直接发给客户、由客户逐条划对错的玩法规则说明。
+  把已定案的客户业务规则整理成一份可以直接发给客户、由客户逐条划对错的规则说明。
   条款式陈述，不写讲解口吻，不给内部建议，不给待定项；每条规则能指回客户原文或已确认参数。
-  当用户说玩法规则、规则书、规则说明、业务规则、把玩法写清楚发给客户确认、客户核对规则时使用。
+  当用户说规则说明、规则书、业务规则、把规则写清楚发给客户确认、客户核对规则时使用；用户口语里说「玩法规则」也归本 skill。
   不用于：需求分析与范围盘点（用 weicoz-jy-design-demand-archive 出报告）、
   功能清单（用 weicoz-custom-feature-checklist）、思维导图（用 weicoz-demand-mindmap-organizer）。
 allowed-tools: Read, Write, Edit, Bash
 ---
 
-# 玩法规则说明
+# 规则说明
 
 ## 这份文档是什么
 
@@ -24,7 +24,7 @@ allowed-tools: Read, Write, Edit, Bash
 
 | 产物 | 读者 | 语气 | 用哪个 skill |
 |:---|:---|:---|:---|
-| 玩法规则说明 | 客户，核对签字 | 条款陈述 | 本 skill |
+| 规则说明 | 客户，核对签字 | 条款陈述 | 本 skill |
 | 需求分析报告 | 自己，判断能不能接 | 判断、风险、工作量 | `weicoz-jy-design-demand-archive` |
 | 功能清单 | 客户，核对范围 | 表格条目 | `weicoz-custom-feature-checklist` |
 | 思维导图 | 客户，快速看懂 | 短句层级 | `weicoz-demand-mindmap-organizer` |
@@ -61,7 +61,7 @@ allowed-tools: Read, Write, Edit, Bash
 按项目裁，没有对应机制的小节直接去掉，不留空标题。
 
 ```markdown
-# <项目名> 玩法规则说明
+# <项目名> 规则说明
 
 日期、依据（列出读过的材料）、口径顺序（多份材料打架时谁优先）、用途一句话
 
@@ -98,7 +98,7 @@ allowed-tools: Read, Write, Edit, Bash
 ## 执行流程
 
 1. **找基线**。读同项目的沟通记录「已确认参数表」；没有就先按 `weicoz-jy-design-demand-archive` 落盘建基线，不凭印象写。
-2. **定产物名**。`<项目名>-玩法规则-<YYYYMMDD>.md`，放项目目录；项目目录与命名以归档 skill 为准。
+2. **定产物名**。`<项目名>-规则说明-<YYYYMMDD>.md`，放项目目录；项目目录与命名以归档 skill 为准。产物名、标题和正文统一用「规则说明」，产物名与标题里不出现「玩法」。
 3. **写初稿**。照骨架填；每写一个比例或金额，立刻在旁边写算例并跑脚本核一遍。
 4. **自检**。逐条走下面的检查表。
 5. **过门禁**。跑归档 skill 的客户版门禁，带 `--consistency`；失败就回去改，不靠换词绕过。
